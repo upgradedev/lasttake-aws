@@ -1,0 +1,439 @@
+{
+  "beats": [
+    {
+      "beat_id": "B-01",
+      "characters": [
+        "MARA"
+      ],
+      "continuity_ref": null,
+      "description": "MARA reaches the empty ticket window",
+      "line": 3,
+      "page": "41",
+      "required": true,
+      "slug": "MARA reaches the empty ticket window"
+    },
+    {
+      "beat_id": "B-02",
+      "characters": [
+        "MARA"
+      ],
+      "continuity_ref": null,
+      "description": "She reads the cancelled sailings board",
+      "line": 8,
+      "page": "41",
+      "required": true,
+      "slug": "She reads the cancelled sailings board"
+    },
+    {
+      "beat_id": "B-03",
+      "characters": [
+        "MARA"
+      ],
+      "continuity_ref": null,
+      "description": "Wind takes the timetable from her hand",
+      "line": 14,
+      "page": "41",
+      "required": true,
+      "slug": "Wind takes the timetable from her hand"
+    },
+    {
+      "beat_id": "B-04",
+      "characters": [
+        "MARA"
+      ],
+      "continuity_ref": null,
+      "description": "She catches it against the railing",
+      "line": 19,
+      "page": "41",
+      "required": true,
+      "slug": "She catches it against the railing"
+    },
+    {
+      "beat_id": "B-05",
+      "characters": [
+        "MARA"
+      ],
+      "continuity_ref": "CR-02",
+      "description": "MARA turns her collar up",
+      "line": 2,
+      "page": "42",
+      "required": true,
+      "slug": "MARA turns her collar up"
+    },
+    {
+      "beat_id": "B-06",
+      "characters": [
+        "MARA"
+      ],
+      "continuity_ref": "CR-02",
+      "description": "She finds the torn pocket is empty",
+      "line": 6,
+      "page": "42",
+      "required": true,
+      "slug": "She finds the torn pocket is empty"
+    },
+    {
+      "beat_id": "B-07",
+      "characters": [
+        "DELPHINE"
+      ],
+      "continuity_ref": null,
+      "description": "DELPHINE watches from the cafe door",
+      "line": 11,
+      "page": "42",
+      "required": true,
+      "slug": "DELPHINE watches from the cafe door"
+    },
+    {
+      "beat_id": "B-08",
+      "characters": [
+        "DELPHINE"
+      ],
+      "continuity_ref": null,
+      "description": "DELPHINE steps out into the rain",
+      "line": 16,
+      "page": "42",
+      "required": true,
+      "slug": "DELPHINE steps out into the rain"
+    },
+    {
+      "beat_id": "B-09",
+      "characters": [
+        "MARA",
+        "DELPHINE"
+      ],
+      "continuity_ref": null,
+      "description": "A deckhand passes between them",
+      "line": 21,
+      "page": "42",
+      "required": true,
+      "slug": "A deckhand passes between them"
+    },
+    {
+      "beat_id": "B-10",
+      "characters": [
+        "DELPHINE"
+      ],
+      "continuity_ref": null,
+      "description": "DELPHINE offers the enamel mug",
+      "line": 1,
+      "page": "43",
+      "required": true,
+      "slug": "DELPHINE offers the enamel mug"
+    },
+    {
+      "beat_id": "B-11",
+      "characters": [
+        "MARA"
+      ],
+      "continuity_ref": null,
+      "description": "MARA refuses without looking up",
+      "line": 5,
+      "page": "43",
+      "required": true,
+      "slug": "MARA refuses without looking up"
+    },
+    {
+      "beat_id": "B-12",
+      "characters": [
+        "DELPHINE"
+      ],
+      "continuity_ref": null,
+      "description": "DELPHINE sets the mug on the bollard",
+      "line": 9,
+      "page": "43",
+      "required": true,
+      "slug": "DELPHINE sets the mug on the bollard"
+    },
+    {
+      "beat_id": "B-13",
+      "characters": [
+        "MARA",
+        "DELPHINE"
+      ],
+      "continuity_ref": null,
+      "description": "Foghorn. Both look to the water",
+      "line": 13,
+      "page": "43",
+      "required": true,
+      "slug": "Foghorn. Both look to the water"
+    },
+    {
+      "beat_id": "B-14",
+      "characters": [
+        "MARA"
+      ],
+      "continuity_ref": null,
+      "description": "MARA asks how long she has known",
+      "line": 18,
+      "page": "43",
+      "required": true,
+      "slug": "MARA asks how long she has known"
+    },
+    {
+      "beat_id": "B-15",
+      "characters": [
+        "DELPHINE"
+      ],
+      "continuity_ref": null,
+      "description": "DELPHINE does not answer",
+      "line": 2,
+      "page": "44",
+      "required": true,
+      "slug": "DELPHINE does not answer"
+    },
+    {
+      "beat_id": "B-16",
+      "characters": [
+        "MARA"
+      ],
+      "continuity_ref": null,
+      "description": "MARA repeats the question",
+      "line": 6,
+      "page": "44",
+      "required": true,
+      "slug": "MARA repeats the question"
+    },
+    {
+      "beat_id": "B-17",
+      "characters": [
+        "DELPHINE"
+      ],
+      "continuity_ref": null,
+      "description": "DELPHINE's reaction, held, before she speaks",
+      "line": 10,
+      "page": "44",
+      "required": true,
+      "slug": "DELPHINE's reaction, held, before she speaks"
+    },
+    {
+      "beat_id": "B-18",
+      "characters": [
+        "DELPHINE"
+      ],
+      "continuity_ref": null,
+      "description": "DELPHINE says the ferry stopped running in March",
+      "line": 15,
+      "page": "44",
+      "required": true,
+      "slug": "DELPHINE says the ferry stopped running in March"
+    },
+    {
+      "beat_id": "B-19",
+      "characters": [
+        "MARA"
+      ],
+      "continuity_ref": null,
+      "description": "MARA sits down on the wet bench",
+      "line": 20,
+      "page": "44",
+      "required": true,
+      "slug": "MARA sits down on the wet bench"
+    },
+    {
+      "beat_id": "B-20",
+      "characters": [
+        "MARA"
+      ],
+      "continuity_ref": "CR-01",
+      "description": "She takes the mug after all",
+      "line": 3,
+      "page": "45",
+      "required": true,
+      "slug": "She takes the mug after all"
+    },
+    {
+      "beat_id": "B-21",
+      "characters": [
+        "DELPHINE"
+      ],
+      "continuity_ref": null,
+      "description": "DELPHINE sits at the far end of the bench",
+      "line": 7,
+      "page": "45",
+      "required": true,
+      "slug": "DELPHINE sits at the far end of the bench"
+    },
+    {
+      "beat_id": "B-22",
+      "characters": [
+        "MARA"
+      ],
+      "continuity_ref": "CR-01",
+      "description": "MARA holds the mug without drinking",
+      "line": 12,
+      "page": "45",
+      "required": true,
+      "slug": "MARA holds the mug without drinking"
+    },
+    {
+      "beat_id": "B-23",
+      "characters": [
+        "MARA"
+      ],
+      "continuity_ref": "CR-01",
+      "description": "MARA drinks and puts the mug down",
+      "line": 17,
+      "page": "45",
+      "required": true,
+      "slug": "MARA drinks and puts the mug down"
+    },
+    {
+      "beat_id": "B-24",
+      "characters": [
+        "DELPHINE"
+      ],
+      "continuity_ref": null,
+      "description": "DELPHINE says she waited every Thursday",
+      "line": 2,
+      "page": "46",
+      "required": true,
+      "slug": "DELPHINE says she waited every Thursday"
+    },
+    {
+      "beat_id": "B-25",
+      "characters": [
+        "MARA"
+      ],
+      "continuity_ref": null,
+      "description": "MARA counts the Thursdays",
+      "line": 7,
+      "page": "46",
+      "required": true,
+      "slug": "MARA counts the Thursdays"
+    },
+    {
+      "beat_id": "B-26",
+      "characters": [
+        "MARA",
+        "DELPHINE"
+      ],
+      "continuity_ref": null,
+      "description": "The harbour lights come on behind them",
+      "line": 12,
+      "page": "46",
+      "required": true,
+      "slug": "The harbour lights come on behind them"
+    },
+    {
+      "beat_id": "B-27",
+      "characters": [
+        "DELPHINE"
+      ],
+      "continuity_ref": null,
+      "description": "DELPHINE stands",
+      "line": 17,
+      "page": "46",
+      "required": true,
+      "slug": "DELPHINE stands"
+    },
+    {
+      "beat_id": "B-28",
+      "characters": [
+        "DELPHINE"
+      ],
+      "continuity_ref": "CR-03",
+      "description": "She checks her father's watch",
+      "line": 2,
+      "page": "47",
+      "required": true,
+      "slug": "She checks her father's watch"
+    },
+    {
+      "beat_id": "B-29",
+      "characters": [
+        "MARA"
+      ],
+      "continuity_ref": "CR-03",
+      "description": "MARA notices the watch",
+      "line": 6,
+      "page": "47",
+      "required": true,
+      "slug": "MARA notices the watch"
+    },
+    {
+      "beat_id": "B-30",
+      "characters": [
+        "DELPHINE"
+      ],
+      "continuity_ref": null,
+      "description": "DELPHINE walks to the end of the pier",
+      "line": 11,
+      "page": "47",
+      "required": true,
+      "slug": "DELPHINE walks to the end of the pier"
+    },
+    {
+      "beat_id": "B-31",
+      "characters": [
+        "MARA"
+      ],
+      "continuity_ref": null,
+      "description": "MARA does not follow",
+      "line": 16,
+      "page": "47",
+      "required": true,
+      "slug": "MARA does not follow"
+    },
+    {
+      "beat_id": "B-32",
+      "characters": [],
+      "continuity_ref": null,
+      "description": "The last light goes out in the cafe",
+      "line": 2,
+      "page": "48",
+      "required": true,
+      "slug": "The last light goes out in the cafe"
+    },
+    {
+      "beat_id": "B-33",
+      "characters": [
+        "MARA"
+      ],
+      "continuity_ref": null,
+      "description": "MARA picks up the empty mug",
+      "line": 6,
+      "page": "48",
+      "required": true,
+      "slug": "MARA picks up the empty mug"
+    },
+    {
+      "beat_id": "B-34",
+      "characters": [
+        "MARA"
+      ],
+      "continuity_ref": null,
+      "description": "She carries it back towards the cafe",
+      "line": 11,
+      "page": "48",
+      "required": true,
+      "slug": "She carries it back towards the cafe"
+    },
+    {
+      "beat_id": "B-35",
+      "characters": [],
+      "continuity_ref": null,
+      "description": "Insert: the cancelled sailings board, closer",
+      "line": 15,
+      "page": "48",
+      "required": false,
+      "slug": "Insert: the cancelled sailings board, closer"
+    },
+    {
+      "beat_id": "B-36",
+      "characters": [],
+      "continuity_ref": null,
+      "description": "Insert: the mug left on the bollard",
+      "line": 18,
+      "page": "48",
+      "required": false,
+      "slug": "Insert: the mug left on the bollard"
+    }
+  ],
+  "disclaimer": "SYNTHETIC. THE LAST FERRY is a fictional production. Every person, place, identifier and record below is invented for demonstration. No real production data and no real footage is referenced.",
+  "production_id": "PROD-LASTFERRY-2026",
+  "revision": "Blue-2026-08-19",
+  "revision_dated": "2026-08-19",
+  "scene_heading": "EXT. HARBOUR TICKET OFFICE - DUSK",
+  "scene_id": "SC-042"
+}

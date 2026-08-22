@@ -1,0 +1,122 @@
+"""The five numbers, asserted against the pipeline that produces them.
+
+CLAUDE.md calls 34 / 31 / 2 / 1 a designed corpus target. This file is where it
+stops being a target: the counts come out of the same rollup the CLI prints, so
+if the corpus or the rule drifts, this fails rather than the video being wrong.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
+
+from lasttake.adapters.local.interpreter import OfflineInterpreter
+from lasttake.checks import continuity, coverage, metadata, rights
+from lasttake.domain import policy, rollup
+from lasttake.domain.findings import CheckType, TruthState
+from lasttake.domain.package import load_package
+
+CORPUS = Path(__file__).resolve().parents[1] / "corpus"
+RUN = "count-run"
+
+
+@pytest.fixture(scope="module")
+def package():
+    return load_package(CORPUS)
+
+
+@pytest.fixture(scope="module")
+def findings(package):
+    interp = OfflineInterpreter()
+    return (
+        coverage.run(package, RUN, interp, policy.POLICY_VERSION)
+        + continuity.run(package, RUN, interp, policy.POLICY_VERSION)
+        + metadata.run(package, RUN, policy.POLICY_VERSION)
+        + rights.run(package, RUN, policy.POLICY_VERSION)
+    )
+
+
+def test_the_shoot_day_is_the_size_it_claims_to_be(package):
+    assert len(package.required_beats) == 34
+    assert len(package.takes) == 40
+    assert len(package.beats) == 36, "34 required plus 2 optional inserts"
+
+
+def test_the_headline_count(package, findings):
+    head = rollup.headline(rollup.roll_up(package, findings))
+    assert head == {
+        "required_beats": 34,
+        "covered_with_evidence": 31,
+        "raising_exceptions": 2,
+        "without_release_record": 1,
+        "not_assessed": 0,
+    }
+
+
+def test_the_sentence_a_first_ad_hears(package, findings):
+    assert rollup.sentence(rollup.roll_up(package, findings)) == (
+        "Of 34 required beats, 31 covered with evidence, 2 raising exceptions "
+        "with named sources, 1 with no release record and routed to production."
+    )
+
+
+def test_the_planted_coverage_gap_is_found(package, findings):
+    gap = next(f for f in findings if f.requirement_id == "B-17" and f.check_type is CheckType.COVERAGE)
+    assert gap.truth_state is TruthState.MISSING
+    assert "never on the shot plan" in gap.observation
+
+
+def test_the_planted_continuity_conflict_names_both_takes(package, findings):
+    conflict = next(
+        f
+        for f in findings
+        if f.check_type is CheckType.CONTINUITY and f.truth_state is TruthState.CONFLICTING
+    )
+    takes = [locator.value for locator in conflict.locators if locator.kind == "take"]
+    assert len(takes) == 2
+    assert conflict.inference and "intentional" in conflict.inference
+
+
+def test_the_planted_media_mismatch_does_not_make_its_beat_uncovered(package, findings):
+    """One bad take does not uncover a beat that has a good one. This is the rule."""
+    mismatch = next(
+        f
+        for f in findings
+        if f.check_type is CheckType.METADATA and f.truth_state is TruthState.CONFLICTING
+    )
+    beat_ids = package.take(mismatch.requirement_id).beat_ids
+    outcomes = {o.beat_id: o for o in rollup.roll_up(package, findings)}
+    for beat_id in beat_ids:
+        assert outcomes[beat_id].status is rollup.BeatStatus.COVERED
+    # The finding is still real and still routed to the DIT.
+    assert mismatch.required_role.value == "dit"
+
+
+def test_the_unreleased_background_performer_is_found(package, findings):
+    gap = next(f for f in findings if f.requirement_id == "BG-07")
+    assert gap.truth_state is TruthState.MISSING
+    assert "not a pass" in gap.observation
+    assert gap.required_role.value == "production_coordinator"
+
+
+def test_the_orphan_shot_is_advisory_and_blocks_nothing(package):
+    orphans = coverage.orphan_shots(package, RUN, policy.POLICY_VERSION)
+    assert len(orphans) == 1
+    assert orphans[0].severity.value == "advisory"
+    assert orphans[0].requirement_id is None
+
+
+def test_deterministic_checks_never_claim_less_than_certainty(findings):
+    for finding in findings:
+        if finding.check_type in {CheckType.METADATA, CheckType.RIGHTS}:
+            assert finding.confidence == 1.0
+            assert finding.inference is None
+
+
+def test_model_assisted_checks_never_claim_certainty(findings):
+    for finding in findings:
+        if finding.inference is not None:
+            assert finding.confidence < 1.0, (
+                f"{finding.finding_id} presents an interpretation as a fact"
+            )

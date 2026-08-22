@@ -1,0 +1,246 @@
+{
+  "disclaimer": "SYNTHETIC. THE LAST FERRY is a fictional production. Every person, place, identifier and record below is invented for demonstration. No real production data and no real footage is referenced.",
+  "report_id": "CR-SC042-A",
+  "rows": [
+    {
+      "camera_roll": "A001",
+      "lens_mm": 27,
+      "media_id": "A001R2A01",
+      "take_id": "T-001"
+    },
+    {
+      "camera_roll": "A001",
+      "lens_mm": 35,
+      "media_id": "A001R2A02",
+      "take_id": "T-002"
+    },
+    {
+      "camera_roll": "A001",
+      "lens_mm": 50,
+      "media_id": "A001R2A03",
+      "take_id": "T-003"
+    },
+    {
+      "camera_roll": "A001",
+      "lens_mm": 50,
+      "media_id": "A001R2A04",
+      "take_id": "T-004"
+    },
+    {
+      "camera_roll": "A001",
+      "lens_mm": 75,
+      "media_id": "A001R2A05",
+      "take_id": "T-005"
+    },
+    {
+      "camera_roll": "A001",
+      "lens_mm": 27,
+      "media_id": "A001R2A06",
+      "take_id": "T-006"
+    },
+    {
+      "camera_roll": "A001",
+      "lens_mm": 27,
+      "media_id": "A001R2A07",
+      "take_id": "T-007"
+    },
+    {
+      "camera_roll": "A001",
+      "lens_mm": 35,
+      "media_id": "A001R2A08",
+      "take_id": "T-008"
+    },
+    {
+      "camera_roll": "A001",
+      "lens_mm": 50,
+      "media_id": "A001R2A09",
+      "take_id": "T-009"
+    },
+    {
+      "camera_roll": "A001",
+      "lens_mm": 75,
+      "media_id": "A001R2A10",
+      "take_id": "T-010"
+    },
+    {
+      "camera_roll": "A002",
+      "lens_mm": 27,
+      "media_id": "A002R2B11",
+      "take_id": "T-011"
+    },
+    {
+      "camera_roll": "A002",
+      "lens_mm": 35,
+      "media_id": "A002R2B12",
+      "take_id": "T-012"
+    },
+    {
+      "camera_roll": "A002",
+      "lens_mm": 50,
+      "media_id": "A002R2B1X",
+      "take_id": "T-013"
+    },
+    {
+      "camera_roll": "A002",
+      "lens_mm": 50,
+      "media_id": "A002R2B14",
+      "take_id": "T-014"
+    },
+    {
+      "camera_roll": "A002",
+      "lens_mm": 75,
+      "media_id": "A002R2B15",
+      "take_id": "T-015"
+    },
+    {
+      "camera_roll": "A002",
+      "lens_mm": 27,
+      "media_id": "A002R2B16",
+      "take_id": "T-016"
+    },
+    {
+      "camera_roll": "A002",
+      "lens_mm": 27,
+      "media_id": "A002R2B17",
+      "take_id": "T-017"
+    },
+    {
+      "camera_roll": "A002",
+      "lens_mm": 35,
+      "media_id": "A002R2B18",
+      "take_id": "T-018"
+    },
+    {
+      "camera_roll": "A002",
+      "lens_mm": 50,
+      "media_id": "A002R2B19",
+      "take_id": "T-019"
+    },
+    {
+      "camera_roll": "A002",
+      "lens_mm": 75,
+      "media_id": "A002R2B20",
+      "take_id": "T-020"
+    },
+    {
+      "camera_roll": "A003",
+      "lens_mm": 35,
+      "media_id": "A003R2C21",
+      "take_id": "T-021"
+    },
+    {
+      "camera_roll": "A003",
+      "lens_mm": 50,
+      "media_id": "A003R2C22",
+      "take_id": "T-022"
+    },
+    {
+      "camera_roll": "A003",
+      "lens_mm": 75,
+      "media_id": "A003R2C23",
+      "take_id": "T-023"
+    },
+    {
+      "camera_roll": "A003",
+      "lens_mm": 27,
+      "media_id": "A003R2C24",
+      "take_id": "T-024"
+    },
+    {
+      "camera_roll": "A003",
+      "lens_mm": 35,
+      "media_id": "A003R2C25",
+      "take_id": "T-025"
+    },
+    {
+      "camera_roll": "A003",
+      "lens_mm": 50,
+      "media_id": "A003R2C26",
+      "take_id": "T-026"
+    },
+    {
+      "camera_roll": "A003",
+      "lens_mm": 50,
+      "media_id": "A003R2C27",
+      "take_id": "T-027"
+    },
+    {
+      "camera_roll": "A003",
+      "lens_mm": 75,
+      "media_id": "A003R2C28",
+      "take_id": "T-028"
+    },
+    {
+      "camera_roll": "A004",
+      "lens_mm": 27,
+      "media_id": "A004R2D29",
+      "take_id": "T-029"
+    },
+    {
+      "camera_roll": "A004",
+      "lens_mm": 35,
+      "media_id": "A004R2D30",
+      "take_id": "T-030"
+    },
+    {
+      "camera_roll": "A004",
+      "lens_mm": 35,
+      "media_id": "A004R2D31",
+      "take_id": "T-031"
+    },
+    {
+      "camera_roll": "A004",
+      "lens_mm": 50,
+      "media_id": "A004R2D32",
+      "take_id": "T-032"
+    },
+    {
+      "camera_roll": "A004",
+      "lens_mm": 75,
+      "media_id": "A004R2D33",
+      "take_id": "T-033"
+    },
+    {
+      "camera_roll": "A004",
+      "lens_mm": 27,
+      "media_id": "A004R2D34",
+      "take_id": "T-034"
+    },
+    {
+      "camera_roll": "A004",
+      "lens_mm": 35,
+      "media_id": "A004R2D35",
+      "take_id": "T-035"
+    },
+    {
+      "camera_roll": "A004",
+      "lens_mm": 50,
+      "media_id": "A004R2D36",
+      "take_id": "T-036"
+    },
+    {
+      "camera_roll": "A004",
+      "lens_mm": 50,
+      "media_id": "A004R2D37",
+      "take_id": "T-037"
+    },
+    {
+      "camera_roll": "A004",
+      "lens_mm": 75,
+      "media_id": "A004R2D38",
+      "take_id": "T-038"
+    },
+    {
+      "camera_roll": "A005",
+      "lens_mm": 27,
+      "media_id": "A005R2E39",
+      "take_id": "T-039"
+    },
+    {
+      "camera_roll": "A005",
+      "lens_mm": 35,
+      "media_id": "A005R2E40",
+      "take_id": "T-040"
+    }
+  ]
+}

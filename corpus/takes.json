@@ -1,0 +1,913 @@
+{
+  "disclaimer": "SYNTHETIC. THE LAST FERRY is a fictional production. Every person, place, identifier and record below is invented for demonstration. No real production data and no real footage is referenced.",
+  "takes": [
+    {
+      "beat_ids": [
+        "B-01"
+      ],
+      "camera_roll": "A001",
+      "captured_at": "2026-08-19T18:00:00Z",
+      "lens_mm": 27,
+      "media_id": "A001R2A01",
+      "note": "",
+      "preferred": true,
+      "shot_id": "S-42-01",
+      "slate": "42A/1",
+      "sound_roll": "SR01",
+      "take_id": "T-001",
+      "timecode_in": "18:00:00:00",
+      "timecode_out": "18:00:47:00",
+      "usable": true,
+      "visible_assets": [],
+      "visible_people": [
+        "MARA"
+      ]
+    },
+    {
+      "beat_ids": [
+        "B-02"
+      ],
+      "camera_roll": "A001",
+      "captured_at": "2026-08-19T18:03:00Z",
+      "lens_mm": 35,
+      "media_id": "A001R2A02",
+      "note": "",
+      "preferred": true,
+      "shot_id": "S-42-01",
+      "slate": "42B/1",
+      "sound_roll": "SR01",
+      "take_id": "T-002",
+      "timecode_in": "18:03:33:00",
+      "timecode_out": "18:04:20:00",
+      "usable": true,
+      "visible_assets": [
+        "SIGN-HARBOUR-TIMETABLE"
+      ],
+      "visible_people": [
+        "MARA"
+      ]
+    },
+    {
+      "beat_ids": [
+        "B-03"
+      ],
+      "camera_roll": "A001",
+      "captured_at": "2026-08-19T18:07:00Z",
+      "lens_mm": 50,
+      "media_id": "A001R2A03",
+      "note": "",
+      "preferred": true,
+      "shot_id": "S-42-01",
+      "slate": "42C/1",
+      "sound_roll": "SR01",
+      "take_id": "T-003",
+      "timecode_in": "18:07:06:00",
+      "timecode_out": "18:07:53:00",
+      "usable": true,
+      "visible_assets": [
+        "SIGN-HARBOUR-TIMETABLE"
+      ],
+      "visible_people": [
+        "MARA"
+      ]
+    },
+    {
+      "beat_ids": [
+        "B-03"
+      ],
+      "camera_roll": "A001",
+      "captured_at": "2026-08-19T18:10:00Z",
+      "lens_mm": 50,
+      "media_id": "A001R2A04",
+      "note": "",
+      "preferred": false,
+      "shot_id": "S-42-01",
+      "slate": "42C/2",
+      "sound_roll": "SR01",
+      "take_id": "T-004",
+      "timecode_in": "18:10:39:00",
+      "timecode_out": "18:11:26:00",
+      "usable": true,
+      "visible_assets": [
+        "SIGN-HARBOUR-TIMETABLE"
+      ],
+      "visible_people": [
+        "MARA"
+      ]
+    },
+    {
+      "beat_ids": [
+        "B-04"
+      ],
+      "camera_roll": "A001",
+      "captured_at": "2026-08-19T18:14:00Z",
+      "lens_mm": 75,
+      "media_id": "A001R2A05",
+      "note": "",
+      "preferred": true,
+      "shot_id": "S-42-01",
+      "slate": "42D/1",
+      "sound_roll": "SR01",
+      "take_id": "T-005",
+      "timecode_in": "18:14:12:00",
+      "timecode_out": "18:14:59:00",
+      "usable": true,
+      "visible_assets": [],
+      "visible_people": [
+        "MARA"
+      ]
+    },
+    {
+      "beat_ids": [
+        "B-05"
+      ],
+      "camera_roll": "A001",
+      "captured_at": "2026-08-19T18:17:00Z",
+      "lens_mm": 27,
+      "media_id": "A001R2A06",
+      "note": "",
+      "preferred": true,
+      "shot_id": "S-42-02",
+      "slate": "42E/1",
+      "sound_roll": "SR01",
+      "take_id": "T-006",
+      "timecode_in": "18:17:45:00",
+      "timecode_out": "18:18:32:00",
+      "usable": true,
+      "visible_assets": [],
+      "visible_people": [
+        "MARA"
+      ]
+    },
+    {
+      "beat_ids": [
+        "B-05"
+      ],
+      "camera_roll": "A001",
+      "captured_at": "2026-08-19T18:21:00Z",
+      "lens_mm": 27,
+      "media_id": "A001R2A07",
+      "note": "",
+      "preferred": false,
+      "shot_id": "S-42-02",
+      "slate": "42E/2",
+      "sound_roll": "SR01",
+      "take_id": "T-007",
+      "timecode_in": "18:21:18:00",
+      "timecode_out": "18:22:05:00",
+      "usable": true,
+      "visible_assets": [],
+      "visible_people": [
+        "MARA"
+      ]
+    },
+    {
+      "beat_ids": [
+        "B-06"
+      ],
+      "camera_roll": "A001",
+      "captured_at": "2026-08-19T18:24:00Z",
+      "lens_mm": 35,
+      "media_id": "A001R2A08",
+      "note": "",
+      "preferred": true,
+      "shot_id": "S-42-02",
+      "slate": "42F/1",
+      "sound_roll": "SR01",
+      "take_id": "T-008",
+      "timecode_in": "18:24:51:00",
+      "timecode_out": "18:25:38:00",
+      "usable": true,
+      "visible_assets": [],
+      "visible_people": [
+        "MARA"
+      ]
+    },
+    {
+      "beat_ids": [
+        "B-07"
+      ],
+      "camera_roll": "A001",
+      "captured_at": "2026-08-19T18:28:00Z",
+      "lens_mm": 50,
+      "media_id": "A001R2A09",
+      "note": "",
+      "preferred": true,
+      "shot_id": "S-42-02",
+      "slate": "42A/1",
+      "sound_roll": "SR01",
+      "take_id": "T-009",
+      "timecode_in": "18:28:24:00",
+      "timecode_out": "18:29:11:00",
+      "usable": true,
+      "visible_assets": [],
+      "visible_people": [
+        "DELPHINE",
+        "BG-01"
+      ]
+    },
+    {
+      "beat_ids": [
+        "B-08"
+      ],
+      "camera_roll": "A001",
+      "captured_at": "2026-08-19T18:31:00Z",
+      "lens_mm": 75,
+      "media_id": "A001R2A10",
+      "note": "",
+      "preferred": true,
+      "shot_id": "S-42-02",
+      "slate": "42B/1",
+      "sound_roll": "SR01",
+      "take_id": "T-010",
+      "timecode_in": "18:31:57:00",
+      "timecode_out": "18:32:44:00",
+      "usable": true,
+      "visible_assets": [],
+      "visible_people": [
+        "DELPHINE",
+        "BG-01"
+      ]
+    },
+    {
+      "beat_ids": [
+        "B-09"
+      ],
+      "camera_roll": "A002",
+      "captured_at": "2026-08-19T18:35:00Z",
+      "lens_mm": 27,
+      "media_id": "A002R2B11",
+      "note": "Deckhand walked through frame. Not on the background list.",
+      "preferred": true,
+      "shot_id": "S-42-03",
+      "slate": "42C/1",
+      "sound_roll": "SR02",
+      "take_id": "T-011",
+      "timecode_in": "18:35:30:00",
+      "timecode_out": "18:36:17:00",
+      "usable": true,
+      "visible_assets": [],
+      "visible_people": [
+        "MARA",
+        "DELPHINE",
+        "BG-07"
+      ]
+    },
+    {
+      "beat_ids": [
+        "B-10"
+      ],
+      "camera_roll": "A002",
+      "captured_at": "2026-08-19T18:39:00Z",
+      "lens_mm": 35,
+      "media_id": "A002R2B12",
+      "note": "",
+      "preferred": true,
+      "shot_id": "S-42-03",
+      "slate": "42D/1",
+      "sound_roll": "SR02",
+      "take_id": "T-012",
+      "timecode_in": "18:39:03:00",
+      "timecode_out": "18:39:50:00",
+      "usable": true,
+      "visible_assets": [
+        "PROP-ENAMEL-MUG"
+      ],
+      "visible_people": [
+        "DELPHINE"
+      ]
+    },
+    {
+      "beat_ids": [
+        "B-11"
+      ],
+      "camera_roll": "A002",
+      "captured_at": "2026-08-19T18:42:00Z",
+      "lens_mm": 50,
+      "media_id": "A002R2B13",
+      "note": "Camera flagged a card swap mid-roll. Check the report.",
+      "preferred": true,
+      "shot_id": "S-42-03",
+      "slate": "42E/1",
+      "sound_roll": "SR02",
+      "take_id": "T-013",
+      "timecode_in": "18:42:36:00",
+      "timecode_out": "18:43:23:00",
+      "usable": true,
+      "visible_assets": [],
+      "visible_people": [
+        "MARA"
+      ]
+    },
+    {
+      "beat_ids": [
+        "B-11"
+      ],
+      "camera_roll": "A002",
+      "captured_at": "2026-08-19T18:46:00Z",
+      "lens_mm": 50,
+      "media_id": "A002R2B14",
+      "note": "",
+      "preferred": false,
+      "shot_id": "S-42-03",
+      "slate": "42E/2",
+      "sound_roll": "SR02",
+      "take_id": "T-014",
+      "timecode_in": "18:46:09:00",
+      "timecode_out": "18:46:56:00",
+      "usable": true,
+      "visible_assets": [],
+      "visible_people": [
+        "MARA"
+      ]
+    },
+    {
+      "beat_ids": [
+        "B-12"
+      ],
+      "camera_roll": "A002",
+      "captured_at": "2026-08-19T18:49:00Z",
+      "lens_mm": 75,
+      "media_id": "A002R2B15",
+      "note": "",
+      "preferred": true,
+      "shot_id": "S-42-03",
+      "slate": "42F/1",
+      "sound_roll": "SR02",
+      "take_id": "T-015",
+      "timecode_in": "18:49:42:00",
+      "timecode_out": "18:50:29:00",
+      "usable": true,
+      "visible_assets": [
+        "PROP-ENAMEL-MUG"
+      ],
+      "visible_people": [
+        "DELPHINE"
+      ]
+    },
+    {
+      "beat_ids": [
+        "B-13"
+      ],
+      "camera_roll": "A002",
+      "captured_at": "2026-08-19T18:53:00Z",
+      "lens_mm": 27,
+      "media_id": "A002R2B16",
+      "note": "",
+      "preferred": true,
+      "shot_id": "S-42-04",
+      "slate": "42A/1",
+      "sound_roll": "SR02",
+      "take_id": "T-016",
+      "timecode_in": "18:53:15:00",
+      "timecode_out": "18:54:02:00",
+      "usable": true,
+      "visible_assets": [],
+      "visible_people": [
+        "MARA",
+        "DELPHINE"
+      ]
+    },
+    {
+      "beat_ids": [
+        "B-13"
+      ],
+      "camera_roll": "A002",
+      "captured_at": "2026-08-19T18:56:00Z",
+      "lens_mm": 27,
+      "media_id": "A002R2B17",
+      "note": "",
+      "preferred": false,
+      "shot_id": "S-42-04",
+      "slate": "42A/2",
+      "sound_roll": "SR02",
+      "take_id": "T-017",
+      "timecode_in": "18:56:48:00",
+      "timecode_out": "18:57:35:00",
+      "usable": true,
+      "visible_assets": [],
+      "visible_people": [
+        "MARA",
+        "DELPHINE"
+      ]
+    },
+    {
+      "beat_ids": [
+        "B-14"
+      ],
+      "camera_roll": "A002",
+      "captured_at": "2026-08-19T19:00:00Z",
+      "lens_mm": 35,
+      "media_id": "A002R2B18",
+      "note": "",
+      "preferred": true,
+      "shot_id": "S-42-04",
+      "slate": "42B/1",
+      "sound_roll": "SR02",
+      "take_id": "T-018",
+      "timecode_in": "19:00:21:00",
+      "timecode_out": "19:01:08:00",
+      "usable": true,
+      "visible_assets": [],
+      "visible_people": [
+        "MARA"
+      ]
+    },
+    {
+      "beat_ids": [
+        "B-15"
+      ],
+      "camera_roll": "A002",
+      "captured_at": "2026-08-19T19:03:00Z",
+      "lens_mm": 50,
+      "media_id": "A002R2B19",
+      "note": "",
+      "preferred": true,
+      "shot_id": "S-42-04",
+      "slate": "42C/1",
+      "sound_roll": "SR02",
+      "take_id": "T-019",
+      "timecode_in": "19:03:54:00",
+      "timecode_out": "19:04:41:00",
+      "usable": true,
+      "visible_assets": [],
+      "visible_people": [
+        "DELPHINE"
+      ]
+    },
+    {
+      "beat_ids": [
+        "B-16"
+      ],
+      "camera_roll": "A002",
+      "captured_at": "2026-08-19T19:07:00Z",
+      "lens_mm": 75,
+      "media_id": "A002R2B20",
+      "note": "",
+      "preferred": true,
+      "shot_id": "S-42-04",
+      "slate": "42D/1",
+      "sound_roll": "SR02",
+      "take_id": "T-020",
+      "timecode_in": "19:07:27:00",
+      "timecode_out": "19:08:14:00",
+      "usable": true,
+      "visible_assets": [],
+      "visible_people": [
+        "MARA"
+      ]
+    },
+    {
+      "beat_ids": [
+        "B-18"
+      ],
+      "camera_roll": "A003",
+      "captured_at": "2026-08-19T19:11:00Z",
+      "lens_mm": 35,
+      "media_id": "A003R2C21",
+      "note": "",
+      "preferred": true,
+      "shot_id": "S-42-05",
+      "slate": "42F/1",
+      "sound_roll": "SR03",
+      "take_id": "T-021",
+      "timecode_in": "19:11:00:00",
+      "timecode_out": "19:11:47:00",
+      "usable": true,
+      "visible_assets": [],
+      "visible_people": [
+        "DELPHINE"
+      ]
+    },
+    {
+      "beat_ids": [
+        "B-19"
+      ],
+      "camera_roll": "A003",
+      "captured_at": "2026-08-19T19:14:00Z",
+      "lens_mm": 50,
+      "media_id": "A003R2C22",
+      "note": "",
+      "preferred": true,
+      "shot_id": "S-42-05",
+      "slate": "42A/1",
+      "sound_roll": "SR03",
+      "take_id": "T-022",
+      "timecode_in": "19:14:33:00",
+      "timecode_out": "19:15:20:00",
+      "usable": true,
+      "visible_assets": [],
+      "visible_people": [
+        "MARA"
+      ]
+    },
+    {
+      "beat_ids": [
+        "B-20"
+      ],
+      "camera_roll": "A003",
+      "captured_at": "2026-08-19T19:18:00Z",
+      "lens_mm": 75,
+      "media_id": "A003R2C23",
+      "note": "",
+      "preferred": true,
+      "shot_id": "S-42-05",
+      "slate": "42B/1",
+      "sound_roll": "SR03",
+      "take_id": "T-023",
+      "timecode_in": "19:18:06:00",
+      "timecode_out": "19:18:53:00",
+      "usable": true,
+      "visible_assets": [
+        "PROP-ENAMEL-MUG"
+      ],
+      "visible_people": [
+        "MARA"
+      ]
+    },
+    {
+      "beat_ids": [
+        "B-21"
+      ],
+      "camera_roll": "A003",
+      "captured_at": "2026-08-19T19:21:00Z",
+      "lens_mm": 27,
+      "media_id": "A003R2C24",
+      "note": "",
+      "preferred": true,
+      "shot_id": "S-42-05",
+      "slate": "42C/1",
+      "sound_roll": "SR03",
+      "take_id": "T-024",
+      "timecode_in": "19:21:39:00",
+      "timecode_out": "19:22:26:00",
+      "usable": true,
+      "visible_assets": [],
+      "visible_people": [
+        "DELPHINE"
+      ]
+    },
+    {
+      "beat_ids": [
+        "B-22"
+      ],
+      "camera_roll": "A003",
+      "captured_at": "2026-08-19T19:25:00Z",
+      "lens_mm": 35,
+      "media_id": "A003R2C25",
+      "note": "",
+      "preferred": true,
+      "shot_id": "S-42-06",
+      "slate": "42D/1",
+      "sound_roll": "SR03",
+      "take_id": "T-025",
+      "timecode_in": "19:25:12:00",
+      "timecode_out": "19:25:59:00",
+      "usable": true,
+      "visible_assets": [
+        "PROP-ENAMEL-MUG"
+      ],
+      "visible_people": [
+        "MARA"
+      ]
+    },
+    {
+      "beat_ids": [
+        "B-23"
+      ],
+      "camera_roll": "A003",
+      "captured_at": "2026-08-19T19:28:00Z",
+      "lens_mm": 50,
+      "media_id": "A003R2C26",
+      "note": "Circled. Mug half full, handle camera left. Good on the sit.",
+      "preferred": true,
+      "shot_id": "S-42-06",
+      "slate": "42E/1",
+      "sound_roll": "SR03",
+      "take_id": "T-026",
+      "timecode_in": "19:28:45:00",
+      "timecode_out": "19:29:32:00",
+      "usable": true,
+      "visible_assets": [
+        "PROP-ENAMEL-MUG"
+      ],
+      "visible_people": [
+        "MARA"
+      ]
+    },
+    {
+      "beat_ids": [
+        "B-23"
+      ],
+      "camera_roll": "A003",
+      "captured_at": "2026-08-19T19:32:00Z",
+      "lens_mm": 50,
+      "media_id": "A003R2C27",
+      "note": "Also circled by the director. Mug empty, handle camera right.",
+      "preferred": true,
+      "shot_id": "S-42-06",
+      "slate": "42E/2",
+      "sound_roll": "SR03",
+      "take_id": "T-027",
+      "timecode_in": "19:32:18:00",
+      "timecode_out": "19:33:05:00",
+      "usable": true,
+      "visible_assets": [
+        "PROP-ENAMEL-MUG"
+      ],
+      "visible_people": [
+        "MARA"
+      ]
+    },
+    {
+      "beat_ids": [
+        "B-24"
+      ],
+      "camera_roll": "A003",
+      "captured_at": "2026-08-19T19:35:00Z",
+      "lens_mm": 75,
+      "media_id": "A003R2C28",
+      "note": "",
+      "preferred": true,
+      "shot_id": "S-42-06",
+      "slate": "42F/1",
+      "sound_roll": "SR03",
+      "take_id": "T-028",
+      "timecode_in": "19:35:51:00",
+      "timecode_out": "19:36:38:00",
+      "usable": true,
+      "visible_assets": [],
+      "visible_people": [
+        "DELPHINE"
+      ]
+    },
+    {
+      "beat_ids": [
+        "B-25"
+      ],
+      "camera_roll": "A004",
+      "captured_at": "2026-08-19T19:39:00Z",
+      "lens_mm": 27,
+      "media_id": "A004R2D29",
+      "note": "",
+      "preferred": true,
+      "shot_id": "S-42-06",
+      "slate": "42A/1",
+      "sound_roll": "SR04",
+      "take_id": "T-029",
+      "timecode_in": "19:39:24:00",
+      "timecode_out": "19:40:11:00",
+      "usable": true,
+      "visible_assets": [],
+      "visible_people": [
+        "MARA"
+      ]
+    },
+    {
+      "beat_ids": [
+        "B-26"
+      ],
+      "camera_roll": "A004",
+      "captured_at": "2026-08-19T19:42:00Z",
+      "lens_mm": 35,
+      "media_id": "A004R2D30",
+      "note": "",
+      "preferred": true,
+      "shot_id": "S-42-07",
+      "slate": "42B/1",
+      "sound_roll": "SR04",
+      "take_id": "T-030",
+      "timecode_in": "19:42:57:00",
+      "timecode_out": "19:43:44:00",
+      "usable": true,
+      "visible_assets": [],
+      "visible_people": [
+        "MARA",
+        "DELPHINE",
+        "BG-02"
+      ]
+    },
+    {
+      "beat_ids": [
+        "B-26"
+      ],
+      "camera_roll": "A004",
+      "captured_at": "2026-08-19T19:46:00Z",
+      "lens_mm": 35,
+      "media_id": "A004R2D31",
+      "note": "",
+      "preferred": false,
+      "shot_id": "S-42-07",
+      "slate": "42B/2",
+      "sound_roll": "SR04",
+      "take_id": "T-031",
+      "timecode_in": "19:46:30:00",
+      "timecode_out": "19:47:17:00",
+      "usable": true,
+      "visible_assets": [],
+      "visible_people": [
+        "MARA",
+        "DELPHINE",
+        "BG-02"
+      ]
+    },
+    {
+      "beat_ids": [
+        "B-27"
+      ],
+      "camera_roll": "A004",
+      "captured_at": "2026-08-19T19:50:00Z",
+      "lens_mm": 50,
+      "media_id": "A004R2D32",
+      "note": "",
+      "preferred": true,
+      "shot_id": "S-42-07",
+      "slate": "42C/1",
+      "sound_roll": "SR04",
+      "take_id": "T-032",
+      "timecode_in": "19:50:03:00",
+      "timecode_out": "19:50:50:00",
+      "usable": true,
+      "visible_assets": [],
+      "visible_people": [
+        "DELPHINE"
+      ]
+    },
+    {
+      "beat_ids": [
+        "B-28"
+      ],
+      "camera_roll": "A004",
+      "captured_at": "2026-08-19T19:53:00Z",
+      "lens_mm": 75,
+      "media_id": "A004R2D33",
+      "note": "",
+      "preferred": true,
+      "shot_id": "S-42-07",
+      "slate": "42D/1",
+      "sound_roll": "SR04",
+      "take_id": "T-033",
+      "timecode_in": "19:53:36:00",
+      "timecode_out": "19:54:23:00",
+      "usable": true,
+      "visible_assets": [],
+      "visible_people": [
+        "DELPHINE"
+      ]
+    },
+    {
+      "beat_ids": [
+        "B-29"
+      ],
+      "camera_roll": "A004",
+      "captured_at": "2026-08-19T19:57:00Z",
+      "lens_mm": 27,
+      "media_id": "A004R2D34",
+      "note": "",
+      "preferred": true,
+      "shot_id": "S-42-07",
+      "slate": "42E/1",
+      "sound_roll": "SR04",
+      "take_id": "T-034",
+      "timecode_in": "19:57:09:00",
+      "timecode_out": "19:57:56:00",
+      "usable": true,
+      "visible_assets": [],
+      "visible_people": [
+        "MARA"
+      ]
+    },
+    {
+      "beat_ids": [
+        "B-30"
+      ],
+      "camera_roll": "A004",
+      "captured_at": "2026-08-19T20:00:00Z",
+      "lens_mm": 35,
+      "media_id": "A004R2D35",
+      "note": "",
+      "preferred": true,
+      "shot_id": "S-42-08",
+      "slate": "42F/1",
+      "sound_roll": "SR04",
+      "take_id": "T-035",
+      "timecode_in": "20:00:42:00",
+      "timecode_out": "20:01:29:00",
+      "usable": true,
+      "visible_assets": [],
+      "visible_people": [
+        "DELPHINE"
+      ]
+    },
+    {
+      "beat_ids": [
+        "B-31"
+      ],
+      "camera_roll": "A004",
+      "captured_at": "2026-08-19T20:04:00Z",
+      "lens_mm": 50,
+      "media_id": "A004R2D36",
+      "note": "",
+      "preferred": true,
+      "shot_id": "S-42-08",
+      "slate": "42A/1",
+      "sound_roll": "SR04",
+      "take_id": "T-036",
+      "timecode_in": "20:04:15:00",
+      "timecode_out": "20:05:02:00",
+      "usable": true,
+      "visible_assets": [],
+      "visible_people": [
+        "MARA"
+      ]
+    },
+    {
+      "beat_ids": [
+        "B-31"
+      ],
+      "camera_roll": "A004",
+      "captured_at": "2026-08-19T20:07:00Z",
+      "lens_mm": 50,
+      "media_id": "A004R2D37",
+      "note": "",
+      "preferred": false,
+      "shot_id": "S-42-08",
+      "slate": "42A/2",
+      "sound_roll": "SR04",
+      "take_id": "T-037",
+      "timecode_in": "20:07:48:00",
+      "timecode_out": "20:08:35:00",
+      "usable": true,
+      "visible_assets": [],
+      "visible_people": [
+        "MARA"
+      ]
+    },
+    {
+      "beat_ids": [
+        "B-32"
+      ],
+      "camera_roll": "A004",
+      "captured_at": "2026-08-19T20:11:00Z",
+      "lens_mm": 75,
+      "media_id": "A004R2D38",
+      "note": "",
+      "preferred": true,
+      "shot_id": "S-42-08",
+      "slate": "42B/1",
+      "sound_roll": "SR04",
+      "take_id": "T-038",
+      "timecode_in": "20:11:21:00",
+      "timecode_out": "20:12:08:00",
+      "usable": true,
+      "visible_assets": [],
+      "visible_people": []
+    },
+    {
+      "beat_ids": [
+        "B-33"
+      ],
+      "camera_roll": "A005",
+      "captured_at": "2026-08-19T20:14:00Z",
+      "lens_mm": 27,
+      "media_id": "A005R2E39",
+      "note": "",
+      "preferred": true,
+      "shot_id": "S-42-08",
+      "slate": "42C/1",
+      "sound_roll": "SR05",
+      "take_id": "T-039",
+      "timecode_in": "20:14:54:00",
+      "timecode_out": "20:15:41:00",
+      "usable": true,
+      "visible_assets": [
+        "PROP-ENAMEL-MUG"
+      ],
+      "visible_people": [
+        "MARA"
+      ]
+    },
+    {
+      "beat_ids": [
+        "B-34"
+      ],
+      "camera_roll": "A005",
+      "captured_at": "2026-08-19T20:18:00Z",
+      "lens_mm": 35,
+      "media_id": "A005R2E40",
+      "note": "",
+      "preferred": true,
+      "shot_id": "S-42-09",
+      "slate": "42D/1",
+      "sound_roll": "SR05",
+      "take_id": "T-040",
+      "timecode_in": "20:18:27:00",
+      "timecode_out": "20:19:14:00",
+      "usable": true,
+      "visible_assets": [],
+      "visible_people": [
+        "MARA"
+      ]
+    }
+  ]
+}
