@@ -34,12 +34,7 @@ jobs:
           python -m pytest --cov --cov-report=term-missing --cov-fail-under=85
 
       - name: secret scan
-        run: |
-          if grep -rEn "(AKIA[0-9A-Z]{16}|aws_secret_access_key|-----BEGIN [A-Z ]*PRIVATE KEY-----|sk-ant-)" \
-               --include="*.py" --include="*.json" --include="*.md" --include="*.yml" . ; then
-            echo "possible secret committed"; exit 1
-          fi
-          echo "no secrets found"
+        run: python tools/secret_scan.py
 
       - name: no other competition is named in judge-facing files
         run: |
