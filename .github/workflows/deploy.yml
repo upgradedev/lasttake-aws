@@ -227,6 +227,15 @@ jobs:
           RUN="ci-$(date +%s)-$(head -c4 /dev/urandom | od -An -tx1 | tr -d ' \n')"
           echo "run id: $RUN"
 
+          # Read back from the stack rather than reconstructing the names here,
+          # so this step cannot drift away from what was actually deployed.
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          BUCKET=$(aws cloudformation describe-stacks --stack-name "$STACK" \
+                     --query "Stacks[0].Outputs[?OutputKey=='BucketName'].OutputValue" --output text)
+          BUS=$(aws cloudformation describe-stacks --stack-name "$STACK" \
+                  --query "Stacks[0].Outputs[?OutputKey=='EventBusName'].OutputValue" --output text)
+          MODEL="global.anthropic.claude-sonnet-5"
+
           echo "=== request 1 of 2: fire the checkpoint ==="
           R1=$(curl -sS -X POST "${URL}api/checkpoint" -H 'content-type: application/json' \
                  -d "{\"run_id\":\"$RUN\"}")
