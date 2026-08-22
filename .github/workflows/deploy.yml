@@ -132,12 +132,21 @@ jobs:
           # template deploys without a human opening the console.
           STATUS=$(aws cloudformation describe-stacks --stack-name "$STACK" \
                      --query "Stacks[0].StackStatus" --output text 2>/dev/null || echo NONE)
-          if [ "$STATUS" = "ROLLBACK_COMPLETE" ]; then
-            echo "stack is in ROLLBACK_COMPLETE from a failed first create; deleting it"
-            aws cloudformation delete-stack --stack-name "$STACK"
-            aws cloudformation wait stack-delete-complete --stack-name "$STACK"
-            STATUS=NONE
-          fi
+          # Two states a first create can leave behind, and neither can be
+          # updated in place. ROLLBACK_COMPLETE is a create that ran and failed.
+          # REVIEW_IN_PROGRESS is a changeset that was created and never
+          # executed, which is what an early-validation failure leaves; it is
+          # easy to miss because `describe-stacks` still returns the stack, so a
+          # cleanup that only looks for "absent or rolled back" walks straight
+          # past it.
+          case "$STATUS" in
+            ROLLBACK_COMPLETE|REVIEW_IN_PROGRESS)
+              echo "stack is in $STATUS and cannot be updated, only replaced; deleting it"
+              aws cloudformation delete-stack --stack-name "$STACK"
+              aws cloudformation wait stack-delete-complete --stack-name "$STACK"
+              STATUS=NONE
+              ;;
+          esac
 
           # The data bucket carries DeletionPolicy: Retain, which is right when it
           # holds an audit trail and wrong when a first create never got as far as
