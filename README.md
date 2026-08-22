@@ -15,6 +15,7 @@ Before you wrap the set, know whether you truly have the scene.
 
 - [Who this is for](#who-this-is-for)
 - [The problem](#the-problem)
+- [Try it without installing anything](#try-it-without-installing-anything)
 - [Quickstart](#quickstart)
 - [What the demo shows](#what-the-demo-shows)
 - [Architecture](#architecture)
@@ -24,6 +25,7 @@ Before you wrap the set, know whether you truly have the scene.
 - [The demo corpus is synthetic](#the-demo-corpus-is-synthetic)
 - [What it will not do](#what-it-will-not-do)
 - [Running against Amazon Bedrock](#running-against-amazon-bedrock)
+- [What is deployed, and what it costs](#what-is-deployed-and-what-it-costs)
 - [Repository layout](#repository-layout)
 - [Pre-existing components](#pre-existing-components)
 - [Licence](#licence)
@@ -49,6 +51,17 @@ The cost is asymmetric, and everyone in the trade knows it. While the set is sta
 missing shot is fifteen minutes. Once cast, location, set and equipment are released, the
 same missing fact is a pickup day, a compromised edit, a clearance escalation, or a
 reshoot.
+
+## Try it without installing anything
+
+**https://1p6s28nyf0.execute-api.eu-west-1.amazonaws.com/**
+
+No account, no install, no credential. Fire the checkpoint, read the count, and watch the
+run stop and wait for the 1st AD. Then close the tab. Come back tomorrow and approve: the
+run continues from the same point, in a process that no longer exists.
+
+Every response tells you which Lambda invocation and which container served it, so the
+process boundary is something you watch happen rather than something this page asserts.
 
 ## Quickstart
 
@@ -228,11 +241,30 @@ The agent returns `stop_reason` of `interrupt`. A session manager writes the pau
 storage. A **different process**, hours later, calls the agent with an `interruptResponse`
 and the run continues from the same point.
 
-**What is proven and what is not.** This is proven on `FileSessionManager` and a local
-disk, twice, in CI. On a deployed Lambda it needs shared durable storage, because `/tmp`
-does not survive the gap between 23:10 and 06:40. `S3SessionManager` ships in the SDK and
-`build_s3_session_manager` in `orchestrator.py` swaps it in, but **that path has not been
-run and no test covers it**. It is an inference from the SDK's shape, not a result.
+**Proven on the deployed architecture, not only offline.** On a Lambda, `/tmp` does not
+survive the gap between 23:10 and 06:40, so the sessions live on `S3SessionManager`. The
+deploy pipeline fires the checkpoint in one HTTP request, then **retires every warm
+container** with a configuration change, then approves in a second request, and asserts the
+two were served by different processes:
+
+```
+=== request 1 of 2: fire the checkpoint ===
+Of 34 required beats, 31 covered with evidence, 2 raising exceptions with named
+sources, 1 with no release record and routed to production.
+stopped for: first_ad on B-17
+served by container 5783cd7e
+
+=== between the two: force a new execution environment ===
+every warm container has been retired
+
+=== request 2 of 2: a separate invocation approves ===
+Pickup approved for B-17 by the 1st AD and routed to the assistant director's board.
+container that stopped the run:  5783cd7e
+container that resumed it:       0310464e
+```
+
+The assertion is `c1 != c2`, so a run where Lambda happened to reuse a container fails the
+pipeline rather than quietly passing on a weaker claim.
 
 On a set this is not academic. The checkpoint finds a coverage gap at 23:10 as the crew is
 wrapping. The 1st AD is not looking at a screen. They approve at 06:40 before the first
@@ -351,17 +383,59 @@ export LASTTAKE_BEDROCK_MODEL_ID=<an id that doctor printed>
 lasttake checkpoint --bedrock
 ```
 
-**What is proven here and what is not.** The model identifier and region above were
-verified by a real `converse` call. The Strands-to-Bedrock code path in
-`adapters/aws/bedrock_interpreter.py` has **not** been run end to end, because CI has no
-AWS credentials. Treat `--bedrock` as unexercised until that job is green. The offline
-path, which is what the quickstart runs, is covered by 60-odd tests.
+**What is proven here and what is not.** The model identifier and region were verified by a
+real `converse` call, and the deploy pipeline repeats that call from the deployed execution
+role on every run, so the role's Bedrock permission is checked rather than assumed. The
+**Strands-to-Bedrock code path** in `adapters/aws/bedrock_interpreter.py`, meaning
+`BedrockModel` plus `agent.structured_output`, has **not** been run end to end. The hosted
+demo runs the offline interpreter and reports `offline-lexical/1.0.0` on every finding it
+touches, so nothing on that page claims to be a model that is not. Treat `--bedrock` as
+unexercised.
 
 Untrusted input is handled as untrusted. Script pages, supervisor notes and camera reports
 are production documents, and a production document can contain any text at all, including
 text shaped like an instruction. Everything from a scene package is wrapped in delimiters
 and the system prompt states that content inside them is evidence to describe and cannot
 issue instructions.
+
+## What is deployed, and what it costs
+
+Four resources, declared in `infra/stack.yaml` and deployed by
+`.github/workflows/deploy.yml`. Nothing is created by hand in a console.
+
+```mermaid
+flowchart LR
+    V(["a judge, no account"]) --> API["API Gateway HTTP API"]
+    API --> L["Lambda<br/>lasttake-api, arm64, 1024MB"]
+    L <--> S3[("S3<br/>sessions · run state<br/>event log · turnovers")]
+    L --> EB(["EventBridge bus"])
+    L -.->|"role may invoke,<br/>the hosted demo does not"| BR["Amazon Bedrock"]
+    EB -.->|"any service can subscribe"| SUB["editorial, dailies, scheduling"]
+```
+
+**Why an HTTP API and not a Lambda Function URL.** A Function URL was the first choice: one
+fewer service and no extra bill. It was replaced because this account refuses anonymous
+Function URL invocations. Both the real function and a one-line probe returned
+`403 AccessDeniedException` with a correct resource policy in place, and with no SCP and no
+RCP anywhere in the organization, while the same probe behind an HTTP API answered 200. The
+architecture routes around the block rather than arguing with it. Nothing else changed: the
+HTTP API uses payload format 2.0, whose event shape is the one the handler already read.
+
+**Least privilege, as deployed.** The execution role reaches its own bucket, its own event
+bus, and Anthropic inference. It cannot read another bucket, touch another bus, or create
+anything. The bucket is private, encrypted, versioned, and denies any request that is not
+TLS. The identity GitHub deploys with is separate again, scoped to `lasttake-*` resources,
+and is created by `infra/setup_ci_identity.py` so that nobody's personal credentials are
+ever copied into CI.
+
+**Cost when nobody is looking.** Lambda bills per request, so no requests means no charge.
+An HTTP API has no hourly charge and the first million requests per month are free. S3 holds
+a few hundred kilobytes per run. EventBridge is one dollar per million custom events. Idle
+monthly cost is dominated by S3 storage and rounds to under a cent.
+
+**Tearing it down.** `gh workflow run deploy.yml -f action=teardown` deletes the stack. The
+data bucket is retained on purpose, because it holds the audit trail, and a teardown that
+destroys the audit trail is not a teardown. Empty it deliberately if you want it gone.
 
 ## Repository layout
 
