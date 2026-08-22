@@ -11,8 +11,10 @@ Each response reports its own invocation id and the id minted when this
 container booted, so a visitor can watch the identifiers change under them
 rather than taking the sentence on trust.
 
-One Lambda, one Function URL, one bucket, one event bus. No API Gateway, no
-container registry, no database, nothing running when nobody is looking.
+One Lambda behind an HTTP API, one Aurora DSQL cluster for run state, one
+bucket for artifacts and the Strands sessions, one event bus. No container
+registry, no instance to size, and every one of them scales to zero, so nothing
+runs when nobody is looking.
 """
 
 from __future__ import annotations
@@ -26,7 +28,7 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-from ..adapters.aws.infrastructure import from_environment
+from ..adapters.aws.infrastructure import from_environment, run_store_kind
 from ..adapters.local.interpreter import OfflineInterpreter
 from ..agents.orchestrator import build_orchestrator
 from ..agents.runtime import WrapRun
@@ -99,8 +101,22 @@ def scene_package():
     return _PACKAGE
 
 
+_SCHEMA_READY = False
+
+
 def build_run(run_id: str, package=None) -> WrapRun:
+    """Assemble a run against the deployed adapters.
+
+    The schema is created once per container rather than once per request. It
+    is `CREATE TABLE IF NOT EXISTS`, so a second container racing the first is
+    harmless, and putting it here means a fresh cluster works on its first
+    request instead of needing a migration step nobody remembers to run.
+    """
+    global _SCHEMA_READY
     bus, artifacts, runs = from_environment()
+    if not _SCHEMA_READY and hasattr(runs, "ensure_schema"):
+        runs.ensure_schema()
+        _SCHEMA_READY = True
     return WrapRun(
         run_id=run_id,
         correlation_id=run_id,
@@ -199,6 +215,7 @@ def _state(run: WrapRun) -> dict:
         "causes": (packet or {}).get("causes", []),
         "wrap_approved": run.wrap_approved(),
         "interpreter": run.interpreter.model_id,
+        "run_state_store": run_store_kind(),
     }
 
 
@@ -523,7 +540,28 @@ def handler(event: dict, context: Any) -> dict:
     if method == "GET" and path in {"/", "/index.html"}:
         return _page()
     if method == "GET" and path == "/healthz":
-        return _json(200, {"ok": True, "scene": scene_package().scene_id}, request_id)
+        return _json(
+            200,
+            {
+                "ok": True,
+                "scene": scene_package().scene_id,
+                "run_state_store": run_store_kind(),
+                "commit": os.environ.get("LASTTAKE_COMMIT_SHA", "unknown"),
+            },
+            request_id,
+        )
+
+    if method == "GET" and path == "/api/blocked":
+        # The query object storage could not answer: every run with an open
+        # exception, across scenes, and who each is waiting on.
+        _bus, _artifacts, runs = from_environment()
+        if not hasattr(runs, "blocked_scenes"):
+            return _json(
+                501,
+                {"error": "this deployment stores run state in S3, which cannot answer a cross-run query"},
+                request_id,
+            )
+        return _json(200, {"blocked": runs.blocked_scenes()}, request_id)
 
     route = ROUTES.get(path)
     if route is None:

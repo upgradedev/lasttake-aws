@@ -153,6 +153,29 @@ def policy_document(account: str) -> dict:
                 "Resource": "*",
             },
             {
+                # CreateCluster has no resource to name yet, so it is separated
+                # from the operations that do rather than hidden inside one
+                # wildcard that covers both.
+                "Sid": "CreateAndListClusters",
+                "Effect": "Allow",
+                "Action": ["dsql:CreateCluster", "dsql:ListClusters"],
+                "Resource": "*",
+            },
+            {
+                "Sid": "ManageOurClusterOnly",
+                "Effect": "Allow",
+                "Action": [
+                    "dsql:GetCluster",
+                    "dsql:UpdateCluster",
+                    "dsql:DeleteCluster",
+                    "dsql:TagResource",
+                    "dsql:UntagResource",
+                    "dsql:ListTagsForResource",
+                    "dsql:DbConnectAdmin",
+                ],
+                "Resource": [f"arn:aws:dsql:*:{account}:cluster/*"],
+            },
+            {
                 # API Gateway's control plane is account-scoped: apis are
                 # created before they have an id, so there is no ARN to name in
                 # advance. Restricted to the apigateway actions the deploy

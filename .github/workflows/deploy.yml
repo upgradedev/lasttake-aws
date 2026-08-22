@@ -93,7 +93,7 @@ jobs:
             --platform manylinux2014_aarch64 \
             --implementation cp --python-version 3.12 --only-binary=:all: \
             --target build/pkg \
-            "strands-agents>=1.53.0" "pydantic>=2.7"
+            "strands-agents>=1.53.0" "pydantic>=2.7" "psycopg[binary]>=3.2"
           cp -r src/lasttake build/pkg/lasttake
           mkdir -p build/pkg/corpus && cp corpus/*.json build/pkg/corpus/
           # boto3 is in the Lambda runtime already; shipping it wastes 15MB.
@@ -216,6 +216,16 @@ jobs:
           [ "$CODE" = "200" ] || { echo "the judge URL does not answer"; exit 1; }
           curl -s "${URL}healthz" | tee /dev/stderr | grep -q '"ok": true'
 
+          # Assert which store is actually behind the run state. Without this
+          # the DSQL fallback to S3 is invisible: everything still works, and
+          # the architecture quietly is not the one the README describes.
+          curl -s "${URL}healthz" | grep -q '"run_state_store": "aurora-dsql"' || {
+            echo "run state is NOT on Aurora DSQL. The stack set no endpoint, or the"
+            echo "function fell back to S3. Refusing to call this deployed."
+            exit 1
+          }
+          echo "run state is on Aurora DSQL"
+
       # The claim that could not be proved offline. Two HTTP requests are two
       # Lambda invocations. The first stops the run at the 1st AD and ends. The
       # second, with no memory of the first, resumes it from S3.
@@ -299,6 +309,22 @@ jobs:
           curl -sS -X POST "${URL}api/resolve-rights" -H 'content-type: application/json' \
             -d "{\"run_id\":\"$RUN\"}" | python -c "
           import json,sys; d=json.load(sys.stdin); print(d['headline']); print('affected:', d['affected_checks'])"
+
+      - name: 'the query object storage could not answer'
+        if: steps.gate.outputs.ready == 'true'
+        run: |
+          set -euo pipefail
+          URL="${{ steps.stack.outputs.url }}"
+          echo "Every run with an open exception, across scenes, from one SQL query:"
+          curl -sS "${URL}api/blocked" | python -c "
+          import json,sys
+          d=json.load(sys.stdin)
+          assert 'blocked' in d, d
+          for row in d['blocked'][:10]:
+              print(f\"  {row['run_id']}: {row['open_exceptions']} open across \"
+                    f\"{row['departments_involved']} department(s)\")
+          print(f\"{len(d['blocked'])} run(s) currently blocked\")
+          "
 
       - name: 'Bedrock, invoked for real from the deployed role'
         if: steps.gate.outputs.ready == 'true'

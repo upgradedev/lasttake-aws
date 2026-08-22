@@ -274,6 +274,13 @@ def from_environment():
     offline adapters: a deployed process that silently ran on local disk would
     lose every approval the moment the container was recycled, and would look
     fine while doing it.
+
+    Run state goes to Aurora DSQL when ``LASTTAKE_DSQL_ENDPOINT`` is set, and to
+    S3 otherwise. The fallback is deliberate and narrow: S3 is a correct store
+    for a single scene with one writer, and it is the wrong one the moment two
+    approvals of the same pickup arrive together, because the handled-event
+    check is read-modify-write. Which one is in use is reported by the API, so a
+    reader never has to guess.
     """
     bucket = os.environ.get("LASTTAKE_BUCKET")
     bus_name = os.environ.get("LASTTAKE_EVENT_BUS")
@@ -283,8 +290,22 @@ def from_environment():
             "back to local disk, because a deployed run on local disk loses every "
             "approval when the container is recycled."
         )
+
+    endpoint = os.environ.get("LASTTAKE_DSQL_ENDPOINT")
+    if endpoint:
+        from .dsql import DsqlRunStore
+
+        runs = DsqlRunStore(endpoint=endpoint)
+    else:
+        runs = S3RunStore(bucket=bucket)
+
     return (
         EventBridgeBus(bus_name=bus_name, bucket=bucket),
         S3ArtifactStore(bucket=bucket),
-        S3RunStore(bucket=bucket),
+        runs,
     )
+
+
+def run_store_kind() -> str:
+    """Which store is actually in use, for the API to report rather than imply."""
+    return "aurora-dsql" if os.environ.get("LASTTAKE_DSQL_ENDPOINT") else "s3"

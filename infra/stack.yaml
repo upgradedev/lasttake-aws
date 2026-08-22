@@ -1,8 +1,9 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: >
   LastTake. Pre-wrap shoot-day assurance. One Lambda behind an HTTP API, one
-  bucket holding artifacts, run state, the event log and the Strands sessions,
-  and one EventBridge bus. Nothing runs when nobody is looking.
+  Aurora DSQL cluster holding run state, one bucket holding artifacts, the event
+  log and the Strands sessions, and one EventBridge bus. Every one of them
+  scales to zero, so nothing runs when nobody is looking.
 
 Parameters:
   CodeBucket:
@@ -84,6 +85,30 @@ Resources:
               Bool:
                 "aws:SecureTransport": "false"
 
+  # Run state: findings, human decisions, eligibility packets, the audit trail,
+  # and the handled-event set that makes a duplicate approval harmless.
+  #
+  # A database rather than more S3, for one reason above the others: the
+  # handled-event check is read-modify-write, and on object storage two
+  # approvals of the same pickup arriving together can both read "not handled"
+  # and both write. That is a duplicate pickup on a real assistant director's
+  # board. Here it is one INSERT ... ON CONFLICT and the database decides.
+  #
+  # DSQL rather than a Postgres you keep alive: it scales to zero with no idle
+  # charge and no instance to size, which is the same reason everything else
+  # here is serverless. Authentication is IAM, so there is no password in this
+  # repository or in the deployed configuration.
+  Database:
+    Type: AWS::DSQL::Cluster
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      # An audit trail should not be one console misclick from gone.
+      DeletionProtectionEnabled: true
+      Tags:
+        - Key: project
+          Value: lasttake
+
   # The bus the checkpoint, findings, approvals and turnover are published onto.
   # Another service can subscribe without this application knowing, which is
   # what makes the event claim real rather than decorative.
@@ -145,6 +170,13 @@ Resources:
                 Effect: Allow
                 Action: events:DescribeEventBus
                 Resource: !GetAtt EventBus.Arn
+              # Connect only. The role cannot create, alter or delete a
+              # cluster, so a compromised function cannot destroy the record it
+              # is writing to.
+              - Sid: ConnectToOurClusterOnly
+                Effect: Allow
+                Action: dsql:DbConnectAdmin
+                Resource: !Sub "arn:aws:dsql:${AWS::Region}:${AWS::AccountId}:cluster/${Database}"
               - Sid: BedrockInferenceOnly
                 Effect: Allow
                 Action:
@@ -194,6 +226,7 @@ Resources:
         Variables:
           LASTTAKE_BUCKET: !Ref DataBucket
           LASTTAKE_EVENT_BUS: !Ref EventBus
+          LASTTAKE_DSQL_ENDPOINT: !Sub "${Database}.dsql.${AWS::Region}.on.aws"
           LASTTAKE_BEDROCK_MODEL_ID: !Ref ModelId
           LASTTAKE_COMMIT_SHA: !Ref CommitSha
       Tags:
@@ -264,8 +297,13 @@ Outputs:
     Description: The URL a judge opens. No account, no install, no credential.
     Value: !Sub "https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com/"
   BucketName:
-    Description: Artifacts, run state, event log and Strands sessions.
+    Description: Artifacts, the event log and the Strands sessions.
     Value: !Ref DataBucket
+  DatabaseEndpoint:
+    Description: Aurora DSQL. Findings, decisions, packets, audit and the handled-event set.
+    Value: !Sub "${Database}.dsql.${AWS::Region}.on.aws"
+  DatabaseIdentifier:
+    Value: !Ref Database
   EventBusName:
     Value: !Ref EventBus
   DeployedSha:
