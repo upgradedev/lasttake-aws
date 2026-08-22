@@ -1,0 +1,33 @@
+{
+  "disclaimer": "SYNTHETIC. THE LAST FERRY is a fictional production. Every person, place, identifier and record below is invented for demonstration. No real production data and no real footage is referenced.",
+  "references": [
+    {
+      "beat_ids": [
+        "B-20",
+        "B-22",
+        "B-23"
+      ],
+      "established_state": "half full, no steam, handle turned to camera left",
+      "ref_id": "CR-01",
+      "subject": "enamel mug, contents"
+    },
+    {
+      "beat_ids": [
+        "B-05",
+        "B-06"
+      ],
+      "established_state": "collar up, left pocket torn at the seam",
+      "ref_id": "CR-02",
+      "subject": "MARA raincoat"
+    },
+    {
+      "beat_ids": [
+        "B-28",
+        "B-29"
+      ],
+      "established_state": "worn on the right wrist, face turned inward",
+      "ref_id": "CR-03",
+      "subject": "DELPHINE wristwatch"
+    }
+  ]
+}

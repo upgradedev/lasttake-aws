@@ -1,0 +1,65 @@
+{
+  "disclaimer": "SYNTHETIC. THE LAST FERRY is a fictional production. Every person, place, identifier and record below is invented for demonstration. No real production data and no real footage is referenced.",
+  "records": [
+    {
+      "document_type": "performer release",
+      "expires_on": null,
+      "record_id": "REL-001",
+      "scope": "all media",
+      "status": "executed",
+      "subject_id": "MARA",
+      "subject_kind": "person",
+      "territory": "worldwide"
+    },
+    {
+      "document_type": "performer release",
+      "expires_on": null,
+      "record_id": "REL-002",
+      "scope": "all media",
+      "status": "executed",
+      "subject_id": "DELPHINE",
+      "subject_kind": "person",
+      "territory": "worldwide"
+    },
+    {
+      "document_type": "background release",
+      "expires_on": null,
+      "record_id": "REL-003",
+      "scope": "all media",
+      "status": "executed",
+      "subject_id": "BG-01",
+      "subject_kind": "person",
+      "territory": "worldwide"
+    },
+    {
+      "document_type": "background release",
+      "expires_on": null,
+      "record_id": "REL-004",
+      "scope": "all media",
+      "status": "executed",
+      "subject_id": "BG-02",
+      "subject_kind": "person",
+      "territory": "worldwide"
+    },
+    {
+      "document_type": "property release",
+      "expires_on": null,
+      "record_id": "LIC-001",
+      "scope": "all media",
+      "status": "executed",
+      "subject_id": "PROP-ENAMEL-MUG",
+      "subject_kind": "asset",
+      "territory": "worldwide"
+    },
+    {
+      "document_type": "location signage licence",
+      "expires_on": "2031-01-01",
+      "record_id": "LIC-002",
+      "scope": "all media",
+      "status": "executed",
+      "subject_id": "SIGN-HARBOUR-TIMETABLE",
+      "subject_kind": "asset",
+      "territory": "worldwide"
+    }
+  ]
+}

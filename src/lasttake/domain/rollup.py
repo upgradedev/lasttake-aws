@@ -1,0 +1,217 @@
+"""The headline count, derived from evidence rather than asserted.
+
+One rule decides everything on this page:
+
+    A required beat is covered with evidence when at least one take covering it
+    is usable, reconciles with the camera report, carries no unresolved
+    continuity conflict, and every person and visible asset in it has a rights
+    record.
+
+Everything else is an exception, and the exception is named by whichever of
+those four conditions failed. The rule is deliberately one sentence, because
+the number it produces is the number a 1st AD acts on at 23:10 and a number
+nobody can restate from memory is a number nobody should act on.
+
+Note what the rule does not do. It does not mark a beat uncovered because
+*some* take of it has a problem. Coverage is satisfied by one good take, and a
+second take with a media identity mismatch is a real finding for the DIT
+without being a coverage failure. Conflating the two would report a scene as
+missing footage that is sitting on the card.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from enum import Enum
+
+from .findings import CheckType, Finding, TruthState
+from .package import ScenePackage, Take
+
+
+class BeatStatus(str, Enum):
+    COVERED = "covered_with_evidence"
+    NO_COVERAGE = "no_viable_coverage"
+    CONTINUITY_EXCEPTION = "continuity_exception"
+    NO_RELEASE_RECORD = "no_release_record"
+    MEDIA_EXCEPTION = "media_identity_exception"
+    NOT_ASSESSED = "not_assessed"
+
+
+@dataclass(frozen=True)
+class BeatOutcome:
+    beat_id: str
+    slug: str
+    status: BeatStatus
+    reason: str
+    evidence_take_id: str | None
+    blocking_finding_ids: tuple[str, ...]
+
+    def to_dict(self) -> dict:
+        return {
+            "beat_id": self.beat_id,
+            "slug": self.slug,
+            "status": self.status.value,
+            "reason": self.reason,
+            "evidence_take_id": self.evidence_take_id,
+            "blocking_finding_ids": list(self.blocking_finding_ids),
+        }
+
+
+class _Index:
+    """Findings arranged the way the rule below wants to ask about them."""
+
+    def __init__(self, findings: list[Finding]) -> None:
+        self.metadata: dict[str, Finding] = {}
+        self.rights: dict[str, Finding] = {}
+        self.coverage: dict[str, Finding] = {}
+        self.continuity_takes: dict[str, Finding] = {}
+        for finding in findings:
+            if finding.requirement_id is None:
+                continue
+            if finding.check_type is CheckType.METADATA:
+                self.metadata[finding.requirement_id] = finding
+            elif finding.check_type is CheckType.RIGHTS:
+                self.rights[finding.requirement_id] = finding
+            elif finding.check_type is CheckType.COVERAGE:
+                self.coverage[finding.requirement_id] = finding
+            elif finding.check_type is CheckType.CONTINUITY:
+                if finding.truth_state is TruthState.CONFLICTING:
+                    # A continuity conflict names the takes it is between. Those
+                    # takes, and only those, stop being viable evidence.
+                    for locator in finding.locators:
+                        if locator.kind == "take":
+                            self.continuity_takes[locator.value] = finding
+
+    def blocks(self, take: Take) -> tuple[str, list[str]]:
+        """Why this take cannot serve as evidence, or ``("", [])`` if it can."""
+        if not take.usable:
+            return "take marked unusable at capture", []
+
+        meta = self.metadata.get(take.take_id)
+        if meta is None:
+            return "no current media identity result for this take", []
+        if meta.truth_state is not TruthState.VERIFIED:
+            return (
+                f"media identity {meta.truth_state.value}",
+                [meta.finding_id],
+            )
+
+        conflict = self.continuity_takes.get(take.take_id)
+        if conflict is not None:
+            return ("continuity conflict cites this take", [conflict.finding_id])
+
+        for subject in list(take.visible_people) + list(take.visible_assets):
+            rights = self.rights.get(subject)
+            if rights is None:
+                return (f"no current rights result for {subject}", [])
+            if rights.truth_state is not TruthState.VERIFIED:
+                return (
+                    f"{subject}: rights record {rights.truth_state.value}",
+                    [rights.finding_id],
+                )
+        return "", []
+
+
+def _classify(reason: str) -> BeatStatus:
+    if "rights record" in reason or "no current rights result" in reason:
+        return BeatStatus.NO_RELEASE_RECORD
+    if "continuity" in reason:
+        return BeatStatus.CONTINUITY_EXCEPTION
+    if "media identity" in reason:
+        return BeatStatus.MEDIA_EXCEPTION
+    return BeatStatus.NO_COVERAGE
+
+
+def roll_up(package: ScenePackage, findings: list[Finding]) -> list[BeatOutcome]:
+    """One outcome per required beat, in script order."""
+    index = _Index(findings)
+    outcomes: list[BeatOutcome] = []
+
+    for beat in package.required_beats:
+        candidates = package.takes_for_beat(beat.beat_id)
+        if not candidates:
+            coverage = index.coverage.get(beat.beat_id)
+            outcomes.append(
+                BeatOutcome(
+                    beat_id=beat.beat_id,
+                    slug=beat.slug,
+                    status=BeatStatus.NO_COVERAGE,
+                    reason="no take covers this beat",
+                    evidence_take_id=None,
+                    blocking_finding_ids=(coverage.finding_id,) if coverage else (),
+                )
+            )
+            continue
+
+        blocked: list[tuple[str, list[str]]] = []
+        clean: Take | None = None
+        for take in candidates:
+            reason, finding_ids = index.blocks(take)
+            if not reason:
+                clean = take
+                break
+            blocked.append((reason, finding_ids))
+
+        if clean is not None:
+            outcomes.append(
+                BeatOutcome(
+                    beat_id=beat.beat_id,
+                    slug=beat.slug,
+                    status=BeatStatus.COVERED,
+                    reason=f"take {clean.take_id} is usable, reconciles and is cleared",
+                    evidence_take_id=clean.take_id,
+                    blocking_finding_ids=(),
+                )
+            )
+            continue
+
+        # Every candidate is blocked. Report the first reason, and gather every
+        # finding that contributed, so the supervisor sees the whole picture
+        # rather than one symptom of it.
+        first_reason = blocked[0][0]
+        all_ids: list[str] = []
+        for _reason, ids in blocked:
+            for fid in ids:
+                if fid not in all_ids:
+                    all_ids.append(fid)
+        outcomes.append(
+            BeatOutcome(
+                beat_id=beat.beat_id,
+                slug=beat.slug,
+                status=_classify(first_reason),
+                reason=first_reason,
+                evidence_take_id=None,
+                blocking_finding_ids=tuple(all_ids),
+            )
+        )
+    return outcomes
+
+
+def headline(outcomes: list[BeatOutcome]) -> dict:
+    """The five numbers a judge is told, produced by the pipeline that earned them."""
+    counted = {status: 0 for status in BeatStatus}
+    for outcome in outcomes:
+        counted[outcome.status] += 1
+    exceptions = (
+        counted[BeatStatus.NO_COVERAGE]
+        + counted[BeatStatus.CONTINUITY_EXCEPTION]
+        + counted[BeatStatus.MEDIA_EXCEPTION]
+    )
+    return {
+        "required_beats": len(outcomes),
+        "covered_with_evidence": counted[BeatStatus.COVERED],
+        "raising_exceptions": exceptions,
+        "without_release_record": counted[BeatStatus.NO_RELEASE_RECORD],
+        "not_assessed": counted[BeatStatus.NOT_ASSESSED],
+    }
+
+
+def sentence(outcomes: list[BeatOutcome]) -> str:
+    """The count as the 1st AD hears it, built from the same numbers."""
+    h = headline(outcomes)
+    return (
+        f"Of {h['required_beats']} required beats, "
+        f"{h['covered_with_evidence']} covered with evidence, "
+        f"{h['raising_exceptions']} raising exceptions with named sources, "
+        f"{h['without_release_record']} with no release record and routed to production."
+    )
