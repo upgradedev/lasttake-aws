@@ -95,14 +95,11 @@ Resources:
         - Key: project
           Value: lasttake
 
-  # Everything the orchestrator publishes, archived so a run can be replayed.
-  EventArchive:
-    Type: AWS::Events::Archive
-    Properties:
-      ArchiveName: !Sub "lasttake-archive-${AWS::AccountId}"
-      SourceArn: !GetAtt EventBus.Arn
-      RetentionDays: 90
-      Description: Every LastTake event, replayable for audit.
+  # There was an AWS::Events::Archive here. It was removed rather than widening
+  # the deploy identity to reach `archive/*`: every event is already written to
+  # S3 with its full envelope on the way to the bus, and `EventBridgeBus.replay`
+  # reads them back, which is what the audit view and the tests actually use.
+  # An archive would have added a permission for a capability we already have.
 
   LogGroup:
     Type: AWS::Logs::LogGroup
