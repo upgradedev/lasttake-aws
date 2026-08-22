@@ -54,7 +54,10 @@ plainly rather than reading silence as success.
 Be brief. The set is being struck around the person reading this."""
 
 
-class OfflineOrchestratorModel:
+from strands.models import Model as _StrandsModel
+
+
+class OfflineOrchestratorModel(_StrandsModel):
     """A deterministic stand-in for the planning model, for offline runs.
 
     It is not the model and does not pretend to be: ``model_id`` reports
@@ -76,8 +79,12 @@ class OfflineOrchestratorModel:
         "evaluate_wrap_eligibility",
     )
 
+    #: This planner keeps no server-side conversation state; the session
+    #: manager on the agent is what persists the run.
+    stateful = False
+
     def __init__(self, plan: tuple[str, ...] | None = None, **kwargs: Any) -> None:
-        self.plan = plan or self.SEQUENCE
+        self.plan = plan if plan is not None else self.SEQUENCE
         self._config: dict = dict(kwargs)
 
     @property

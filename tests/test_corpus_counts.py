@@ -75,7 +75,36 @@ def test_the_planted_continuity_conflict_names_both_takes(package, findings):
     )
     takes = [locator.value for locator in conflict.locators if locator.kind == "take"]
     assert len(takes) == 2
-    assert conflict.inference and "intentional" in conflict.inference
+    # Both notes are quoted on the face of the finding, so the supervisor can
+    # judge without opening anything.
+    assert "half full" in conflict.observation and "empty" in conflict.observation
+    assert "both flagged preferred" in conflict.observation
+    # And it recommends a decision rather than making one.
+    assert conflict.recommended_action and "Decide which take" in conflict.recommended_action
+
+
+def test_a_conflict_where_neither_take_matches_the_reference_reads_as_intentional():
+    """Drift from the reference on both sides is more likely a choice than an error."""
+    from lasttake.adapters.local.interpreter import OfflineInterpreter
+
+    opinion = OfflineInterpreter().compare_continuity(
+        subject="enamel mug",
+        established_state="half full, no steam, handle turned to camera left",
+        note_a="mug is open on the table",
+        note_b="mug is closed and stowed",
+    )
+    assert opinion.states_agree is False
+    assert opinion.possibly_intentional is True
+
+
+def test_a_missing_continuity_note_is_unknown_not_agreement():
+    from lasttake.adapters.local.interpreter import OfflineInterpreter
+
+    opinion = OfflineInterpreter().compare_continuity(
+        subject="enamel mug", established_state="half full", note_a="", note_b="mug empty"
+    )
+    assert opinion.states_agree is False
+    assert opinion.confidence < 0.6, "silence is insufficient evidence, not agreement"
 
 
 def test_the_planted_media_mismatch_does_not_make_its_beat_uncovered(package, findings):
