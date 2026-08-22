@@ -39,6 +39,10 @@ jobs:
               print("signature:", inspect.signature(ToolContext.interrupt))
           from strands.session import FileSessionManager
           print("FileSessionManager:", FileSessionManager)
+          # FileSessionManager is a local disk. Lambda /tmp is not durable across a
+          # 7.5 hour gap, so the hero only ports if a shared-storage manager exists.
+          import strands.session as s
+          print("session managers available:", [n for n in dir(s) if "SessionManager" in n])
           PY
 
       - name: 'process 1 of 2  --  run until the 1st AD is needed, then die'
