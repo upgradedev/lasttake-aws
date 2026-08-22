@@ -268,16 +268,32 @@ jobs:
           echo "=== between the two: force a new execution environment ==="
           # Lambda may reuse a warm container, and when it does the two requests
           # are served by one process, which proves nothing about surviving
-          # process death. Changing the function configuration retires every
-          # existing execution environment, so the approval below is guaranteed
-          # to run in a process that did not exist when the run stopped. This is
-          # the demo standing in for seven and a half hours passing.
+          # process death. Any configuration change retires every existing
+          # execution environment, so the approval below runs in a process that
+          # did not exist when the run stopped. This stands in for seven and a
+          # half hours passing.
+          #
+          # It changes the DESCRIPTION and nothing else, deliberately. The first
+          # version of this step passed `--environment`, which **replaces** the
+          # whole variable set rather than merging into it, and silently dropped
+          # `LASTTAKE_DSQL_ENDPOINT`. The function then ran on S3 while every
+          # other check still passed, and CloudFormation could not see the drift
+          # because it compares the template against its own stored state, not
+          # against reality. A test helper that rewrites deployed configuration
+          # is a configuration change wearing a costume.
           aws lambda update-function-configuration \
             --function-name "lasttake-api-${ACCOUNT_ID}" \
-            --environment "Variables={LASTTAKE_BUCKET=$BUCKET,LASTTAKE_EVENT_BUS=$BUS,LASTTAKE_BEDROCK_MODEL_ID=$MODEL,LASTTAKE_COMMIT_SHA=${{ github.sha }},LASTTAKE_COLD_MARKER=$(date +%s)}" \
+            --description "LastTake API. Cold start forced at $(date -u +%FT%TZ) to prove the resume crosses a process boundary." \
             --query 'LastUpdateStatus' --output text
           aws lambda wait function-updated-v2 --function-name "lasttake-api-${ACCOUNT_ID}"
           echo "every warm container has been retired"
+
+          # And prove it did not disturb anything, rather than assuming.
+          curl -sS "${URL}healthz" | grep -q '"run_state_store": "aurora-dsql"' || {
+            echo "forcing the cold start changed the deployed configuration. Stop."
+            exit 1
+          }
+          echo "configuration intact: run state is still on Aurora DSQL"
 
           echo
           echo "=== request 2 of 2: a separate invocation approves ==="
