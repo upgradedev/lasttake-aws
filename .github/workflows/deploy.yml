@@ -136,34 +136,38 @@ jobs:
             echo "stack is in ROLLBACK_COMPLETE from a failed first create; deleting it"
             aws cloudformation delete-stack --stack-name "$STACK"
             aws cloudformation wait stack-delete-complete --stack-name "$STACK"
+            STATUS=NONE
+          fi
 
-            # The data bucket carries DeletionPolicy: Retain, which is right when
-            # it holds an audit trail and wrong when a first create never got as
-            # far as writing one. A retained empty bucket then blocks the next
-            # create by name. Remove it ONLY when it is provably empty: zero
-            # versions and zero delete markers. A bucket with anything in it is
-            # left exactly where it is, and the deploy is allowed to fail
-            # instead, because a teardown that destroys evidence is not a
-            # teardown.
+          # The data bucket carries DeletionPolicy: Retain, which is right when it
+          # holds an audit trail and wrong when a first create never got as far as
+          # writing one. A retained bucket outlives the stack that made it, so
+          # this check is deliberately NOT nested inside the branch above: with no
+          # stack, any lasttake-data bucket is by definition an orphan.
+          #
+          # It is removed ONLY when provably empty: zero versions and zero delete
+          # markers. A bucket holding anything is left exactly where it is and the
+          # deploy fails instead, because a pipeline that deletes evidence to make
+          # itself go green is worse than a pipeline that stays red.
+          if [ "$STATUS" = "NONE" ]; then
             ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
             DATA="lasttake-data-${ACCOUNT}-${AWS_REGION}"
             if aws s3api head-bucket --bucket "$DATA" >/dev/null 2>&1; then
-              # Counted in two queries and added in the shell. JMESPath has no
-              # arithmetic, so the obvious one-liner is a runtime error rather
-              # than a syntax error, and it fails at exactly the wrong moment.
+              # Two queries added in the shell. JMESPath has no arithmetic, so the
+              # obvious one-liner is a runtime error, not a syntax error, and it
+              # surfaces at exactly the wrong moment.
               V=$(aws s3api list-object-versions --bucket "$DATA" \
                     --query "length(Versions || \`[]\`)" --output text)
               D=$(aws s3api list-object-versions --bucket "$DATA" \
                     --query "length(DeleteMarkers || \`[]\`)" --output text)
-              COUNT=$((V + D))
-              echo "$DATA holds $V version(s) and $D delete marker(s)"
-              if [ "$COUNT" = "0" ]; then
-                echo "removing the retained but empty $DATA so the create can proceed"
+              echo "orphaned $DATA holds $V version(s) and $D delete marker(s)"
+              if [ "$((V + D))" = "0" ]; then
+                echo "it is empty, so removing it lets the create proceed"
                 aws s3api delete-bucket --bucket "$DATA" --region "$AWS_REGION"
               else
-                echo "$DATA holds $COUNT object version(s) and is being left alone."
-                echo "Adopt it into the stack or empty it deliberately; this pipeline"
-                echo "will not delete an audit trail to make a deploy succeed."
+                echo "it is not empty and is being left alone. Adopt it into the"
+                echo "stack or empty it deliberately. This pipeline will not delete"
+                echo "an audit trail to make a deploy succeed."
                 exit 1
               fi
             fi
