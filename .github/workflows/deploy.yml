@@ -41,13 +41,36 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: aws-actions/configure-aws-credentials@v4
+      # Until the owner has run infra/setup_ci_identity.py there is nothing to
+      # deploy with. Say so and stop, rather than failing with a credentials
+      # error that reads like a defect in the build.
+      - name: are there credentials to deploy with
+        id: gate
+        env:
+          KEY: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        run: |
+          if [ -z "$KEY" ]; then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "## Deploy skipped: no AWS credentials yet"
+              echo ""
+              echo "Run \`python infra/setup_ci_identity.py\` once, then set"
+              echo "\`AWS_ACCESS_KEY_ID\` and \`AWS_SECRET_ACCESS_KEY\` as repository secrets."
+              echo "Nothing is broken; there is simply nothing to deploy with."
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - if: steps.gate.outputs.ready == 'true'
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: who am I, and what can I reach
+        if: steps.gate.outputs.ready == 'true'
         run: |
           aws sts get-caller-identity
           echo "--- anthropic models this account can invoke ---"
@@ -55,11 +78,13 @@ jobs:
             --query "inferenceProfileSummaries[?contains(inferenceProfileId,'anthropic')].inferenceProfileId" \
             --output text | tr '\t' '\n' | head -30
 
-      - uses: actions/setup-python@v5
+      - if: steps.gate.outputs.ready == 'true'
+        uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
       - name: build the deployment package
+        if: steps.gate.outputs.ready == 'true'
         run: |
           set -euo pipefail
           rm -rf build && mkdir -p build/pkg
@@ -79,6 +104,7 @@ jobs:
           ls -lh build/lasttake.zip
 
       - name: upload the package, content addressed
+        if: steps.gate.outputs.ready == 'true'
         id: code
         run: |
           set -euo pipefail
@@ -97,6 +123,7 @@ jobs:
           echo "key=$KEY" >> "$GITHUB_OUTPUT"
 
       - name: deploy the stack
+        if: steps.gate.outputs.ready == 'true'
         id: stack
         run: |
           set -euo pipefail
@@ -122,6 +149,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: the URL answers, and it is the commit we just built
+        if: steps.gate.outputs.ready == 'true'
         run: |
           set -euo pipefail
           URL="${{ steps.stack.outputs.url }}"
@@ -138,6 +166,7 @@ jobs:
       # Lambda invocations. The first stops the run at the 1st AD and ends. The
       # second, with no memory of the first, resumes it from S3.
       - name: 'the hero, on the deployed architecture'
+        if: steps.gate.outputs.ready == 'true'
         run: |
           set -euo pipefail
           URL="${{ steps.stack.outputs.url }}"
@@ -188,6 +217,7 @@ jobs:
           import json,sys; d=json.load(sys.stdin); print(d['headline']); print('affected:', d['affected_checks'])"
 
       - name: 'Bedrock, invoked for real from the deployed role'
+        if: steps.gate.outputs.ready == 'true'
         run: |
           set -euo pipefail
           aws bedrock-runtime converse \
@@ -197,6 +227,7 @@ jobs:
             --query '{reply:output.message.content[0].text,usage:usage}' --output json
 
       - name: what this costs when nobody is looking
+        if: steps.gate.outputs.ready == 'true'
         run: |
           echo "Lambda: billed per request. No requests, no charge."
           echo "Function URL: no hourly charge."
