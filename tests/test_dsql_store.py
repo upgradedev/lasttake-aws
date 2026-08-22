@@ -92,16 +92,34 @@ def test_every_table_declares_a_primary_key():
         assert "PRIMARY KEY" in statement.upper(), statement
 
 
+def _body_without_docstring(func) -> str:
+    """Source of a function with its docstring removed.
+
+    The first version of the transaction test below searched the whole source
+    and matched the word BEGIN inside the docstring that explains why BEGIN
+    must not be used. A test that fails on its own explanation is testing the
+    prose, not the code.
+    """
+    import ast
+    import textwrap
+
+    tree = ast.parse(textwrap.dedent(inspect.getsource(func)))
+    node = tree.body[0]
+    body = node.body[1:] if ast.get_docstring(node) else node.body
+    return "\n".join(ast.unparse(stmt) for stmt in body)
+
+
 def test_the_schema_is_applied_one_statement_at_a_time():
     """DSQL rejects several DDL statements in one transaction.
 
     The usual instinct is to wrap a migration in a transaction, and here that
     is exactly wrong. It fails only against a real cluster, so it is asserted
-    against the source instead.
+    against the code instead.
     """
-    source = inspect.getsource(DsqlRunStore.ensure_schema)
-    assert "BEGIN" not in source.upper()
-    assert "for statement in SCHEMA_STATEMENTS" in source
+    body = _body_without_docstring(DsqlRunStore.ensure_schema)
+    for control in ("BEGIN", "COMMIT", "ROLLBACK", "START TRANSACTION"):
+        assert control not in body.upper(), f"{control} is executed in ensure_schema"
+    assert "for statement in SCHEMA_STATEMENTS" in body
 
 
 def test_every_table_is_created_if_not_exists():
@@ -110,11 +128,32 @@ def test_every_table_is_created_if_not_exists():
         assert "CREATE TABLE IF NOT EXISTS" in statement.upper()
 
 
-def test_no_password_appears_anywhere_in_the_adapter():
-    """Authentication is IAM. A literal password would be a finding."""
-    source = inspect.getsource(__import__("lasttake.adapters.aws.dsql", fromlist=["x"]))
-    for suspicious in re.findall(r"password\s*=\s*([^\s,)]+)", source):
-        assert suspicious in {"self._token()", '"password"'}, suspicious
+def test_the_only_password_is_a_freshly_minted_iam_token():
+    """Authentication is IAM. A literal secret here would be a finding.
+
+    Asserted by parsing rather than by regex: the first version of this used
+    `[^\\s,)]+` and captured `self._token(` without its closing bracket, which
+    made a passing case look like a failure and would just as easily have made
+    a real literal look fine.
+    """
+    import ast
+
+    import lasttake.adapters.aws.dsql as module
+
+    tree = ast.parse(inspect.getsource(module))
+    passwords = [
+        kw.value
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        for kw in node.keywords
+        if kw.arg == "password"
+    ]
+    assert passwords, "expected the connection to pass a password argument"
+    for value in passwords:
+        assert not isinstance(value, ast.Constant), (
+            f"a literal password is present: {ast.unparse(value)}"
+        )
+        assert ast.unparse(value) == "self._token()", ast.unparse(value)
 
 
 def test_the_auth_token_is_short_lived():
