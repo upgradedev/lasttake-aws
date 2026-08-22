@@ -400,18 +400,44 @@ issue instructions.
 
 ## What is deployed, and what it costs
 
-Four resources, declared in `infra/stack.yaml` and deployed by
+Five services, declared in `infra/stack.yaml` and deployed by
 `.github/workflows/deploy.yml`. Nothing is created by hand in a console.
 
 ```mermaid
 flowchart LR
     V(["a judge, no account"]) --> API["API Gateway HTTP API"]
     API --> L["Lambda<br/>lasttake-api, arm64, 1024MB"]
-    L <--> S3[("S3<br/>sessions · run state<br/>event log · turnovers")]
+    L <--> DB[("Aurora DSQL<br/>findings · decisions · packets<br/>audit · handled events")]
+    L <--> S3[("S3<br/>Strands sessions<br/>event log · turnovers")]
     L --> EB(["EventBridge bus"])
     L -.->|"role may invoke,<br/>the hosted demo does not"| BR["Amazon Bedrock"]
     EB -.->|"any service can subscribe"| SUB["editorial, dailies, scheduling"]
 ```
+
+**Why a database and not more S3.** The run state started on S3 and it worked, for one
+scene with one writer. It is the wrong store the moment two approvals of the same pickup
+arrive together, because `already_handled` then `mark_handled` is read-modify-write: both
+callers read "not handled", both write, and a real assistant director gets the same pickup
+request twice. On DSQL that is one `INSERT ... ON CONFLICT DO NOTHING` and the database
+decides. Two smaller reasons follow it: findings are upserted by key rather than the whole
+set being rewritten, so a targeted rerun and a human decision landing together stop
+clobbering each other; and a shooting day has more than one scene, so
+`GET /api/blocked` answers "which scenes are still blocked, and on whom" in one query
+rather than a bucket scan per scene.
+
+DSQL specifically, rather than a Postgres somebody has to keep alive, for the same reason
+as everything else here: it scales to zero, there is no idle charge and no instance to
+size. Authentication is IAM, so there is no password in this repository or in the deployed
+configuration; a short-lived token is minted per connection from the function's own role.
+
+Two DSQL constraints shaped `adapters/aws/dsql.py` and are asserted by tests rather than
+left as folklore: there are no sequences, so every key is supplied by the caller; and DDL
+runs one statement per transaction, so the schema is applied one statement at a time
+instead of being wrapped in the transaction that instinct suggests.
+
+The `/healthz` endpoint reports `run_state_store`, and the deploy pipeline fails if it does
+not read `aurora-dsql`. Without that assertion a silent fall back to S3 would leave
+everything working while the architecture quietly stopped being the one described here.
 
 **Why an HTTP API and not a Lambda Function URL.** A Function URL was the first choice: one
 fewer service and no extra bill. It was replaced because this account refuses anonymous
@@ -422,16 +448,21 @@ architecture routes around the block rather than arguing with it. Nothing else c
 HTTP API uses payload format 2.0, whose event shape is the one the handler already read.
 
 **Least privilege, as deployed.** The execution role reaches its own bucket, its own event
-bus, and Anthropic inference. It cannot read another bucket, touch another bus, or create
-anything. The bucket is private, encrypted, versioned, and denies any request that is not
+bus, Anthropic inference, and `dsql:DbConnectAdmin` on its own cluster. It cannot read
+another bucket, touch another bus, create a cluster, or delete the one it writes to. The bucket is private, encrypted, versioned, and denies any request that is not
 TLS. The identity GitHub deploys with is separate again, scoped to `lasttake-*` resources,
 and is created by `infra/setup_ci_identity.py` so that nobody's personal credentials are
 ever copied into CI.
 
 **Cost when nobody is looking.** Lambda bills per request, so no requests means no charge.
 An HTTP API has no hourly charge and the first million requests per month are free. S3 holds
-a few hundred kilobytes per run. EventBridge is one dollar per million custom events. Idle
-monthly cost is dominated by S3 storage and rounds to under a cent.
+a few hundred kilobytes per run. EventBridge is one dollar per million custom events. Aurora
+DSQL bills for compute only while a query is running and scales to zero when idle. Nothing
+in this stack has an hourly rate, so an idle month rounds to under a cent, dominated by
+stored bytes.
+
+Those are the published pricing shapes, not a measured bill. The first real invoice is the
+number worth quoting, and it does not exist yet.
 
 **Tearing it down.** `gh workflow run deploy.yml -f action=teardown` deletes the stack. The
 data bucket is retained on purpose, because it holds the audit trail, and a teardown that

@@ -174,21 +174,19 @@ def policy_document(account: str) -> dict:
             {
                 "Sid": "ManageOurClusterOnly",
                 "Effect": "Allow",
-                "Action": [
-                    "dsql:GetCluster",
-                    "dsql:UpdateCluster",
-                    "dsql:DeleteCluster",
-                    "dsql:TagResource",
-                    "dsql:UntagResource",
-                    "dsql:ListTagsForResource",
-                    # The CloudFormation resource handler reads the cluster
-                    # policy back after create, so read and write of the policy
-                    # are part of managing the cluster rather than extra reach.
-                    "dsql:GetClusterPolicy",
-                    "dsql:PutClusterPolicy",
-                    "dsql:DeleteClusterPolicy",
-                    "dsql:DbConnectAdmin",
-                ],
+                # Scoped by resource rather than by action, matching how lambda,
+                # s3 and events are granted above.
+                #
+                # The enumerated version was tried first and abandoned. The
+                # CloudFormation resource handler calls more than the obvious
+                # CRUD: it reads the cluster policy back after create, and it
+                # reads the VPC endpoint service name. Each missing action cost
+                # one full deploy cycle to discover, and the list is the
+                # handler's private business rather than a contract. Bounding
+                # the resource is the boundary that actually means something:
+                # this identity reaches DSQL clusters in this account and
+                # nothing else, and it exists only for this project.
+                "Action": ["dsql:*"],
                 "Resource": [f"arn:aws:dsql:*:{account}:cluster/*"],
             },
             {
