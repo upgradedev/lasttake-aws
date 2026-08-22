@@ -109,6 +109,19 @@ CONTINUITY = [
     },
 ]
 
+#: Notes on the preferred take of every beat a continuity reference spans.
+#: B-20, B-22 and B-23 belong to CR-01, the mug, and B-23's pair is overwritten
+#: below with the two notes that disagree. Everything else matches its
+#: established state, so exactly one conflict survives.
+CONTINUITY_NOTES = {
+    "B-05": "Collar up, left pocket torn at the seam.",
+    "B-06": "Collar up, torn pocket, hand goes straight through.",
+    "B-20": "Mug half full, no steam, handle to camera left.",
+    "B-22": "Mug half full, handle still camera left.",
+    "B-28": "Watch on the right wrist, face turned inward.",
+    "B-29": "Watch on the right wrist, inward as established.",
+}
+
 RIGHTS = [
     ("REL-001", "MARA", "person", "performer release", "all media", "worldwide", None, "executed"),
     ("REL-002", "DELPHINE", "person", "performer release", "all media", "worldwide", None, "executed"),
@@ -178,7 +191,11 @@ def build_takes() -> tuple[list[dict], list[dict], dict[str, str]]:
                 assets = assets + ["SIGN-HARBOUR-TIMETABLE"]
 
             preferred = repeat == 0
-            note = ""
+            # A supervisor writes a note on any take that carries a continuity
+            # reference. Where there is no note the check returns "unknown"
+            # rather than reading silence as agreement, which is correct but
+            # would bury the one conflict this corpus is built to show.
+            note = CONTINUITY_NOTES.get(beat_id, "") if preferred else ""
             takes.append(
                 {
                     "take_id": take_id,
