@@ -246,6 +246,21 @@ jobs:
           "
 
           echo
+          echo "=== between the two: force a new execution environment ==="
+          # Lambda may reuse a warm container, and when it does the two requests
+          # are served by one process, which proves nothing about surviving
+          # process death. Changing the function configuration retires every
+          # existing execution environment, so the approval below is guaranteed
+          # to run in a process that did not exist when the run stopped. This is
+          # the demo standing in for seven and a half hours passing.
+          aws lambda update-function-configuration \
+            --function-name "lasttake-api-${ACCOUNT_ID}" \
+            --environment "Variables={LASTTAKE_BUCKET=$BUCKET,LASTTAKE_EVENT_BUS=$BUS,LASTTAKE_BEDROCK_MODEL_ID=$MODEL,LASTTAKE_COMMIT_SHA=${{ github.sha }},LASTTAKE_COLD_MARKER=$(date +%s)}" \
+            --query 'LastUpdateStatus' --output text
+          aws lambda wait function-updated-v2 --function-name "lasttake-api-${ACCOUNT_ID}"
+          echo "every warm container has been retired"
+
+          echo
           echo "=== request 2 of 2: a separate invocation approves ==="
           R2=$(curl -sS -X POST "${URL}api/approve" -H 'content-type: application/json' \
                  -d "{\"run_id\":\"$RUN\",\"interrupt_id\":\"$(cat /tmp/pending)\",\"approve\":true}")
@@ -255,10 +270,16 @@ jobs:
           print(d['message'])
           assert 'Pickup approved' in d['message'], d['message']
           c1=open('/tmp/c1').read(); c2=d['served_by']['container_id']
-          print('container on request 1:', c1)
-          print('container on request 2:', c2)
-          print('same container' if c1==c2 else 'DIFFERENT container, so a different process entirely')
-          print('The run was rebuilt from S3 either way; nothing was held in memory between the two.')
+          print('container that stopped the run: ', c1)
+          print('container that resumed it:      ', c2)
+          assert c1 != c2, (
+              'the approval was served by the same container, so this run does not '
+              'demonstrate crossing a process boundary'
+          )
+          print()
+          print('Different containers. The process that stopped the run at the 1st AD no')
+          print('longer existed when the approval arrived, and the run continued from the')
+          print('same point because it was rebuilt from S3.')
           "
 
           echo
