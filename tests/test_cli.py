@@ -82,7 +82,7 @@ def test_a_late_take_reruns_only_the_affected_checks(work, capsys):
     assert "Affected checks: coverage, continuity, metadata, rights" in out
     assert "Reran 2 check(s)" in out
     assert "32 covered with evidence" in out
-    assert "B-17" not in out.split("Of 34")[1][:400] or "no_viable_coverage" not in out
+    assert "no_viable_coverage" not in out, "B-17 is covered once the pickup lands"
 
 
 def test_supplying_the_release_clears_the_rights_exception(work, capsys):

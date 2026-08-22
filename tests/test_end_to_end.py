@@ -106,15 +106,13 @@ def test_a_declined_pickup_routes_nothing(run, tmp_path):
 
 
 def test_the_turnover_refuses_to_publish_without_a_human_approval(run, tmp_path):
-    from lasttake.agents.tools import build_tools
+    from lasttake.cli import last_tool_result
 
-    tools = {t.tool_name if hasattr(t, "tool_name") else t.__name__: t for t in build_tools(run)}
     agent = build_orchestrator(run, session_dir=tmp_path / "sessions")
     agent("Run the wrap checkpoint.")
+    agent("Publish the turnover.")
 
-    result = agent("Publish the turnover.")
-    text = str(result)
-    assert "Refusing" in text or "refus" in text.lower()
+    assert "Refusing" in last_tool_result(agent)
     assert not any(e["event_type"] == "turnover.generated" for e in run.bus.replay())
 
 
@@ -208,17 +206,22 @@ def test_the_full_loop_reaches_a_verifiable_turnover(run, tmp_path):
     )
 
     # 4. The gate, then the 1st AD, then the turnover.
-    agent = build_orchestrator(run, session_dir=sessions, plan=("evaluate_wrap_eligibility",))
+    # A new checkpoint after the pickup and the release is a new run, so it gets
+    # its own session. Reusing the first one would restore a transcript in which
+    # the gate had already been called, and the agent would correctly decline to
+    # call it twice.
+    sessions2 = tmp_path / "sessions-after"
+    agent = build_orchestrator(run, session_dir=sessions2, plan=("evaluate_wrap_eligibility",))
     agent("Evaluate eligibility.")
     packet = run.load_packet()
     assert packet["eligible"] is True, packet["causes"]
 
-    result = agent("Ask the 1st AD to approve the wrap.")
+    result = agent("Ask the 1st AD for wrap approval.")
     assert result.stop_reason == "interrupt"
     interrupt = list(result.interrupts)[0]
     assert "not a statement that the scene is legally cleared" in interrupt.reason["note"]
 
-    build_orchestrator(run, session_dir=sessions, plan=())(
+    build_orchestrator(run, session_dir=sessions2, plan=())(
         [{"interruptResponse": {"interruptId": interrupt.id, "response": "y"}}]
     )
     assert run.wrap_approved()

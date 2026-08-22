@@ -83,6 +83,23 @@ def _banner(text: str) -> None:
     print(f"\n{'=' * 72}\n{text}\n{'=' * 72}", flush=True)
 
 
+def last_tool_result(agent) -> str:
+    """The most recent tool's own words.
+
+    ``str(result)`` is the planner's summary. What the 1st AD needs to see is
+    what the tool actually did, including the receipt, so that is what gets
+    printed rather than a paraphrase of it.
+    """
+    latest = ""
+    for message in agent.messages:
+        for block in message.get("content", []):
+            if isinstance(block, dict) and "toolResult" in block:
+                for inner in block["toolResult"].get("content", []):
+                    if isinstance(inner, dict) and "text" in inner:
+                        latest = inner["text"]
+    return latest
+
+
 def _report_interrupt(result) -> Optional[str]:
     """Print what the run is waiting for, and return the interrupt id."""
     interrupts = list(getattr(result, "interrupts", []) or [])
@@ -176,7 +193,9 @@ def cmd_approve(args) -> int:
         return 1
 
     result = agent([{"interruptResponse": {"interruptId": pending, "response": answer}}])
-    print("\n" + str(result))
+    outcome = last_tool_result(agent)
+    if outcome:
+        print(f"\n{outcome}")
 
     if result.stop_reason == "interrupt":
         _report_interrupt(result)
