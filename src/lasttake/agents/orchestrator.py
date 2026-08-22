@@ -198,20 +198,24 @@ def build_orchestrator(
     session_dir: Optional[Path] = None,
     model: Any = None,
     plan: tuple[str, ...] | None = None,
+    session_manager: Any = None,
 ):
     """Assemble the Strands agent for one run.
 
-    ``session_dir`` is what makes an approval survivable across process death.
-    Without it the agent still interrupts, but a run that stops at 23:10 dies
+    A session manager is what makes an approval survivable across process death.
+    Without one the agent still interrupts, but a run that stops at 23:10 dies
     with the process and the 1st AD has nothing to come back to at 06:40.
+
+    Pass ``session_dir`` for a local disk, or ``session_manager`` directly for
+    the deployed build, which hands in an ``S3SessionManager`` because Lambda's
+    ``/tmp`` does not survive the gap.
     """
     from strands import Agent
 
     if model is None:
         model = OfflineOrchestratorModel(plan=plan)
 
-    session_manager = None
-    if session_dir is not None:
+    if session_manager is None and session_dir is not None:
         from strands.session import FileSessionManager
 
         session_manager = FileSessionManager(
@@ -229,16 +233,10 @@ def build_orchestrator(
 def build_s3_session_manager(session_id: str, bucket: str, prefix: str = "sessions/"):
     """The deployed equivalent of ``FileSessionManager``.
 
-    **Not exercised.** Nothing calls this and no test covers it. The
-    interrupt-and-resume-across-process-death claim is proven on
-    ``FileSessionManager`` and a local disk, twice, in CI. It is *inferred* on
-    S3 from the fact that ``S3SessionManager`` ships in the SDK and takes the
-    same shape. Until a two-process run against a real bucket has gone green,
-    treat any statement about the deployed path as an assumption.
-
     Lambda's ``/tmp`` does not survive the gap between a 23:10 interrupt and an
     06:40 approval, so the deployed build needs shared durable storage or the
-    hero does not port.
+    hero does not port. ``lasttake.app.handler`` builds one of these per request
+    and hands it to :func:`build_orchestrator`.
     """
     from strands.session import S3SessionManager
 

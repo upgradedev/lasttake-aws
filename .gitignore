@@ -19,3 +19,8 @@ cdk.out/
 .terraform/
 *.tfstate
 *.tfstate.*
+
+# deploy artefacts and the CI identity key, never committed
+build/
+lasttake-ci-key.json
+.lasttake/
