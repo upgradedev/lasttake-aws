@@ -181,6 +181,12 @@ def policy_document(account: str) -> dict:
                     "dsql:TagResource",
                     "dsql:UntagResource",
                     "dsql:ListTagsForResource",
+                    # The CloudFormation resource handler reads the cluster
+                    # policy back after create, so read and write of the policy
+                    # are part of managing the cluster rather than extra reach.
+                    "dsql:GetClusterPolicy",
+                    "dsql:PutClusterPolicy",
+                    "dsql:DeleteClusterPolicy",
                     "dsql:DbConnectAdmin",
                 ],
                 "Resource": [f"arn:aws:dsql:*:{account}:cluster/*"],
