@@ -1,0 +1,68 @@
+name: spike-strands-interrupt
+
+# Proves, or disproves, the one capability the whole AWS story rests on:
+# a Strands interrupt that survives process death and resumes with restored
+# state. Two separate `run:` steps means two separate OS processes. Step 3 is
+# the proof that the gate can fail.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [spike/strands-interrupt]
+
+jobs:
+  interrupt-across-process-death:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: install strands and pin the version under test
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install strands-agents
+          echo "--- version under test ---"
+          python -m pip show strands-agents | head -3
+          python -c "import strands, sys; print('python', sys.version); print('strands from', strands.__file__)"
+
+      - name: probe the interrupt API surface before relying on it
+        run: |
+          python - <<'PY'
+          import inspect
+          import strands
+          from strands.types.tools import ToolContext
+          print("ToolContext.interrupt exists:", hasattr(ToolContext, "interrupt"))
+          if hasattr(ToolContext, "interrupt"):
+              print("signature:", inspect.signature(ToolContext.interrupt))
+          from strands.session import FileSessionManager
+          print("FileSessionManager:", FileSessionManager)
+          PY
+
+      - name: 'process 1 of 2  --  run until the 1st AD is needed, then die'
+        run: python spike/interrupt_spike.py start --store "$RUNNER_TEMP/session"
+
+      - name: show what survived on disk between the two processes
+        run: |
+          find "$RUNNER_TEMP/session" -type f | sort
+          echo "--- bytes ---"
+          du -sb "$RUNNER_TEMP/session"
+
+      - name: 'process 2 of 2  --  a new process approves and resumes'
+        run: python spike/interrupt_spike.py approve --store "$RUNNER_TEMP/session"
+
+      - name: 'negative control  --  wipe the session, resume must FAIL'
+        run: |
+          cp "$RUNNER_TEMP/session/handoff.json" "$RUNNER_TEMP/handoff.json"
+          rm -rf "$RUNNER_TEMP/session"
+          mkdir -p "$RUNNER_TEMP/session"
+          cp "$RUNNER_TEMP/handoff.json" "$RUNNER_TEMP/session/handoff.json"
+          if python spike/interrupt_spike.py approve --store "$RUNNER_TEMP/session"; then
+            echo "NEGATIVE CONTROL FAILED: resume succeeded with no session on disk."
+            echo "That means the earlier pass proved nothing about persistence."
+            exit 1
+          else
+            echo "NEGATIVE CONTROL HELD: with the session wiped, resume fails."
+          fi
