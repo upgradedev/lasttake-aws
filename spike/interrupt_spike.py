@@ -56,6 +56,9 @@ class ScriptedModel(Model):
     def get_config(self) -> Any:
         return {}
 
+    async def structured_output(self, output_model: Any, prompt: Any = None, **kwargs: Any) -> Any:
+        raise NotImplementedError("the spike never asks for structured output")
+
     async def stream(
         self,
         messages: Any,
