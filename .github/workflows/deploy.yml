@@ -127,6 +127,16 @@ jobs:
         id: stack
         run: |
           set -euo pipefail
+          # A stack that failed on its very first create sits in ROLLBACK_COMPLETE
+          # and cannot be updated, only replaced. Delete it so a corrected
+          # template deploys without a human opening the console.
+          STATUS=$(aws cloudformation describe-stacks --stack-name "$STACK" \
+                     --query "Stacks[0].StackStatus" --output text 2>/dev/null || echo NONE)
+          if [ "$STATUS" = "ROLLBACK_COMPLETE" ]; then
+            echo "stack is in ROLLBACK_COMPLETE from a failed first create; deleting it"
+            aws cloudformation delete-stack --stack-name "$STACK"
+            aws cloudformation wait stack-delete-complete --stack-name "$STACK"
+          fi
           aws cloudformation deploy \
             --template-file infra/stack.yaml \
             --stack-name "$STACK" \
