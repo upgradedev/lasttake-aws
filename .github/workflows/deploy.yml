@@ -136,6 +136,31 @@ jobs:
             echo "stack is in ROLLBACK_COMPLETE from a failed first create; deleting it"
             aws cloudformation delete-stack --stack-name "$STACK"
             aws cloudformation wait stack-delete-complete --stack-name "$STACK"
+
+            # The data bucket carries DeletionPolicy: Retain, which is right when
+            # it holds an audit trail and wrong when a first create never got as
+            # far as writing one. A retained empty bucket then blocks the next
+            # create by name. Remove it ONLY when it is provably empty: zero
+            # versions and zero delete markers. A bucket with anything in it is
+            # left exactly where it is, and the deploy is allowed to fail
+            # instead, because a teardown that destroys evidence is not a
+            # teardown.
+            ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+            DATA="lasttake-data-${ACCOUNT}-${AWS_REGION}"
+            if aws s3api head-bucket --bucket "$DATA" 2>/dev/null; then
+              COUNT=$(aws s3api list-object-versions --bucket "$DATA" \
+                        --query "length(Versions || \`[]\`) + length(DeleteMarkers || \`[]\`)" \
+                        --output text)
+              if [ "$COUNT" = "0" ]; then
+                echo "removing the retained but empty $DATA so the create can proceed"
+                aws s3api delete-bucket --bucket "$DATA" --region "$AWS_REGION"
+              else
+                echo "$DATA holds $COUNT object version(s) and is being left alone."
+                echo "Adopt it into the stack or empty it deliberately; this pipeline"
+                echo "will not delete an audit trail to make a deploy succeed."
+                exit 1
+              fi
+            fi
           fi
           aws cloudformation deploy \
             --template-file infra/stack.yaml \
