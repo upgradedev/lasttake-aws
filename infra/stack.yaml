@@ -1,0 +1,231 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  LastTake. Pre-wrap shoot-day assurance. One Lambda behind a Function URL, one
+  bucket holding artifacts, run state, the event log and the Strands sessions,
+  and one EventBridge bus. Nothing runs when nobody is looking.
+
+Parameters:
+  CodeBucket:
+    Type: String
+    Description: Bucket holding the deployment zip. Created by the deploy workflow.
+  CodeKey:
+    Type: String
+    Description: Key of the deployment zip, content addressed so a redeploy is a new key.
+  CommitSha:
+    Type: String
+    Default: unknown
+    Description: The commit this build came from. Reported by the API so the deployed SHA is checkable against the repo head.
+  ModelId:
+    Type: String
+    Default: global.anthropic.claude-sonnet-5
+    Description: Bedrock model or inference profile. Verify with `lasttake doctor --bedrock` before changing.
+
+Resources:
+
+  # Artifacts, run state, the event log and the Strands sessions.
+  #
+  # The sessions prefix is the one that matters. A run that stops at 23:10 and
+  # resumes at 06:40 crosses a process boundary, and on Lambda /tmp does not
+  # survive that gap. This bucket is what makes the pause survivable.
+  DataBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: !Sub "lasttake-data-${AWS::AccountId}-${AWS::Region}"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      VersioningConfiguration:
+        # Findings cite source digests. Versioning means a record that was
+        # overwritten can still be produced, which is the difference between an
+        # audit trail and a claim about one.
+        Status: Enabled
+      LifecycleConfiguration:
+        Rules:
+          - Id: expire-demo-runs
+            Status: Enabled
+            Prefix: runs/
+            ExpirationInDays: 90
+          - Id: expire-demo-sessions
+            Status: Enabled
+            Prefix: sessions/
+            ExpirationInDays: 90
+          - Id: drop-old-versions
+            Status: Enabled
+            NoncurrentVersionExpirationInDays: 30
+      Tags:
+        - Key: project
+          Value: lasttake
+
+  # Deny anything that is not TLS. The bucket holds names of people in a
+  # fictional production, and it should behave as if they were real.
+  DataBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref DataBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: DenyInsecureTransport
+            Effect: Deny
+            Principal: "*"
+            Action: "s3:*"
+            Resource:
+              - !GetAtt DataBucket.Arn
+              - !Sub "${DataBucket.Arn}/*"
+            Condition:
+              Bool:
+                "aws:SecureTransport": "false"
+
+  # The bus the checkpoint, findings, approvals and turnover are published onto.
+  # Another service can subscribe without this application knowing, which is
+  # what makes the event claim real rather than decorative.
+  EventBus:
+    Type: AWS::Events::EventBus
+    Properties:
+      Name: !Sub "lasttake-${AWS::AccountId}"
+      Tags:
+        - Key: project
+          Value: lasttake
+
+  # Everything the orchestrator publishes, archived so a run can be replayed.
+  EventArchive:
+    Type: AWS::Events::Archive
+    Properties:
+      ArchiveName: !Sub "lasttake-archive-${AWS::AccountId}"
+      SourceArn: !GetAtt EventBus.Arn
+      RetentionDays: 90
+      Description: Every LastTake event, replayable for audit.
+
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/lasttake-api-${AWS::AccountId}"
+      RetentionInDays: 30
+
+  # Least privilege in practice. The function can write its own bucket, put
+  # events on its own bus, and invoke Anthropic models. It cannot read another
+  # bucket, cannot touch another bus, and cannot create anything.
+  FunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "lasttake-api-role-${AWS::Region}"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: lasttake-runtime
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: OwnBucketOnly
+                Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:DeleteObject
+                  - s3:ListBucket
+                  - s3:GetObjectVersion
+                Resource:
+                  - !GetAtt DataBucket.Arn
+                  - !Sub "${DataBucket.Arn}/*"
+              - Sid: OwnBusOnly
+                Effect: Allow
+                Action: events:PutEvents
+                Resource: !GetAtt EventBus.Arn
+              - Sid: DescribeOwnBus
+                Effect: Allow
+                Action: events:DescribeEventBus
+                Resource: !GetAtt EventBus.Arn
+              - Sid: BedrockInferenceOnly
+                Effect: Allow
+                Action:
+                  - bedrock:InvokeModel
+                  - bedrock:InvokeModelWithResponseStream
+                  - bedrock:Converse
+                  - bedrock:ConverseStream
+                Resource:
+                  - "arn:aws:bedrock:*::foundation-model/anthropic.*"
+                  - !Sub "arn:aws:bedrock:*:${AWS::AccountId}:inference-profile/*"
+              - Sid: OwnLogsOnly
+                Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !Sub "${LogGroup.Arn}:*"
+      Tags:
+        - Key: project
+          Value: lasttake
+
+  ApiFunction:
+    Type: AWS::Lambda::Function
+    DependsOn: LogGroup
+    Properties:
+      FunctionName: !Sub "lasttake-api-${AWS::AccountId}"
+      Description: LastTake pre-wrap checkpoint API and demo page.
+      Runtime: python3.12
+      Architectures: [arm64]
+      Handler: lasttake.app.handler.handler
+      Role: !GetAtt FunctionRole.Arn
+      Code:
+        S3Bucket: !Ref CodeBucket
+        S3Key: !Ref CodeKey
+      # Generous because a checkpoint runs 80-odd checks. Well under the
+      # Function URL ceiling, and nothing is billed while it sits idle.
+      Timeout: 120
+      MemorySize: 1024
+      LoggingConfig:
+        LogGroup: !Ref LogGroup
+      Environment:
+        Variables:
+          LASTTAKE_BUCKET: !Ref DataBucket
+          LASTTAKE_EVENT_BUS: !Ref EventBus
+          LASTTAKE_BEDROCK_MODEL_ID: !Ref ModelId
+          LASTTAKE_COMMIT_SHA: !Ref CommitSha
+      Tags:
+        - Key: project
+          Value: lasttake
+
+  # A Function URL rather than API Gateway. One less service to explain, one
+  # less thing to bill, and a judge needs a URL, not a REST API product.
+  FunctionUrl:
+    Type: AWS::Lambda::Url
+    Properties:
+      TargetFunctionArn: !GetAtt ApiFunction.Arn
+      AuthType: NONE
+      Cors:
+        AllowOrigins: ["*"]
+        AllowMethods: [GET, POST]
+        AllowHeaders: [content-type]
+
+  UrlPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt ApiFunction.Arn
+      Action: lambda:InvokeFunctionUrl
+      Principal: "*"
+      FunctionUrlAuthType: NONE
+
+Outputs:
+  LiveUrl:
+    Description: The URL a judge opens. No account, no install, no credential.
+    Value: !GetAtt FunctionUrl.FunctionUrl
+  BucketName:
+    Description: Artifacts, run state, event log and Strands sessions.
+    Value: !Ref DataBucket
+  EventBusName:
+    Value: !Ref EventBus
+  DeployedSha:
+    Description: Compare against the repository head before recording anything.
+    Value: !Ref CommitSha

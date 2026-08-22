@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LastTake — pre-wrap assurance</title>
+<style>
+  :root{
+    --bg:#0e1013; --panel:#161a1f; --line:#252b33; --ink:#e8eaed; --dim:#98a1ad;
+    --amber:#e2a33c; --green:#5bbd7a; --red:#e0656a; --blue:#6ba7d8;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+  a{color:var(--blue)}
+  .wrap{max-width:1120px;margin:0 auto;padding:24px 20px 80px}
+  header{border-bottom:1px solid var(--line);padding-bottom:18px;margin-bottom:22px}
+  .slate{display:inline-flex;align-items:center;gap:10px;font-family:var(--mono);
+         font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}
+  .slate b{color:var(--amber);letter-spacing:.2em}
+  h1{margin:10px 0 6px;font-size:27px;letter-spacing:-.4px;font-weight:600}
+  .lede{color:var(--dim);max-width:74ch;margin:0}
+  .synthetic{margin-top:12px;display:inline-block;font-size:12px;color:var(--amber);
+    border:1px solid rgba(226,163,60,.35);background:rgba(226,163,60,.08);
+    padding:3px 9px;border-radius:99px}
+  .grid{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:20px}
+  @media(max-width:880px){.grid{grid-template-columns:1fr}}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin-bottom:16px}
+  .panel h2{margin:0 0 10px;font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);font-weight:600}
+  button{font:inherit;font-size:14px;border-radius:7px;padding:9px 14px;cursor:pointer;
+    border:1px solid var(--line);background:#1d232a;color:var(--ink);width:100%;text-align:left;margin-bottom:8px}
+  button:hover:not(:disabled){border-color:#39424e;background:#222932}
+  button:disabled{opacity:.35;cursor:not-allowed}
+  button .k{display:block;font-family:var(--mono);font-size:11px;color:var(--dim);margin-top:2px}
+  button.go{border-color:rgba(226,163,60,.5);background:rgba(226,163,60,.12)}
+  button.ok{border-color:rgba(91,189,122,.5);background:rgba(91,189,122,.12)}
+  .count{font-size:19px;line-height:1.45;margin:0}
+  .count .n{font-family:var(--mono);font-weight:700}
+  .n.good{color:var(--green)} .n.warn{color:var(--amber)} .n.bad{color:var(--red)}
+  .msg{color:var(--dim);font-size:14px;margin:10px 0 0;white-space:pre-wrap}
+  table{width:100%;border-collapse:collapse;font-size:13.5px}
+  th{text-align:left;color:var(--dim);font-weight:600;font-size:11px;letter-spacing:.08em;
+     text-transform:uppercase;padding:6px 8px;border-bottom:1px solid var(--line)}
+  td{padding:8px;border-bottom:1px solid #1c2127;vertical-align:top}
+  .pill{display:inline-block;font-family:var(--mono);font-size:11px;padding:2px 7px;border-radius:5px;white-space:nowrap}
+  .verified{background:rgba(91,189,122,.14);color:var(--green)}
+  .missing{background:rgba(224,101,106,.14);color:var(--red)}
+  .conflicting{background:rgba(226,163,60,.14);color:var(--amber)}
+  .unknown{background:rgba(107,167,216,.14);color:var(--blue)}
+  code,.mono{font-family:var(--mono);font-size:12.5px}
+  .src{color:var(--dim);font-size:12px;margin-top:5px}
+  .await{border:1px solid rgba(226,163,60,.45);background:rgba(226,163,60,.08);
+    border-radius:10px;padding:16px 18px;margin-bottom:16px}
+  .await h3{margin:0 0 6px;font-size:15px;color:var(--amber)}
+  .await p{margin:0 0 12px;color:var(--dim);font-size:14px}
+  .row{display:flex;gap:8px}.row button{width:auto}
+  .served{font-family:var(--mono);font-size:11px;color:var(--dim);border-top:1px solid var(--line);
+    margin-top:14px;padding-top:10px;line-height:1.7}
+  .served b{color:var(--ink)}
+  .ev{font-family:var(--mono);font-size:12px;color:var(--dim);padding:3px 0}
+  .ev b{color:var(--ink);font-weight:500}
+  .spin{display:inline-block;width:11px;height:11px;border:2px solid var(--line);
+    border-top-color:var(--amber);border-radius:50%;animation:s .7s linear infinite;vertical-align:-1px}
+  @keyframes s{to{transform:rotate(360deg)}}
+  details{margin-top:8px}summary{cursor:pointer;color:var(--dim);font-size:13px}
+  pre{background:#101317;border:1px solid var(--line);border-radius:7px;padding:11px;
+      overflow:auto;max-height:340px;font-size:11.5px;margin:8px 0 0}
+  .note{color:var(--dim);font-size:12.5px;margin-top:8px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div class="slate">
+    <b>LastTake</b><span id="slateScene">SC-042 · THE LAST FERRY</span>
+  </div>
+  <h1>Before you wrap the set, know whether you truly have the scene.</h1>
+  <p class="lede">
+    It checks every required beat against the takes actually captured before the crew is
+    released, so a missing shot costs fifteen minutes instead of a pickup day.
+  </p>
+  <span class="synthetic">Synthetic data. Fictional production, invented people, no footage.</span>
+</header>
+
+<div class="grid">
+  <main>
+    <div class="panel">
+      <h2>The count the 1st AD acts on</h2>
+      <p class="count" id="count">Run the checkpoint to produce it.</p>
+      <p class="msg" id="msg"></p>
+      <div class="served" id="served"></div>
+    </div>
+
+    <div id="awaitBox"></div>
+
+    <div class="panel" id="excPanel" style="display:none">
+      <h2>Exceptions, with the source each one came from</h2>
+      <table><thead><tr><th>What</th><th>State</th><th>Goes to</th></tr></thead>
+      <tbody id="excBody"></tbody></table>
+      <p class="note">
+        Four truth states, and three of them are exceptions. There is no “pass”: absent
+        evidence is a finding, never a silent success.
+      </p>
+    </div>
+
+    <div class="panel" id="beatPanel" style="display:none">
+      <h2>All 34 required beats</h2>
+      <details><summary>Show the full beat sheet</summary>
+        <table><thead><tr><th>Beat</th><th>Status</th><th>Evidence</th></tr></thead>
+        <tbody id="beatBody"></tbody></table>
+      </details>
+    </div>
+
+    <div class="panel" id="evPanel" style="display:none">
+      <h2>Event log</h2>
+      <div id="evBody"></div>
+    </div>
+
+    <div class="panel" id="turnPanel" style="display:none">
+      <h2>The turnover editorial receives</h2>
+      <p class="msg" id="turnMsg"></p>
+      <details><summary>Show the sealed manifest</summary><pre id="turnBody"></pre></details>
+    </div>
+  </main>
+
+  <aside>
+    <div class="panel">
+      <h2>The shoot day</h2>
+      <button class="go" id="bCheck">1 · Fire the wrap checkpoint
+        <span class="k">an event, not a button press</span></button>
+      <button id="bLate" disabled>2 · A late take arrives
+        <span class="k">take.captured · the rerun</span></button>
+      <button id="bRights" disabled>3 · Production supplies the release
+        <span class="k">rights.record.updated · one check reruns</span></button>
+      <button id="bEval" disabled>4 · Re-run the eligibility gate
+        <span class="k">deterministic, no model</span></button>
+      <button class="ok" id="bWrap" disabled>5 · Ask the 1st AD to approve the wrap
+        <span class="k">eligibility is not authority</span></button>
+      <button class="ok" id="bTurn" disabled>6 · Publish the turnover
+        <span class="k">sealed and re-hashable</span></button>
+      <button id="bEvents">Show the event log</button>
+      <button id="bReset">Start a fresh run</button>
+    </div>
+
+    <div class="panel">
+      <h2>Why the pause matters</h2>
+      <p class="note" style="margin-top:0">
+        Every request here is a separate Lambda invocation. Nothing about a paused run is
+        held in memory between them; it is rebuilt from S3 each time.
+      </p>
+      <p class="note">
+        So you can start the checkpoint, close this tab, and approve the pickup tomorrow
+        morning. The run continues from the same point, across a process that no longer
+        exists. That is the whole product.
+      </p>
+      <p class="note mono" id="runId"></p>
+    </div>
+  </aside>
+</div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+let RUN = localStorage.getItem('lasttake_run') || ('demo-' + Math.random().toString(16).slice(2, 14));
+localStorage.setItem('lasttake_run', RUN);
+let PENDING = null;
+$('runId').textContent = 'run ' + RUN;
+
+async function call(path, extra = {}) {
+  setBusy(true);
+  try {
+    const r = await fetch(path, {
+      method: 'POST',
+      headers: {'content-type': 'application/json'},
+      body: JSON.stringify(Object.assign({run_id: RUN}, extra))
+    });
+    const data = await r.json();
+    render(data);
+    return data;
+  } catch (e) {
+    $('msg').textContent = 'Request failed: ' + e;
+  } finally {
+    setBusy(false);
+  }
+}
+
+function setBusy(on) {
+  document.querySelectorAll('aside button').forEach(b => b.disabled = on || b.dataset.locked === '1');
+  if (on) $('msg').innerHTML = '<span class="spin"></span> working';
+}
+
+function num(n, cls) { return '<span class="n ' + cls + '">' + n + '</span>'; }
+
+function render(d) {
+  if (d.error) { $('msg').textContent = d.error; }
+  if (d.served_by) {
+    $('served').innerHTML =
+      'served by lambda request <b>' + d.served_by.lambda_request_id.slice(0, 18) + '</b><br>' +
+      'container <b>' + d.served_by.container_id + '</b>, up ' + d.served_by.container_age_seconds + 's<br>' +
+      d.served_by.note;
+  }
+  if (d.message && !d.error) $('msg').textContent = d.message;
+
+  if (d.counts) {
+    const c = d.counts;
+    $('count').innerHTML = 'Of ' + num(c.required_beats, '') + ' required beats, ' +
+      num(c.covered_with_evidence, 'good') + ' covered with evidence, ' +
+      num(c.raising_exceptions, 'warn') + ' raising exceptions with named sources, ' +
+      num(c.without_release_record, 'bad') + ' with no release record and routed to production.';
+  }
+
+  if (d.exceptions) {
+    $('excPanel').style.display = d.exceptions.length ? '' : 'none';
+    $('excBody').innerHTML = d.exceptions.map(f =>
+      '<tr><td>' + esc(f.observation) +
+      '<div class="src">sources: ' + f.sources.map(s => s.artifact_id + '@' + s.sha256.slice(0, 8)).join(', ') +
+      (f.locators.length ? ' · locators: ' + f.locators.map(l => l.kind + ' ' + l.value).join(', ') : '') +
+      '</div></td>' +
+      '<td><span class="pill ' + f.truth_state + '">' + f.truth_state + '</span></td>' +
+      '<td class="mono">' + f.required_role.replace(/_/g, ' ') + '</td></tr>').join('');
+  }
+
+  if (d.beats) {
+    $('beatPanel').style.display = '';
+    $('beatBody').innerHTML = d.beats.map(b =>
+      '<tr><td class="mono">' + b.beat_id + '</td>' +
+      '<td><span class="pill ' + (b.status === 'covered_with_evidence' ? 'verified' : 'missing') + '">' +
+      b.status.replace(/_/g, ' ') + '</span></td>' +
+      '<td>' + esc(b.reason) + '</td></tr>').join('');
+  }
+
+  PENDING = d.pending_approval || null;
+  renderAwait(d);
+
+  lock('bLate', !d.counts);
+  lock('bRights', !d.counts);
+  lock('bEval', !d.counts);
+  lock('bWrap', !d.eligible);
+  lock('bTurn', !d.wrap_approved);
+
+  if (d.turnover) {
+    $('turnPanel').style.display = '';
+    $('turnMsg').textContent = d.message || '';
+    $('turnBody').textContent = JSON.stringify(d.turnover, null, 2);
+  }
+}
+
+function lock(id, locked) {
+  const b = $(id);
+  b.dataset.locked = locked ? '1' : '0';
+  b.disabled = locked;
+}
+
+function renderAwait(d) {
+  if (!PENDING) { $('awaitBox').innerHTML = ''; return; }
+  const r = PENDING.reason || {};
+  const isWrap = r.kind === 'wrap';
+  $('awaitBox').innerHTML =
+    '<div class="await"><h3>The run has stopped. It is waiting for the ' +
+    (r.required_role || 'human').replace(/_/g, ' ') + '.</h3>' +
+    '<p>' + (isWrap
+      ? 'Eligibility is arithmetic over evidence. Wrapping is authority, and it is yours.'
+      : 'Pickup on <b>' + esc(r.beat_id || '') + '</b>, ' + esc(r.slug || '') + ', page ' + esc(r.page || '') + '.') +
+    '</p>' +
+    (r.note ? '<p class="mono">' + esc(r.note) + '</p>' : '') +
+    '<div class="row"><button class="ok" style="width:auto" onclick="decide(true)">Approve</button>' +
+    '<button style="width:auto" onclick="decide(false)">Decline</button></div>' +
+    '<p class="note">This process has finished. Approving starts a new one, which picks the ' +
+    'run up from exactly here. Closing the tab and coming back tomorrow works the same way.</p></div>';
+}
+
+async function decide(approve) {
+  const isWrap = (PENDING.reason || {}).kind === 'wrap';
+  const path = isWrap ? '/api/wrap' : '/api/approve';
+  await call(path, {interrupt_id: PENDING.id, approve: approve});
+}
+
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"]/g, c =>
+    ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
+}
+
+$('bCheck').onclick = () => call('/api/checkpoint');
+$('bLate').onclick = () => call('/api/late-take', {beat_id: 'B-17'});
+$('bRights').onclick = () => call('/api/resolve-rights', {subject: 'BG-07'});
+$('bEval').onclick = () => call('/api/evaluate');
+$('bWrap').onclick = () => call('/api/wrap');
+$('bTurn').onclick = () => call('/api/turnover');
+$('bEvents').onclick = async () => {
+  const d = await call('/api/events');
+  $('evPanel').style.display = '';
+  $('evBody').innerHTML = (d.events || []).map(e =>
+    '<div class="ev">' + e.occurred_at.slice(11, 19) + '  <b>' + e.event_type + '</b>  ' +
+    e.event_id.slice(0, 8) + (e.parent_event_id ? ' ← ' + e.parent_event_id.slice(0, 8) : '') +
+    '</div>').join('') || '<div class="ev">no events yet</div>';
+};
+$('bReset').onclick = async () => {
+  const r = await fetch('/api/reset', {method: 'POST', headers: {'content-type': 'application/json'}, body: '{}'});
+  const d = await r.json();
+  RUN = d.run_id;
+  localStorage.setItem('lasttake_run', RUN);
+  location.reload();
+};
+
+call('/api/state');
+</script>
+</body>
+</html>
