@@ -53,7 +53,36 @@ from ..domain.package import (
 CONTAINER_ID = uuid.uuid4().hex[:8]
 BOOTED_AT = time.time()
 
-CORPUS = Path(__file__).resolve().parents[3] / "corpus"
+def _find_corpus() -> Path:
+    """Locate the scene package, in a checkout or in a Lambda bundle.
+
+    The depth differs between the two. In the repository this file sits at
+    ``<root>/src/lasttake/app/handler.py``; in the deployment zip it sits at
+    ``/var/task/lasttake/app/handler.py``, one level shallower because there is
+    no ``src``. A single hard-coded ``parents[n]`` is therefore right in one
+    place and silently wrong in the other, which is exactly how it failed: the
+    tests passed and the first deployed request raised ``KeyError:
+    'script_revision'``.
+
+    Candidates are checked by looking for a file that must be there, not by
+    checking the directory exists, so a stale empty folder cannot win.
+    """
+    here = Path(__file__).resolve()
+    candidates = [
+        here.parents[2] / "corpus",  # Lambda bundle: /var/task/corpus
+        here.parents[3] / "corpus",  # repository checkout: <root>/corpus
+        Path(os.environ.get("LASTTAKE_CORPUS", "")) if os.environ.get("LASTTAKE_CORPUS") else None,
+    ]
+    for candidate in candidates:
+        if candidate and (candidate / "script_revision.json").is_file():
+            return candidate
+    raise RuntimeError(
+        "no scene package found. Looked in: "
+        + ", ".join(str(c) for c in candidates if c)
+    )
+
+
+CORPUS = _find_corpus()
 STATIC = Path(__file__).resolve().parent / "static"
 
 #: A visitor's run id, so two people on the live URL never collide.

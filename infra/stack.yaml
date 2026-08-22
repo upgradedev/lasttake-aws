@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: >
-  LastTake. Pre-wrap shoot-day assurance. One Lambda behind a Function URL, one
+  LastTake. Pre-wrap shoot-day assurance. One Lambda behind an HTTP API, one
   bucket holding artifacts, run state, the event log and the Strands sessions,
   and one EventBridge bus. Nothing runs when nobody is looking.
 
@@ -183,8 +183,9 @@ Resources:
       Code:
         S3Bucket: !Ref CodeBucket
         S3Key: !Ref CodeKey
-      # Generous because a checkpoint runs 80-odd checks. Well under the
-      # Function URL ceiling, and nothing is billed while it sits idle.
+      # Generous because a checkpoint runs 80-odd checks. Note the API Gateway
+      # integration caps a single request at 30 seconds regardless, so a slow
+      # checkpoint surfaces as a gateway timeout rather than running on unseen.
       Timeout: 120
       MemorySize: 1024
       LoggingConfig:
@@ -199,30 +200,69 @@ Resources:
         - Key: project
           Value: lasttake
 
-  # A Function URL rather than API Gateway. One less service to explain, one
-  # less thing to bill, and a judge needs a URL, not a REST API product.
-  FunctionUrl:
-    Type: AWS::Lambda::Url
+  # An API Gateway HTTP API rather than a Lambda Function URL.
+  #
+  # A Function URL was the first choice: one less service, no extra bill, and a
+  # judge needs a URL rather than a REST API product. It was replaced because
+  # this account refuses anonymous Function URL invocations. Both the real
+  # function and a one-line probe function returned
+  # `403 AccessDeniedException` with a correct resource policy in place, no
+  # SCP and no RCP anywhere in the organization, while the same probe behind an
+  # HTTP API answered 200. So the block is on that specific front door, and the
+  # architecture routes around it rather than arguing with it.
+  #
+  # Nothing else changes. The HTTP API uses payload format 2.0, whose event
+  # shape is the same `requestContext.http` the Function URL sends, so the
+  # handler is untouched.
+  HttpApi:
+    Type: AWS::ApiGatewayV2::Api
     Properties:
-      TargetFunctionArn: !GetAtt ApiFunction.Arn
-      AuthType: NONE
-      Cors:
+      Name: !Sub "lasttake-api-${AWS::AccountId}"
+      Description: The public front door for the LastTake demo.
+      ProtocolType: HTTP
+      CorsConfiguration:
         AllowOrigins: ["*"]
         AllowMethods: [GET, POST]
         AllowHeaders: [content-type]
 
-  UrlPermission:
+  HttpIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref HttpApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !GetAtt ApiFunction.Arn
+      PayloadFormatVersion: "2.0"
+      TimeoutInMillis: 30000
+
+  # One catch-all route. The handler owns its own routing table, so splitting
+  # it across eleven CloudFormation resources would put the same decision in
+  # two places and let them drift.
+  DefaultRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: "$default"
+      Target: !Sub "integrations/${HttpIntegration}"
+
+  DefaultStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref HttpApi
+      StageName: "$default"
+      AutoDeploy: true
+
+  InvokePermission:
     Type: AWS::Lambda::Permission
     Properties:
       FunctionName: !GetAtt ApiFunction.Arn
-      Action: lambda:InvokeFunctionUrl
-      Principal: "*"
-      FunctionUrlAuthType: NONE
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${HttpApi}/*"
 
 Outputs:
   LiveUrl:
     Description: The URL a judge opens. No account, no install, no credential.
-    Value: !GetAtt FunctionUrl.FunctionUrl
+    Value: !Sub "https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com/"
   BucketName:
     Description: Artifacts, run state, event log and Strands sessions.
     Value: !Ref DataBucket

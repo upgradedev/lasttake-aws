@@ -153,6 +153,24 @@ def policy_document(account: str) -> dict:
                 "Resource": "*",
             },
             {
+                # API Gateway's control plane is account-scoped: apis are
+                # created before they have an id, so there is no ARN to name in
+                # advance. Restricted to the apigateway actions the deploy
+                # needs, and nothing else in the account uses this identity.
+                "Sid": "HttpApiForTheFrontDoor",
+                "Effect": "Allow",
+                "Action": [
+                    "apigateway:GET",
+                    "apigateway:POST",
+                    "apigateway:PUT",
+                    "apigateway:PATCH",
+                    "apigateway:DELETE",
+                    "apigateway:TagResource",
+                    "apigateway:UntagResource",
+                ],
+                "Resource": ["arn:aws:apigateway:*::/apis", "arn:aws:apigateway:*::/apis/*"],
+            },
+            {
                 "Sid": "WhoAmI",
                 "Effect": "Allow",
                 "Action": ["sts:GetCallerIdentity"],
