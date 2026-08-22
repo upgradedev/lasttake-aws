@@ -62,20 +62,31 @@ def run(
         if only_refs is not None and ref.ref_id not in only_refs:
             continue
 
-        preferred = [
-            take
-            for beat_id in ref.beat_ids
-            for take in package.takes_for_beat(beat_id)
-            if take.preferred and take.usable
-        ]
-        # Same take can cover two beats of the reference. Deduplicate by id and
-        # keep script order, so the pair reported is stable between runs.
+        # Compare preferred takes of the SAME beat, never across beats.
+        #
+        # A continuity reference spans the beats where the thing is on screen,
+        # and across those beats the state is *supposed* to change: she takes
+        # the mug, she holds it, she drinks. Comparing a take of "she takes the
+        # mug" against a take of "she puts it down" reports the scene working
+        # as written as a continuity error, and a check that does that gets
+        # switched off inside one shoot day.
+        #
+        # The conflict that actually constrains the edit is two preferred takes
+        # of one beat that disagree, because whoever cuts it has to choose.
+        pairs: list[tuple] = []
         unique: list = []
-        for take in preferred:
-            if take.take_id not in {t.take_id for t in unique}:
-                unique.append(take)
+        for beat_id in ref.beat_ids:
+            in_beat = [
+                take
+                for take in package.takes_for_beat(beat_id)
+                if take.preferred and take.usable
+            ]
+            for take in in_beat:
+                if take.take_id not in {t.take_id for t in unique}:
+                    unique.append(take)
+            pairs.extend(combinations(in_beat, 2))
 
-        if len(unique) < 2:
+        if not pairs:
             findings.append(
                 Finding(
                     finding_id=f"{run_id}:con:{ref.ref_id}",
@@ -86,9 +97,9 @@ def run(
                     truth_state=TruthState.VERIFIED,
                     severity=Severity.CRITICAL,
                     observation=(
-                        f"{ref.subject}: {len(unique)} preferred take(s) across "
-                        f"{', '.join(ref.beat_ids)}. Nothing for the edit to "
-                        "reconcile."
+                        f"{ref.subject}: no beat across {', '.join(ref.beat_ids)} "
+                        f"has two preferred takes ({len(unique)} preferred in "
+                        "total). The edit is never forced to choose."
                     ),
                     sources=sources,
                     locators=[Locator("continuity_ref", ref.ref_id)]
@@ -102,7 +113,7 @@ def run(
             continue
 
         worst = None
-        for take_a, take_b in combinations(unique, 2):
+        for take_a, take_b in pairs:
             note_a = take_a.note or package.script_notes.get(take_a.take_id, "")
             note_b = take_b.note or package.script_notes.get(take_b.take_id, "")
             opinion = interpreter.compare_continuity(
@@ -127,8 +138,9 @@ def run(
                     truth_state=TruthState.VERIFIED,
                     severity=Severity.CRITICAL,
                     observation=(
-                        f"{ref.subject}: {len(unique)} preferred takes read as the "
-                        "same state against the established reference."
+                        f"{ref.subject}: every pair of preferred takes of the same "
+                        "beat reads as the same state against the established "
+                        "reference."
                     ),
                     sources=sources,
                     locators=[Locator("continuity_ref", ref.ref_id)]
