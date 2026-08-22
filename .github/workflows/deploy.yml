@@ -147,10 +147,16 @@ jobs:
             # teardown.
             ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
             DATA="lasttake-data-${ACCOUNT}-${AWS_REGION}"
-            if aws s3api head-bucket --bucket "$DATA" 2>/dev/null; then
-              COUNT=$(aws s3api list-object-versions --bucket "$DATA" \
-                        --query "length(Versions || \`[]\`) + length(DeleteMarkers || \`[]\`)" \
-                        --output text)
+            if aws s3api head-bucket --bucket "$DATA" >/dev/null 2>&1; then
+              # Counted in two queries and added in the shell. JMESPath has no
+              # arithmetic, so the obvious one-liner is a runtime error rather
+              # than a syntax error, and it fails at exactly the wrong moment.
+              V=$(aws s3api list-object-versions --bucket "$DATA" \
+                    --query "length(Versions || \`[]\`)" --output text)
+              D=$(aws s3api list-object-versions --bucket "$DATA" \
+                    --query "length(DeleteMarkers || \`[]\`)" --output text)
+              COUNT=$((V + D))
+              echo "$DATA holds $V version(s) and $D delete marker(s)"
               if [ "$COUNT" = "0" ]; then
                 echo "removing the retained but empty $DATA so the create can proceed"
                 aws s3api delete-bucket --bucket "$DATA" --region "$AWS_REGION"
