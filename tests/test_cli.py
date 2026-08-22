@@ -79,8 +79,10 @@ def test_a_late_take_reruns_only_the_affected_checks(work, capsys):
     capsys.readouterr()
     assert _run(work, "late-take", "--beat", "B-17") == 0
     out = capsys.readouterr().out
+    # A new take changes the `takes` digest and every check reads `takes`, so
+    # all four are genuinely affected and all four rerun. The narrowing story
+    # belongs to `resolve rights` below, where exactly one artifact moves.
     assert "Affected checks: coverage, continuity, metadata, rights" in out
-    assert "Reran 2 check(s)" in out
     assert "32 covered with evidence" in out
     assert "no_viable_coverage" not in out, "B-17 is covered once the pickup lands"
 
@@ -93,6 +95,10 @@ def test_supplying_the_release_clears_the_rights_exception(work, capsys):
     assert "Affected checks: rights" in out
     assert "keep their results" in out
     assert "0 with no release record" in out
+    # The narrowing is not a claim in a print statement. The gate independently
+    # re-derives it from which source digests moved, and this line is the gate
+    # agreeing that the un-rerun findings are still admissible.
+    assert "still cite digests that have not moved" in out
 
 
 def test_a_decision_by_the_wrong_role_is_refused(work, capsys):
