@@ -153,6 +153,16 @@ def policy_document(account: str) -> dict:
                 "Resource": "*",
             },
             {
+                # DSQL provisions itself a service-linked role on first use, and
+                # the create fails with a 403 without this. Conditioned on the
+                # service name, so it grants exactly that one role and no other.
+                "Sid": "ServiceLinkedRoleForDsqlOnly",
+                "Effect": "Allow",
+                "Action": ["iam:CreateServiceLinkedRole"],
+                "Resource": f"arn:aws:iam::{account}:role/aws-service-role/dsql.amazonaws.com/*",
+                "Condition": {"StringEquals": {"iam:AWSServiceName": "dsql.amazonaws.com"}},
+            },
+            {
                 # CreateCluster has no resource to name yet, so it is separated
                 # from the operations that do rather than hidden inside one
                 # wildcard that covers both.
