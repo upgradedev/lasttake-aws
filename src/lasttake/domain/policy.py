@@ -13,7 +13,7 @@ It fails closed in every direction:
 
 * a check that produced no result is not a pass, it is a missing result
 * a check that produced two results is not a pass, it is a contradiction
-* a finding written against an older package revision is not reused
+* a finding whose cited sources have moved is not reused, it is rerun
 * a finding whose seal does not verify is discarded
 * an exception that no authorised human has looked at is not a pass
 
@@ -182,16 +182,36 @@ class EligibilityPacket:
 
 
 def _admissible(
-    findings: list[Finding], package_revision: str
+    findings: list[Finding], package: ScenePackage
 ) -> tuple[list[Finding], list[str]]:
-    """Drop findings the gate must not rely on, and say which and why."""
+    """Drop findings whose evidence has moved, and say which and why.
+
+    Staleness is decided per source, not per package. A finding is stale when
+    one of the artifacts it actually read has a different digest now than when
+    it was read; a finding that never looked at the rights ledger is not made
+    wrong by a new release landing in it.
+
+    That distinction is what makes the targeted rerun sound rather than
+    convenient. A new take changes the ``takes`` digest, and every check reads
+    ``takes``, so a new take invalidates all four. A supplied release changes
+    only ``rights_ledger``, which only the rights check reads, so coverage,
+    continuity and media identity keep their results and the gate agrees they
+    may. The rerun is not narrowed by an assertion in a table; it is narrowed by
+    which bytes moved, and the gate re-derives that independently.
+    """
+    current = {aid: art.sha256 for aid, art in package.artifacts.items()}
     kept: list[Finding] = []
     discarded: list[str] = []
     for finding in findings:
-        if finding.package_revision != package_revision:
+        moved = [
+            source.artifact_id
+            for source in finding.sources
+            if current.get(source.artifact_id) != source.sha256
+        ]
+        if moved:
             discarded.append(
-                f"{finding.finding_id}: written against revision "
-                f"{finding.package_revision}, current is {package_revision}"
+                f"{finding.finding_id}: read {', '.join(sorted(moved))} at a digest "
+                "that is no longer current, so it must be rerun"
             )
             continue
         if finding.policy_version != POLICY_VERSION:
@@ -212,7 +232,7 @@ def evaluate(
 ) -> EligibilityPacket:
     """Combine findings and human decisions into an eligibility packet."""
     revision = package.revision_digest()
-    admissible, discarded = _admissible(findings, revision)
+    admissible, discarded = _admissible(findings, package)
 
     by_check: dict[tuple[CheckType, str], list[Finding]] = {}
     for finding in admissible:

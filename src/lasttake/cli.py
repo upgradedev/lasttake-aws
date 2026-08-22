@@ -71,8 +71,14 @@ def _build_run(corpus: Path, work: Path, interpreter=None) -> WrapRun:
     )
 
 
-def _interpreter(use_bedrock: bool):
-    if not use_bedrock:
+def _interpreter(use_bedrock: bool, needed: bool = True):
+    """Build an interpreter, and only pay for one where a model is used.
+
+    ``resolve`` and ``verify`` call nothing but deterministic checks, so
+    constructing a Bedrock client for them would burn a round trip and fail on a
+    machine with no credentials for a command that never needed any.
+    """
+    if not use_bedrock or not needed:
         return OfflineInterpreter()
     from .adapters.aws.bedrock_interpreter import BedrockInterpreter
 
@@ -273,47 +279,36 @@ def cmd_late_take(args) -> int:
     affected = affected_by(event)
     print(f"Affected checks: {', '.join(affected)}. Everything else keeps its result.")
 
+    # A new take changes the `takes` digest, and all four checks read `takes`,
+    # so all four are genuinely affected. The gate would discard any of them
+    # that was not rerun, which is the point: the narrowing is derived, not
+    # asserted. Compare with `resolve rights`, where one artifact moves and one
+    # check reruns.
+    from .checks import continuity as continuity_check
     from .checks import coverage as coverage_check
     from .checks import metadata as metadata_check
+    from .checks import rights as rights_check
 
-    findings = coverage_check.run(
-        new_package,
-        new_run.run_id,
-        new_run.interpreter,
-        policy.POLICY_VERSION,
-        only_beats=(args.beat,),
+    findings = (
+        coverage_check.run(new_package, new_run.run_id, new_run.interpreter, policy.POLICY_VERSION)
+        + continuity_check.run(new_package, new_run.run_id, new_run.interpreter, policy.POLICY_VERSION)
+        + metadata_check.run(new_package, new_run.run_id, policy.POLICY_VERSION)
+        + rights_check.run(new_package, new_run.run_id, policy.POLICY_VERSION)
     )
-    findings += metadata_check.run(
-        new_package, new_run.run_id, policy.POLICY_VERSION, only_takes=(take.take_id,)
-    )
-    print(f"Reran {len(findings)} check(s), not {len(new_package.takes) + len(new_package.beats)}.")
-
-    # The package moved, so every finding written against the old revision is
-    # stale. Rewrite the current set against the new revision, then merge.
-    _restamp_and_merge(new_run, findings)
+    _merge(new_run, findings)
     _print_headline(new_run)
     return 0
 
 
-def _restamp_and_merge(run: WrapRun, fresh) -> None:
-    """Carry unaffected findings onto the new revision, keeping their content.
+def _merge(run: WrapRun, fresh) -> None:
+    """Add the fresh findings beside the ones whose evidence did not move.
 
-    A finding is stale when the package moves, and the gate drops stale
-    findings. Re-stamping is honest only because the *content* is unchanged and
-    the checks that could have changed have just been rerun; the alternative is
-    re-running every check, which is exactly the waste the targeted rerun
-    exists to avoid.
+    Nothing is re-stamped. A finding carries the digests it actually read, and
+    the gate discards it if any of them has moved. So a check that was not
+    rerun survives only when it genuinely still applies, and the decision is
+    the gate's rather than this function's.
     """
-    revision = run.package.revision_digest()
-    fresh_ids = {f.finding_id for f in fresh}
-    carried = []
-    for raw in run.load_findings():
-        if raw["finding_id"] in fresh_ids:
-            continue
-        raw = dict(raw)
-        raw["package_revision"] = revision
-        carried.append(from_dict(raw))
-    run.store_findings(carried + list(fresh))
+    run.store_findings(list(fresh))
 
 
 def _print_headline(run: WrapRun) -> None:
@@ -328,7 +323,8 @@ def _print_headline(run: WrapRun) -> None:
 def cmd_resolve(args) -> int:
     """A department supplies what was missing, and only its check reruns."""
     work = Path(args.workdir)
-    run = _build_run(Path(args.corpus), work, _interpreter(args.bedrock))
+    # Rights is arithmetic and a recorded decision is arithmetic. No model here.
+    run = _build_run(Path(args.corpus), work, _interpreter(args.bedrock, needed=False))
 
     if args.what == "rights":
         record = RightsRecord(
@@ -354,12 +350,20 @@ def cmd_resolve(args) -> int:
         from .checks import rights as rights_check
 
         fresh = rights_check.run(
-            new_package,
-            new_run.run_id,
-            policy.POLICY_VERSION,
-            only_subjects=(args.subject,),
+            new_package, new_run.run_id, policy.POLICY_VERSION
         )
-        _restamp_and_merge(new_run, fresh)
+        carried = [
+            f
+            for f in run.load_findings()
+            if f["check_type"] != "rights"
+        ]
+        new_run.runs.save_findings(new_run.run_id, carried)
+        _merge(new_run, fresh)
+        print(
+            f"Reran {len(fresh)} rights check(s). The other "
+            f"{len(carried)} finding(s) still cite digests that have not moved, "
+            "so the gate accepts them without a rerun."
+        )
         _print_headline(new_run)
         return 0
 

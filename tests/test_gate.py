@@ -61,14 +61,43 @@ def test_two_results_for_one_check_is_a_contradiction(package, findings):
     assert "current results for one check" in reasons
 
 
-def test_a_stale_finding_is_discarded_not_reused(package, findings):
+def test_a_finding_whose_evidence_moved_is_discarded_not_reused(package, findings):
+    """Staleness is per source. Re-stamping a revision must not launder it."""
+    from lasttake.domain.findings import Source
+
     stale = copy.deepcopy(findings)
     for finding in stale:
-        finding.package_revision = "some-older-revision"
+        finding.sources = [
+            Source(s.artifact_id, "f" * 64, s.kind) for s in finding.sources
+        ]
     packet = policy.evaluate(RUN, package, stale, [])
     assert packet.eligible is False
     assert len(packet.discarded) == len(stale)
     assert packet.counts["findings_admitted"] == 0
+    assert "no longer current" in packet.discarded[0]
+
+
+def test_only_the_findings_that_read_the_changed_artifact_go_stale(package, findings):
+    """This is the targeted rerun, derived rather than asserted.
+
+    Supplying a release changes one artifact. Coverage, continuity and media
+    identity never read it, so the gate keeps them without a rerun. If this
+    ever stops holding, the CLI's `Affected checks: rights` line becomes a
+    claim the gate does not back, and the test fails rather than the demo.
+    """
+    from lasttake.domain.package import RightsRecord, with_rights_record
+
+    updated = with_rights_record(
+        package,
+        RightsRecord(
+            "REL-007", "BG-07", "person", "background release", "all media",
+            "worldwide", None, "executed",
+        ),
+    )
+    packet = policy.evaluate(RUN, updated, findings, [])
+    rights_count = len([f for f in findings if f.check_type is CheckType.RIGHTS])
+    assert len(packet.discarded) == rights_count
+    assert all("rights_ledger" in d for d in packet.discarded)
 
 
 def test_a_finding_judged_under_an_older_policy_is_discarded(package, findings):

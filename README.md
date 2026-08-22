@@ -225,8 +225,14 @@ possible. What is left is a script that cannot stop and wait for a person.
 The specific capability the product is built on is **interrupt and resume across process
 death**. Inside a terminal tool, `ToolContext.interrupt(name, reason=...)` stops the run.
 The agent returns `stop_reason` of `interrupt`. A session manager writes the paused run to
-durable storage. A **different process**, hours later, calls the agent with an
-`interruptResponse` and the run continues from the same point.
+storage. A **different process**, hours later, calls the agent with an `interruptResponse`
+and the run continues from the same point.
+
+**What is proven and what is not.** This is proven on `FileSessionManager` and a local
+disk, twice, in CI. On a deployed Lambda it needs shared durable storage, because `/tmp`
+does not survive the gap between 23:10 and 06:40. `S3SessionManager` ships in the SDK and
+`build_s3_session_manager` in `orchestrator.py` swaps it in, but **that path has not been
+run and no test covers it**. It is an inference from the SDK's shape, not a result.
 
 On a set this is not academic. The checkpoint finds a coverage gap at 23:10 as the crew is
 wrapping. The 1st AD is not looking at a screen. They approve at 06:40 before the first
@@ -328,18 +334,28 @@ To use a real model, ask your own account what it can invoke rather than trustin
 in a source file:
 
 ```bash
-export AWS_REGION=us-east-1
 lasttake doctor --bedrock
 ```
 
 That lists the Anthropic foundation models and cross-region inference profiles the
-credentialed account can actually reach. Set the one you want and run any command with
-`--bedrock`:
+credentialed account can actually reach, in that account's own configured region.
+
+This is not decoration. The first draft of this repository defaulted to
+`us.anthropic.claude-sonnet-4-5-20250929-v1:0`. Asking a real account returned neither
+that identifier nor that region. The default is now `global.anthropic.claude-sonnet-5`,
+verified by invocation on 2026-08-22 against one account, which is not the same as verified
+against yours. Set the one `doctor` printed and run any command with `--bedrock`:
 
 ```bash
 export LASTTAKE_BEDROCK_MODEL_ID=<an id that doctor printed>
 lasttake checkpoint --bedrock
 ```
+
+**What is proven here and what is not.** The model identifier and region above were
+verified by a real `converse` call. The Strands-to-Bedrock code path in
+`adapters/aws/bedrock_interpreter.py` has **not** been run end to end, because CI has no
+AWS credentials. Treat `--bedrock` as unexercised until that job is green. The offline
+path, which is what the quickstart runs, is covered by 60-odd tests.
 
 Untrusted input is handled as untrusted. Script pages, supervisor notes and camera reports
 are production documents, and a production document can contain any text at all, including

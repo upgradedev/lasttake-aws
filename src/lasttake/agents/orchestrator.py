@@ -229,10 +229,16 @@ def build_orchestrator(
 def build_s3_session_manager(session_id: str, bucket: str, prefix: str = "sessions/"):
     """The deployed equivalent of ``FileSessionManager``.
 
+    **Not exercised.** Nothing calls this and no test covers it. The
+    interrupt-and-resume-across-process-death claim is proven on
+    ``FileSessionManager`` and a local disk, twice, in CI. It is *inferred* on
+    S3 from the fact that ``S3SessionManager`` ships in the SDK and takes the
+    same shape. Until a two-process run against a real bucket has gone green,
+    treat any statement about the deployed path as an assumption.
+
     Lambda's ``/tmp`` does not survive the gap between a 23:10 interrupt and an
     06:40 approval, so the deployed build needs shared durable storage or the
-    hero does not port. ``S3SessionManager`` ships in the SDK; this is the one
-    line that swaps it in.
+    hero does not port.
     """
     from strands.session import S3SessionManager
 
