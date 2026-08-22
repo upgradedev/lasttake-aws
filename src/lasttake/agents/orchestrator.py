@@ -100,6 +100,17 @@ class OfflineOrchestratorModel(_StrandsModel):
     async def structured_output(self, output_model: Any, prompt: Any = None, **kw: Any):
         raise NotImplementedError("the offline orchestrator never asks for structured output")
 
+    #: What an instruction asks for, matched on the most recent user turn.
+    #: A real planner reads the sentence; this one matches phrases, which is
+    #: enough to walk the same path and honest about being less than reading.
+    ROUTES = (
+        ("publish the turnover", "publish_turnover"),
+        ("approve the wrap", "request_wrap_approval"),
+        ("wrap approval", "request_wrap_approval"),
+        ("pickup", "request_pickup_approval"),
+        ("eligibilit", "evaluate_wrap_eligibility"),
+    )
+
     async def stream(
         self,
         messages: Any,
@@ -108,10 +119,22 @@ class OfflineOrchestratorModel(_StrandsModel):
         **kwargs: Any,
     ) -> AsyncIterable[dict]:
         called: list[str] = []
+        last_user = ""
         for message in messages:
             for block in message.get("content", []):
-                if isinstance(block, dict) and "toolUse" in block:
+                if not isinstance(block, dict):
+                    continue
+                if "toolUse" in block:
                     called.append(block["toolUse"].get("name", ""))
+                if message.get("role") == "user" and "text" in block:
+                    last_user = block["text"]
+
+        instructed = self._route(last_user)
+        if instructed and instructed[0] not in called:
+            name, args = instructed
+            async for event in self._emit_tool_use(name, args, len(called)):
+                yield event
+            return
 
         remaining = [step for step in self.plan if step not in called]
         if remaining:
@@ -134,6 +157,29 @@ class OfflineOrchestratorModel(_StrandsModel):
         }
         yield {"contentBlockStop": {}}
         yield {"messageStop": {"stopReason": "end_turn"}}
+
+    def _route(self, text: str) -> tuple[str, dict] | None:
+        """Turn an instruction into one tool call and its arguments."""
+        import re
+
+        lowered = text.lower()
+        for phrase, tool_name in self.ROUTES:
+            if phrase not in lowered:
+                continue
+            args: dict[str, Any] = {}
+            if tool_name == "request_pickup_approval":
+                beat = re.search(r"\bB-\d+\b", text)
+                justification = text.split("Justification:", 1)
+                args = {
+                    "beat_id": beat.group(0) if beat else "",
+                    "justification": (
+                        justification[1].strip()
+                        if len(justification) > 1
+                        else "no viable coverage, and the set is still standing"
+                    ),
+                }
+            return tool_name, args
+        return None
 
     async def _emit_tool_use(self, name: str, args: dict, index: int) -> AsyncIterable[dict]:
         yield {"messageStart": {"role": "assistant"}}

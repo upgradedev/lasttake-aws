@@ -25,6 +25,10 @@ MODEL_ID = "offline-lexical/1.0.0"
 
 #: Phrases that mean the take did not get the beat. Written the way a
 #: supervisor writes them at speed, not the way a schema would like them.
+#: Matched on word boundaries, never as bare substrings. ``ng`` is the
+#: supervisor's shorthand for "no good" and it also sits inside "single",
+#: "wrong" and "strong"; a substring match reads "Clean single" as a failed
+#: take, which is precisely the false positive that gets a tool switched off.
 NEGATIVE_MARKERS = (
     "false start",
     "no good",
@@ -80,7 +84,7 @@ class OfflineInterpreter:
     ) -> BeatMatch:
         note = (take_note or "").lower()
         for marker in NEGATIVE_MARKERS:
-            if marker in note:
+            if re.search(rf"(?<![a-z]){re.escape(marker)}(?![a-z])", note):
                 return BeatMatch(
                     covers=False,
                     confidence=0.9,
