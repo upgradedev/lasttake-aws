@@ -160,7 +160,12 @@ Resources:
                 Action:
                   - logs:CreateLogStream
                   - logs:PutLogEvents
-                Resource: !Sub "${LogGroup.Arn}:*"
+                # Built by hand rather than with !GetAtt LogGroup.Arn. Reading
+                # that attribute makes CloudFormation call logs:DescribeLogGroups,
+                # which has no resource-level control, so supporting it would
+                # mean granting the deploy identity account-wide log read. The
+                # ARN is fully determined by the name we chose, so we write it.
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/lasttake-api-${AWS::AccountId}:*"
       Tags:
         - Key: project
           Value: lasttake
