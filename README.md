@@ -383,14 +383,22 @@ export LASTTAKE_BEDROCK_MODEL_ID=<an id that doctor printed>
 lasttake checkpoint --bedrock
 ```
 
-**What is proven here and what is not.** The model identifier and region were verified by a
-real `converse` call, and the deploy pipeline repeats that call from the deployed execution
-role on every run, so the role's Bedrock permission is checked rather than assumed. The
-**Strands-to-Bedrock code path** in `adapters/aws/bedrock_interpreter.py`, meaning
-`BedrockModel` plus `agent.structured_output`, has **not** been run end to end. The hosted
-demo runs the offline interpreter and reports `offline-lexical/1.0.0` on every finding it
-touches, so nothing on that page claims to be a model that is not. Treat `--bedrock` as
-unexercised.
+**What this is checked against.** The deploy pipeline runs a full checkpoint through
+`BedrockInterpreter` on every deploy, so `BedrockModel` plus `agent.structured_output` is
+exercised rather than described. The last run produced **34 findings carrying a real model
+inference**, for example on the mug conflict:
+
+> Established state calls for a half-full mug with handle to camera left. First take matches
+> this exactly. Second take describes the mug as empty with handle turned to camera right.
+
+Two assertions run alongside it, and both are the architecture rather than housekeeping.
+Every model-touched finding must report confidence below 1.0, because an interpretation is
+not a fact. And **the count must not move** when the interpreter changes: the same
+`34 / 31 / 2 / 1` comes out with Bedrock as with the offline stand-in. If swapping the model
+moved the number, the model would be deciding something it is not allowed to decide.
+
+The hosted demo runs the offline interpreter and reports `offline-lexical/1.0.0` on every
+finding it touches, so nothing on that page claims to be a model that it is not.
 
 Untrusted input is handled as untrusted. Script pages, supervisor notes and camera reports
 are production documents, and a production document can contain any text at all, including
