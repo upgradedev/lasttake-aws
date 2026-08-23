@@ -554,7 +554,40 @@ jobs:
                 echo "removed $COUNT $KIND"
               done
             done
-            echo "bucket deleted"
+
+            # Delete it, then confirm the delete, and retry.
+            #
+            # Two bugs lived here. An earlier edit removed the delete-bucket
+            # call entirely while leaving the message that announces it, so the
+            # step emptied the bucket, printed "bucket deleted" and exited zero
+            # with the bucket still standing. Nothing caught it, because the
+            # only thing checking was the message.
+            #
+            # So the confirmation is not decoration. A destructive step is the
+            # last place to trust a print statement, or a return code, over the
+            # observable state afterwards.
+            GONE=no
+            for attempt in 1 2 3 4 5; do
+              aws s3api delete-bucket --bucket "$DATA" --region "$AWS_REGION" 2>/dev/null || true
+              sleep 5
+              if ! aws s3api head-bucket --bucket "$DATA" >/dev/null 2>&1; then
+                GONE=yes
+                echo "bucket deleted, confirmed on attempt $attempt"
+                break
+              fi
+              echo "attempt $attempt: still there, emptying whatever arrived since"
+              for KIND in Versions DeleteMarkers; do
+                ITEMS=$(aws s3api list-object-versions --bucket "$DATA" --max-keys 500 \
+                          --query "{Objects: ${KIND}[].{Key:Key,VersionId:VersionId}}" --output json)
+                COUNT=$(echo "$ITEMS" | python -c "import json,sys; print(len(json.load(sys.stdin).get('Objects') or []))")
+                if [ "$COUNT" != "0" ]; then
+                  echo "$ITEMS" > /tmp/delete.json
+                  aws s3api delete-objects --bucket "$DATA" --delete file:///tmp/delete.json >/dev/null
+                  echo "  removed a further $COUNT $KIND"
+                fi
+              done
+            done
+            [ "$GONE" = "yes" ] || { echo "could not delete $DATA"; exit 1; }
           fi
 
           if [ -n "$CLUSTER" ] && [ "$CLUSTER" != "None" ]; then
