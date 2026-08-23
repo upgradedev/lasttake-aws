@@ -1,0 +1,110 @@
+name: uptime
+
+# The judging period runs to 2026-10-08 17:00 PT, and the rules require the
+# project to stay reachable for all of it. Nothing else in this repository
+# notices if the URL stops answering, so this does.
+#
+# It does not just check for a 200. A page that loads while the checkpoint is
+# broken is worse than a page that is down, because it looks fine. This walks
+# the whole loop the way a judge would and fails on the first thing that is not
+# what the README claims.
+#
+# On failure it opens a GitHub issue. An alert nobody sees is not an alert.
+
+on:
+  schedule:
+    # Twice a day. Often enough to catch an outage within half a day, rare
+    # enough that it is not noise, and it keeps nothing warm on purpose: a cold
+    # start is part of what a judge will experience.
+    - cron: "17 7,19 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+env:
+  LIVE_URL: https://1p6s28nyf0.execute-api.eu-west-1.amazonaws.com/
+
+jobs:
+  reachable:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: the whole judge journey, not just a status code
+        id: check
+        run: |
+          set -euo pipefail
+          python tools/uptime_check.py "$LIVE_URL" | tee "$GITHUB_STEP_SUMMARY"
+
+      - name: open an issue if it is down
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = 'Live URL check failed';
+            const body = [
+              'The scheduled check against the judge-facing URL failed.',
+              '',
+              `Run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              `URL: ${process.env.LIVE_URL}`,
+              '',
+              'The rules require the project to be reachable until the judging period ends',
+              'on 2026-10-08 17:00 PT. Redeploy with the deploy workflow, then re-run this',
+              'check to confirm.',
+            ].join('\n');
+
+            // One open issue, not one per firing. A flapping URL should not
+            // bury the repository in duplicates.
+            const existing = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'uptime',
+            });
+            if (existing.data.length > 0) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.data[0].number,
+                body,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body,
+                labels: ['uptime'],
+              });
+            }
+
+      - name: close the issue once it is back
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const open = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'uptime',
+            });
+            for (const issue of open.data) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                body: `Back up. Verified by ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              });
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                state: 'closed',
+              });
+            }

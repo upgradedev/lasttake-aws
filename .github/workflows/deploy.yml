@@ -342,6 +342,57 @@ jobs:
           print(f\"{len(d['blocked'])} run(s) currently blocked\")
           "
 
+      # The last claim in this repository that had never executed. The two
+      # bounded interpretations are the only place a language model is allowed,
+      # and until this ran they were code written from documentation.
+      #
+      # It runs a full checkpoint through `BedrockInterpreter`, so every
+      # coverage and continuity finding on this run carries a real model's
+      # judgement, and asserts the count is the same one the offline
+      # interpreter produces. That equality is the point: the model is allowed
+      # to explain, never to decide, so swapping it must not move the number.
+      - name: 'the Strands to Bedrock path, actually run'
+        if: steps.gate.outputs.ready == 'true'
+        run: |
+          set -euo pipefail
+          python -m pip install --quiet -e .
+          export LASTTAKE_WORKDIR="$RUNNER_TEMP/bedrock-run"
+          export AWS_REGION="${AWS_REGION}"
+
+          echo "--- what this account can invoke ---"
+          lasttake doctor --bedrock | tail -20
+
+          echo
+          echo "--- a checkpoint whose interpretations come from Bedrock ---"
+          lasttake checkpoint --bedrock | tee "$RUNNER_TEMP/bedrock.log"
+
+          python - <<'PY'
+          import json, os, pathlib, sys
+          work = pathlib.Path(os.environ["LASTTAKE_WORKDIR"])
+          findings = json.loads(
+              (work / "runs" / "run-sc042-wrap-checkpoint" / "findings.json").read_text()
+          )
+          interpreted = [f for f in findings if f.get("inference")]
+          assert interpreted, "no finding carried a model inference"
+          versions = {f["agent_version"] for f in interpreted}
+          print(f"{len(interpreted)} finding(s) carry a Bedrock inference")
+          print("one of them, verbatim:")
+          sample = interpreted[0]
+          print(f"  {sample['requirement_id']}: {sample['inference'][:220]}")
+          # A model may not claim certainty. The contract enforces it, and this
+          # is the deployed proof that the real model obeys it too.
+          for f in interpreted:
+              assert f["confidence"] < 1.0, f
+          print("every model-touched finding reports confidence below 1.0")
+          PY
+
+          grep -q "Of 34 required beats, 31 covered with evidence" "$RUNNER_TEMP/bedrock.log" || {
+            echo "the count moved when the interpreter changed. The model is deciding"
+            echo "something it must not decide, or the gate is reading it wrong."
+            exit 1
+          }
+          echo "the count is unchanged: the model explains, the policy decides"
+
       - name: 'Bedrock, invoked for real from the deployed role'
         if: steps.gate.outputs.ready == 'true'
         run: |
