@@ -254,3 +254,87 @@ def test_an_unexpected_failure_returns_the_reason_not_a_blank_500(monkeypatch):
     body = post("/api/state", {"run_id": RUN})
     assert body["status"] == 500
     assert "the cart caught fire" in body["error"]
+
+
+# -- the lined script, which is the first thing a visitor sees --------------
+
+
+def test_the_scene_route_paints_without_running_a_single_check():
+    """It answers from the package alone, so it returns before the checkpoint."""
+    scene = post("/api/scene", {"run_id": RUN})
+    assert scene["status"] == 200
+    assert scene["scene_id"] == "SC-042"
+    assert scene["required_beats"] == 34
+    assert len(scene["beats"]) == 36
+    assert scene["take_count"] == 40
+    assert scene["scene_heading"] and scene["revision"]
+
+    # No verdict of any kind. Judgement belongs to the checks and the gate.
+    assert "eligible" not in scene and "counts" not in scene
+    for beat in scene["beats"]:
+        assert "status" not in beat
+
+
+def test_the_scene_route_refuses_a_malformed_run_id_like_every_other():
+    assert post("/api/scene", {"run_id": "no"})["status"] == 400
+
+
+def test_the_page_cannot_draw_a_control_the_policy_withholds():
+    scene = post("/api/scene", {"run_id": RUN})
+    assert scene["authority"]["rights"]["may_accept"] == []
+    assert scene["authority"]["coverage"]["may_confirm"] == ["script_supervisor"]
+
+
+def test_a_decision_by_the_wrong_role_is_refused_by_the_server():
+    """The role in the slate is a claim the page makes. The server checks it."""
+    state = post("/api/checkpoint", {"run_id": RUN})
+    rights = [f for f in state["exceptions"] if f["check_type"] == "rights"][0]
+
+    refused = post(
+        "/api/decide",
+        {
+            "run_id": RUN,
+            "finding_id": rights["finding_id"],
+            "action": "confirm",
+            "role": "dit",
+            "actor": "someone else",
+        },
+    )
+    assert refused["status"] == 403
+    assert not refused["decisions"], "nothing was recorded"
+
+    # And nobody at all may accept a missing release away.
+    for role in ("production_coordinator", "script_supervisor", "first_ad", "dit"):
+        blocked = post(
+            "/api/decide",
+            {
+                "run_id": RUN,
+                "finding_id": rights["finding_id"],
+                "action": "accept_exception",
+                "role": role,
+                "actor": role,
+            },
+        )
+        assert blocked["status"] == 403, f"{role} was allowed to accept away a release"
+
+
+def test_a_decision_by_the_right_role_is_recorded_and_the_finding_survives():
+    state = post("/api/checkpoint", {"run_id": RUN})
+    coverage = [f for f in state["exceptions"] if f["check_type"] == "coverage"][0]
+
+    after = post(
+        "/api/decide",
+        {
+            "run_id": RUN,
+            "finding_id": coverage["finding_id"],
+            "action": "confirm",
+            "role": "script_supervisor",
+            "actor": "demo visitor standing in as the script supervisor",
+        },
+    )
+    assert after["status"] == 200
+    recorded = [d for d in after["decisions"] if d["finding_id"] == coverage["finding_id"]]
+    assert len(recorded) == 1 and recorded[0]["action"] == "confirm"
+    assert any(
+        f["finding_id"] == coverage["finding_id"] for f in after["exceptions"]
+    ), "a confirmed finding does not disappear; it travels on the turnover"

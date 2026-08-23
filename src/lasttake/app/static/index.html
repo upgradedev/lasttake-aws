@@ -77,6 +77,12 @@ h2.sec{font-size:12px;letter-spacing:.13em;text-transform:uppercase;color:var(--
 .cost b{font-weight:620}
 .cost .now{color:var(--ok)} .cost .later{color:var(--gap)}
 .who{font-size:12.5px;color:var(--mute);margin:11px 0 0}
+.acts{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.acts button{font-size:12.5px;padding:6px 10px}
+.decided{margin-top:10px;font-size:12.5px;background:var(--ok-bg);color:#0e5c39;
+  border-radius:4px;padding:7px 10px}
+.withheld{margin-top:10px;font-size:12.5px;background:var(--legal-bg);color:#40297d;
+  border-radius:4px;padding:7px 10px}
 details.ev{margin-top:11px;border-top:1px dashed var(--rule);padding-top:9px}
 details.ev summary{cursor:pointer;font-size:12.5px;color:var(--mute);list-style:none}
 details.ev summary::-webkit-details-marker{display:none}
@@ -410,6 +416,41 @@ function paintVerdict() {
    continuity conflict costs the edit; a metadata mismatch costs a lookup. */
 var COST_ORDER = {coverage: 0, rights: 1, continuity: 2, metadata: 3};
 
+function decidedBy(f) {
+  var list = (STATE && STATE.decisions) || [];
+  for (var i = 0; i < list.length; i++) {
+    if (list[i].finding_id === f.finding_id) return list[i];
+  }
+  return null;
+}
+
+function decided(f) {
+  var d = decidedBy(f);
+  if (!d) return '';
+  return '<div class="decided">' + esc(d.actor) + ' (' + esc(d.role) + ') recorded ' +
+    esc(String(d.action).replace(/_/g, ' ')) + ' at ' +
+    esc(String(d.at).replace('T', ' ').slice(0, 19)) +
+    '. The finding itself is unchanged and still travels on the turnover.</div>';
+}
+
+function act(f, action, label) {
+  return '<button class="decide" data-finding="' + esc(f.finding_id) + '" data-action="' +
+    esc(action) + '">' + esc(label) + '</button>';
+}
+
+/* The role in the slate is not a costume. This posts to the same endpoint the
+   1st AD's approval uses, and the server refuses a decision taken by the wrong
+   role rather than trusting what the page sent. */
+function decideFinding(findingId, action) {
+  return call('/api/decide', {
+    finding_id: findingId,
+    action: action,
+    role: ROLE,
+    actor: 'demo visitor standing in as ' + ROLE_NAME[ROLE],
+    reason: 'Recorded from the wrap checkpoint page.'
+  });
+}
+
 function paintCards() {
   var list = ((STATE && STATE.exceptions) || []).slice().sort(function (a, b) {
     var d = (COST_ORDER[a.check_type] === undefined ? 9 : COST_ORDER[a.check_type]) -
@@ -455,10 +496,22 @@ function paintCards() {
       '<p class="who">' + (mine
         ? 'This one is yours to resolve.'
         : 'Only ' + esc(owner) + ' can resolve this. The policy does not offer it to you.') +
-        (nobodyAccepts
-          ? '<br>Nobody on this system may accept it away. It leaves here and goes to production.'
-          : '') +
       '</p>' +
+      decided(f) +
+      (mine && !decidedBy(f)
+        ? '<div class="acts">' +
+          act(f, 'confirm', 'Confirm the finding') +
+          act(f, 'reject_false_positive', 'Reject, it is a false positive') +
+          ((auth.may_accept || []).indexOf(ROLE) >= 0
+            ? act(f, 'accept_exception', 'Accept as intentional') : '') +
+          '</div>'
+        : '') +
+      (nobodyAccepts
+        ? '<div class="withheld">No role is offered a way to accept this away, not even ' +
+          'the one that owns it. That is the policy table the gate enforces, read by this ' +
+          'page, not a decision the interface made. It leaves here and goes to production.' +
+          '</div>'
+        : '') +
       '<details class="ev"><summary>Show me the evidence</summary>' +
         '<div class="src"><b>Read from</b></div>' + sources +
         (locs ? '<div class="src"><b>At</b></div>' + locs : '') +
@@ -552,7 +605,10 @@ function loadBlocked() {
         'The cross-run query is unavailable on this deployment.') + '</p>';
       return;
     }
-    var rows = res.d.blocked;
+    var rows = res.d.blocked.slice();
+    for (var i = 0; i < rows.length; i++) {
+      if (rows[i].run_id === RUN) { rows.unshift(rows.splice(i, 1)[0]); break; }
+    }
     if (!rows.length) {
       el.innerHTML = '<p>Nothing on this cluster is carrying an open exception.</p>';
       return;
@@ -598,6 +654,11 @@ function paint() {
 }
 
 $('role').onchange = function (e) { ROLE = e.target.value; paint(); };
+
+$('cards').addEventListener('click', function (e) {
+  var b = e.target.closest ? e.target.closest('button.decide') : null;
+  if (b) decideFinding(b.getAttribute('data-finding'), b.getAttribute('data-action'));
+});
 
 $('bEvents').onclick = function () {
   call('/api/events').then(function (d) {

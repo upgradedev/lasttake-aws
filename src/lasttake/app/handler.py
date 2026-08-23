@@ -212,6 +212,9 @@ def _state(run: WrapRun) -> dict:
             f.to_dict() for f in sorted(findings, key=lambda f: f.finding_id)
             if f.truth_state.is_exception
         ],
+        # What a human already decided about a finding, so the page can say so
+        # beside it rather than offering the same control twice.
+        "decisions": run.load_decisions(),
         "eligible": bool(packet and packet.get("eligible")),
         "causes": (packet or {}).get("causes", []),
         "wrap_approved": run.wrap_approved(),
