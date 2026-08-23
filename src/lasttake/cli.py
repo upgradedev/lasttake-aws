@@ -459,7 +459,14 @@ def cmd_events(args) -> int:
     return 0
 
 
-def main(argv: list[str] | None = None) -> int:
+def build_parser() -> argparse.ArgumentParser:
+    """The whole command surface, separated so it can be tested on its own.
+
+    Kept apart from :func:`main` because the argument grammar is a thing that
+    can be wrong by itself, and it was: `--bedrock` parsed in one position and
+    not the other, which no test could see while every test used the position
+    that worked.
+    """
     parser = argparse.ArgumentParser(
         prog="lasttake",
         description="Before you wrap the set, know whether you truly have the scene.",
@@ -472,23 +479,41 @@ def main(argv: list[str] | None = None) -> int:
         help="Use Amazon Bedrock for the two bounded interpretations. Without it "
         "the offline lexical interpreter runs and says so on every finding.",
     )
+    # The same three options again, accepted after the subcommand as well as
+    # before it. `lasttake checkpoint --bedrock` is the form a person types and
+    # the form the README documents; without this it was an "unrecognized
+    # arguments" error, and the README was describing a command that did not
+    # exist. `SUPPRESS` is what makes both forms safe: an option absent after
+    # the subcommand leaves the attribute unset, so it cannot overwrite a value
+    # given before it with the default.
+    common = argparse.ArgumentParser(add_help=False)
+    common.add_argument("--corpus", default=argparse.SUPPRESS)
+    common.add_argument("--workdir", default=argparse.SUPPRESS)
+    common.add_argument("--bedrock", action="store_true", default=argparse.SUPPRESS)
+
     sub = parser.add_subparsers(dest="command", required=True)
 
-    sub.add_parser("checkpoint", help="run the checks and stop at the 1st AD").set_defaults(
-        func=cmd_checkpoint
-    )
+    sub.add_parser(
+        "checkpoint", parents=[common], help="run the checks and stop at the 1st AD"
+    ).set_defaults(func=cmd_checkpoint)
 
-    approve = sub.add_parser("approve", help="resume a stopped run, in a new process")
+    approve = sub.add_parser(
+        "approve", parents=[common], help="resume a stopped run, in a new process"
+    )
     approve.add_argument("--yes", action="store_true", help="the 1st AD approves")
     approve.add_argument("--interrupt-id", default=None)
     approve.add_argument("--hours", default="7.5")
     approve.set_defaults(func=cmd_approve)
 
-    late = sub.add_parser("late-take", help="a take arrives after the checkpoint")
+    late = sub.add_parser(
+        "late-take", parents=[common], help="a take arrives after the checkpoint"
+    )
     late.add_argument("--beat", default="B-17")
     late.set_defaults(func=cmd_late_take)
 
-    resolve = sub.add_parser("resolve", help="a department resolves an exception")
+    resolve = sub.add_parser(
+        "resolve", parents=[common], help="a department resolves an exception"
+    )
     resolve.add_argument("what", choices=["rights", "decision"])
     resolve.add_argument("--subject", default="BG-07")
     resolve.add_argument("--finding-id", default="")
@@ -498,16 +523,24 @@ def main(argv: list[str] | None = None) -> int:
     resolve.add_argument("--reason", default="")
     resolve.set_defaults(func=cmd_resolve)
 
-    verify = sub.add_parser("verify", help="re-hash a turnover manifest")
+    verify = sub.add_parser(
+        "verify", parents=[common], help="re-hash a turnover manifest"
+    )
     verify.add_argument("path")
     verify.set_defaults(func=cmd_verify)
 
-    sub.add_parser("doctor", help="what this machine and account can do").set_defaults(
-        func=cmd_doctor
-    )
-    sub.add_parser("events", help="replay the event log").set_defaults(func=cmd_events)
+    sub.add_parser(
+        "doctor", parents=[common], help="what this machine and account can do"
+    ).set_defaults(func=cmd_doctor)
+    sub.add_parser(
+        "events", parents=[common], help="replay the event log"
+    ).set_defaults(func=cmd_events)
 
-    args = parser.parse_args(argv)
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
     return args.func(args)
 
 
