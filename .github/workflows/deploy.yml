@@ -570,7 +570,16 @@ jobs:
                    --stack-status-filter CREATE_COMPLETE UPDATE_COMPLETE ROLLBACK_COMPLETE REVIEW_IN_PROGRESS \
                    --query "StackSummaries[?StackName=='${EPH_STACK}'].StackName" --output text)
           [ -z "$LEFT" ] || { echo "the ephemeral stack survived teardown"; exit 1; }
-          BUCKETS=$(aws s3api list-buckets --query "Buckets[?starts_with(Name,'${EPH_PREFIX}-')].Name" --output text)
+          # `list-buckets` is eventually consistent and still listed a bucket that
+          # had just been deleted, which failed this check while the teardown had
+          # in fact worked. Poll rather than read once: a deletion that has not
+          # propagated yet is not a deletion that did not happen.
+          for attempt in 1 2 3 4 5 6; do
+            BUCKETS=$(aws s3api list-buckets                         --query "Buckets[?starts_with(Name,'${EPH_PREFIX}-')].Name" --output text)
+            [ -z "$BUCKETS" ] && break
+            echo "attempt $attempt: still listed: $BUCKETS"
+            sleep 10
+          done
           [ -z "$BUCKETS" ] || { echo "ephemeral buckets survived: $BUCKETS"; exit 1; }
 
           # And the thing this job must never break.
