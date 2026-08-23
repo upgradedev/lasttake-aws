@@ -510,9 +510,12 @@ src/lasttake/
   checks/      the four bounded checks. Coverage and continuity use a model through a
                narrow port; metadata and rights are arithmetic and never call one.
   ports/       the interfaces. Event bus, artifact store, run store, interpreter.
-  adapters/    local/ runs offline with no account. aws/ is Bedrock and, next,
-               EventBridge, S3 and Aurora DSQL.
+  adapters/    local/ runs offline with no account. aws/ is Bedrock, EventBridge,
+               S3 and Aurora DSQL.
   agents/      the Strands layer: the orchestrator, its eight tools, and the run.
+  app/         the Lambda behind the live URL, the lined script it paints, and the
+               single page. scene_view.py imports no SDK either: the view a script
+               supervisor reads is shaping over the package, not agent output.
   cli.py       the commands a judge runs.
 corpus/        one fictional shoot day, and the generator that produces it.
 tests/         including the gate's own proofs that it can fail.
