@@ -26,6 +26,7 @@ Before you wrap the set, know whether you truly have the scene.
 - [What it will not do](#what-it-will-not-do)
 - [Running against Amazon Bedrock](#running-against-amazon-bedrock)
 - [What is deployed, and what it costs](#what-is-deployed-and-what-it-costs)
+- [Assurance and residual gaps](#assurance-and-residual-gaps)
 - [Repository layout](#repository-layout)
 - [Pre-existing components](#pre-existing-components)
 - [Licence](#licence)
@@ -475,6 +476,21 @@ number worth quoting, and it does not exist yet.
 **Tearing it down.** `gh workflow run deploy.yml -f action=teardown` deletes the stack. The
 data bucket is retained on purpose, because it holds the audit trail, and a teardown that
 destroys the audit trail is not a teardown. Empty it deliberately if you want it gone.
+
+## Assurance and residual gaps
+
+[`docs/assurance.md`](docs/assurance.md) holds three tables: AWS Well-Architected across six
+pillars plus the Agentic AI Lens, the EU AI Act articles this class of system has to answer
+for, and what is done with personal data.
+
+**Every row names a residual gap and not one of them is empty**, because a row with nothing
+left to do is a row nobody looked at hard enough. The gaps include real ones: no measured
+p95, no restore drill, no evaluation set for the two bounded model questions, a public
+endpoint with no authentication by design, and long-lived access keys in CI rather than
+federated identity.
+
+Two words never appear there, and a gate fails the build if they do. Whether a system meets a
+regulation is decided by an assessment body, not by the people who wrote it.
 
 ## Repository layout
 
