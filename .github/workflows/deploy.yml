@@ -535,24 +535,25 @@ jobs:
           echo "stack deleted"
 
           if aws s3api head-bucket --bucket "$DATA" >/dev/null 2>&1; then
-            aws s3 rm "s3://$DATA" --recursive >/dev/null 2>&1 || true
-            python - "$DATA" <<'PY'
-          import sys, boto3
-          bucket = sys.argv[1]
-          assert bucket.startswith("lasttake-eph-"), bucket
-          s3 = boto3.client("s3")
-          paginator = s3.get_paginator("list_object_versions")
-          for page in paginator.paginate(Bucket=bucket):
-              objects = [
-                  {"Key": o["Key"], "VersionId": o["VersionId"]}
-                  for key in ("Versions", "DeleteMarkers")
-                  for o in page.get(key, [])
-              ]
-              if objects:
-                  s3.delete_objects(Bucket=bucket, Delete={"Objects": objects})
-          print(f"emptied {bucket}")
-          PY
-            aws s3api delete-bucket --bucket "$DATA" --region "$AWS_REGION"
+            # Emptied with the CLI, not boto3. The runner has the AWS CLI but no
+            # boto3 module, and the first version of this assumed otherwise: the
+            # stack deleted, the bucket survived, and the teardown proof failed
+            # after the destructive half had already run.
+            #
+            # Versioning is on, so both object versions and delete markers have
+            # to go or the bucket refuses to be deleted. Two passes, because
+            # JMESPath cannot flatten the two lists into one in a way the
+            # delete-objects shape accepts.
+            for KIND in Versions DeleteMarkers; do
+              while : ; do
+                ITEMS=$(aws s3api list-object-versions --bucket "$DATA" --max-keys 500                           --query "{Objects: ${KIND}[].{Key:Key,VersionId:VersionId}}"                           --output json)
+                COUNT=$(echo "$ITEMS" | python -c "import json,sys; print(len(json.load(sys.stdin).get('Objects') or []))")
+                [ "$COUNT" = "0" ] && break
+                echo "$ITEMS" > /tmp/delete.json
+                aws s3api delete-objects --bucket "$DATA" --delete file:///tmp/delete.json >/dev/null
+                echo "removed $COUNT $KIND"
+              done
+            done
             echo "bucket deleted"
           fi
 
