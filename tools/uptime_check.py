@@ -89,8 +89,28 @@ def check(base: str) -> list[str]:
         )
     lines.append(f"- run state is on Aurora DSQL, commit `{str(health.get('commit'))[:12]}`")
 
-    # 3. The checkpoint, and the count every judge-facing surface states.
+    # 3. The lined script. It is what the page paints first, before any check
+    #    has finished, so if it is broken a judge sees an empty product.
     run_id = f"uptime-{uuid.uuid4().hex[:12]}"
+    status, scene = _request(base + "api/scene", {"run_id": run_id})
+    if status != 200 or not isinstance(scene, dict):
+        raise CheckFailed(f"api/scene returned {status}: {scene}")
+    if scene.get("required_beats") != EXPECTED_COUNTS["required_beats"]:
+        raise CheckFailed(
+            f"the scene says {scene.get('required_beats')} required beats, the count "
+            f"says {EXPECTED_COUNTS['required_beats']}"
+        )
+    with_takes = sum(1 for b in scene.get("beats", []) if b.get("takes"))
+    if with_takes < 30:
+        raise CheckFailed(f"only {with_takes} beats carry takes; the lined script is empty")
+    if scene.get("authority", {}).get("rights", {}).get("may_accept") != []:
+        raise CheckFailed("the page would offer a control that accepts away a missing release")
+    lines.append(
+        f"- the lined script paints {len(scene['beats'])} beats, "
+        f"{scene['take_count']} takes, and offers nobody a way to accept away a release"
+    )
+
+    # 4. The checkpoint, and the count every judge-facing surface states.
     status, state = _request(base + "api/checkpoint", {"run_id": run_id})
     if status != 200 or not isinstance(state, dict):
         raise CheckFailed(f"checkpoint returned {status}: {state}")
@@ -99,7 +119,7 @@ def check(base: str) -> list[str]:
         raise CheckFailed(f"the count changed. expected {EXPECTED_COUNTS}, got {counts}")
     lines.append(f"- `{state['headline']}`")
 
-    # 4. The product's whole point: it stops and waits for a named human.
+    # 5. The product's whole point: it stops and waits for a named human.
     pending = state.get("pending_approval")
     if not pending:
         raise CheckFailed(
@@ -112,7 +132,7 @@ def check(base: str) -> list[str]:
     first_container = health.get("served_by", {}).get("container_id")
     lines.append(f"- the run stopped and is waiting for the {reason['required_role']} on {reason.get('beat_id')}")
 
-    # 5. A second request resumes it. This is the hero, checked twice a day.
+    # 6. A second request resumes it. This is the hero, checked twice a day.
     status, resumed = _request(
         base + "api/approve",
         {"run_id": run_id, "interrupt_id": pending["id"], "approve": True},
@@ -123,7 +143,7 @@ def check(base: str) -> list[str]:
         raise CheckFailed(f"the resume did not route the pickup: {resumed.get('message')}")
     lines.append("- a separate request resumed the run and routed the pickup")
 
-    # 6. Eligibility is still refused, because a release is still missing.
+    # 7. Eligibility is still refused, because a release is still missing.
     if resumed.get("eligible"):
         raise CheckFailed(
             "the scene reads as eligible while a release is still missing. The gate is "
@@ -131,7 +151,7 @@ def check(base: str) -> list[str]:
         )
     lines.append("- the gate still refuses, because a release is still missing")
 
-    # 7. The cross-run query that is the reason a database is here at all.
+    # 8. The cross-run query that is the reason a database is here at all.
     status, blocked = _request(base + "api/blocked")
     if status != 200 or not isinstance(blocked, dict) or "blocked" not in blocked:
         raise CheckFailed(f"the blocked-runs query returned {status}: {blocked}")

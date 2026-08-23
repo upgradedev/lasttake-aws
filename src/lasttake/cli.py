@@ -251,7 +251,7 @@ def cmd_late_take(args) -> int:
         take_id="T-041",
         shot_id="S-42-PICKUP",
         beat_ids=[args.beat],
-        slate="42P/1",
+        slate="42K/1",
         camera_roll="A006",
         sound_roll="SR06",
         timecode_in="22:41:12:00",

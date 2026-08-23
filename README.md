@@ -57,12 +57,21 @@ reshoot.
 
 **https://1p6s28nyf0.execute-api.eu-west-1.amazonaws.com/**
 
-No account, no install, no credential. Fire the checkpoint, read the count, and watch the
-run stop and wait for the 1st AD. Then close the tab. Come back tomorrow and approve: the
-run continues from the same point, in a process that no longer exists.
+No account, no install, no credential. The page opens on the scene as a script supervisor
+holds it: the lined script, thirty-four required beats down the page, and beside each one
+the takes that were actually shot against it. The checkpoint fires on arrival, so within a
+few seconds the verdict lands on top of that script and the exceptions appear with the page
+and line they sit on, what each costs to fix now against what it costs after wrap, and
+which role can act.
+
+Then the run **stops**, because a pickup needs the 1st AD and you are signed in as the
+supervisor. Change the role in the slate to stand in for them. Close the tab first if you
+like, and come back tomorrow: the run continues from the same point, in a process that no
+longer exists.
 
 Every response tells you which Lambda invocation and which container served it, so the
 process boundary is something you watch happen rather than something this page asserts.
+Every visitor gets their own run id, so two judges never collide.
 
 ## Quickstart
 

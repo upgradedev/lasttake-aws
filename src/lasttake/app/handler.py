@@ -47,6 +47,7 @@ from ..domain.package import (
     with_extra_take,
     with_rights_record,
 )
+from .scene_view import scene_view
 
 #: Minted when this container boots. Two requests that report different values
 #: were served by different processes. Two that report the same value were
@@ -305,7 +306,7 @@ def route_late_take(body: dict, request_id: str) -> dict:
         take_id="T-041",
         shot_id="S-42-PICKUP",
         beat_ids=[beat],
-        slate="42P/1",
+        slate="42K/1",
         camera_roll="A006",
         sound_roll="SR06",
         timecode_in="22:41:12:00",
@@ -498,6 +499,14 @@ def route_events(body: dict, request_id: str) -> dict:
     )
 
 
+def route_scene(body: dict, request_id: str) -> dict:
+    """The lined script. No model, no findings, no judgement. See scene_view."""
+    run = build_run(body["run_id"])
+    payload = scene_view(run.package)
+    payload["run_id"] = run.run_id
+    return _json(200, payload, request_id)
+
+
 def route_state(body: dict, request_id: str) -> dict:
     return _json(200, _state(build_run(body["run_id"])), request_id)
 
@@ -526,6 +535,7 @@ ROUTES = {
     "/api/wrap": route_wrap,
     "/api/turnover": route_turnover,
     "/api/events": route_events,
+    "/api/scene": route_scene,
     "/api/state": route_state,
     "/api/reset": route_reset,
 }

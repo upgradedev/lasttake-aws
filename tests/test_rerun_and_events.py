@@ -101,7 +101,7 @@ def test_a_late_take_closes_the_coverage_gap_and_moves_the_revision(package):
         take_id="T-041",
         shot_id="S-42-PICKUP",
         beat_ids=["B-17"],
-        slate="42P/1",
+        slate="42K/1",
         camera_roll="A006",
         sound_roll="SR06",
         timecode_in="22:41:12:00",
