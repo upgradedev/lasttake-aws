@@ -69,6 +69,14 @@ supervisor. Change the role in the slate to stand in for them. Close the tab fir
 like, and come back tomorrow: the run continues from the same point, in a process that no
 longer exists.
 
+**The role in the slate is worth two minutes on its own.** It changes what you can do, not
+what you read. As the supervisor you can confirm or reject the coverage and continuity
+findings; the metadata one offers you nothing, because it is the DIT's. Switch to production
+and the missing release becomes yours, with confirm and reject and **no** accept, because
+`MAY_ACCEPT_EXCEPTION[RIGHTS]` is empty and the page reads that table rather than deciding
+for itself. Try it as any role: the server refuses a decision taken by the wrong one and says
+why.
+
 Every response tells you which Lambda invocation and which container served it, so the
 process boundary is something you watch happen rather than something this page asserts.
 Every visitor gets their own run id, so two judges never collide.
