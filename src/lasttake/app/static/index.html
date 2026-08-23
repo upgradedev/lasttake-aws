@@ -136,6 +136,11 @@ button.approve{background:var(--ok);color:#fff;border-color:var(--ok);font-weigh
 
 .synth{max-width:1180px;margin:0 auto;padding:9px 22px 0;font-size:11.5px;color:var(--mute)}
 .synth b{color:#8a5a00}
+.xrun{width:100%;border-collapse:collapse;font-size:13px;margin-top:4px}
+.xrun th{text-align:left;font-size:11px;letter-spacing:.07em;text-transform:uppercase;
+  color:var(--mute);font-weight:600;padding:0 12px 6px 0;border-bottom:1px solid var(--rule)}
+.xrun td{padding:7px 12px 7px 0;border-bottom:1px solid #f0eee9;font-variant-numeric:tabular-nums}
+.xrun tr.you td{font-weight:600}
 .foot{margin-top:34px;font-size:12px;color:var(--mute);line-height:1.7}
 pre{background:#fff;border:1px solid var(--rule);border-radius:5px;padding:12px;
   overflow:auto;font-size:11.5px;max-height:340px;
@@ -202,6 +207,9 @@ pre{background:#fff;border:1px solid var(--rule);border-radius:5px;padding:12px;
   <div class="inbox" id="inbox"></div>
 
   <div id="turnbox"></div>
+
+  <h2 class="sec">Across the production tonight</h2>
+  <div class="item" id="blocked"><p class="skel">Asking the database&hellip;</p></div>
 
   <div class="foot">
     <p id="served"></p>
@@ -531,6 +539,41 @@ function paintInbox() {
   ].join('');
 }
 
+/* The one question a customer asks after the first scene: and my other sixty?
+   One query over every run on the cluster, which is the reason run state is in a
+   database and not in the bucket beside the artifacts. */
+function loadBlocked() {
+  fetch('/api/blocked').then(function (r) {
+    return r.json().then(function (d) { return {ok: r.ok, d: d}; });
+  }).then(function (res) {
+    var el = $('blocked');
+    if (!res.ok || !res.d.blocked) {
+      el.innerHTML = '<p>' + esc((res.d && res.d.error) ||
+        'The cross-run query is unavailable on this deployment.') + '</p>';
+      return;
+    }
+    var rows = res.d.blocked;
+    if (!rows.length) {
+      el.innerHTML = '<p>Nothing on this cluster is carrying an open exception.</p>';
+      return;
+    }
+    el.innerHTML = '<p>Every run still carrying an exception nobody has decided on, and how ' +
+      'many departments each one touches. One query across the whole cluster, ordered by how ' +
+      'much is open. A 1st AD on a two-unit day wants this list, not a scene at a time.</p>' +
+      '<div style="overflow-x:auto"><table class="xrun"><thead><tr><th>Run</th>' +
+      '<th>Open exceptions</th><th>Departments</th><th>Last seen</th></tr></thead><tbody>' +
+      rows.slice(0, 12).map(function (b) {
+        return '<tr' + (b.run_id === RUN ? ' class="you"' : '') + '><td class="mono">' +
+          esc(b.run_id) + (b.run_id === RUN ? ' ← this one' : '') + '</td><td>' +
+          esc(b.open_exceptions) + '</td><td>' + esc(b.departments_involved) + '</td><td>' +
+          esc(String(b.last_seen || '').replace('T', ' ').slice(0, 19)) + '</td></tr>';
+      }).join('') + '</tbody></table></div>' +
+      (rows.length > 12 ? '<p>' + (rows.length - 12) + ' more not shown.</p>' : '');
+  }).catch(function (e) {
+    $('blocked').innerHTML = '<p>' + esc(String(e)) + '</p>';
+  });
+}
+
 function showTurnover(d) {
   if (!d || !d.turnover) return;
   $('turnbox').innerHTML = '<h2 class="sec">Turnover to editorial</h2>' +
@@ -583,7 +626,10 @@ function start() {
   return call('/api/scene').then(function (d) {
     SCENE = d;
     paint();
-    return call('/api/checkpoint');
+    return call('/api/checkpoint').then(function (r) {
+      loadBlocked();
+      return r;
+    });
   });
 }
 
