@@ -1,82 +1,133 @@
 name: ci
 
+
+
 on:
+
   push:
+
     branches: [main, "build/**"]
+
   pull_request:
+
   workflow_dispatch:
 
+
+
 jobs:
+
   test:
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+
+        with:
+
+          python-version: "3.12"
+
+
+
+      - name: install
+
+        run: |
+
+          python -m pip install --upgrade pip
+
+          python -m pip install -e ".[dev]"
+
+          python -m pip show strands-agents | head -3
+
+
+
+      - name: the corpus is reproducible from its generator
+
+        run: |
+
+          python corpus/build_corpus.py
+
+          git diff --exit-code -- corpus/ || {
+
+            echo "corpus/ differs from what build_corpus.py produces. Regenerate and commit."
+
+            exit 1
+
+          }
+
+
+
+      - name: tests and coverage
+
+        run: |
+
+          python -m pytest --cov --cov-report=term-missing --cov-fail-under=85
+
+
+
+      - name: secret scan
+
+        run: python tools/secret_scan.py
+
+
+
+      - name: no other competition is named in judge-facing files
+
+        run: |
+
+          if grep -rEin "cockroach|backblaze|qwen|nebius|xprize|kaggle|gemini|vertex ai" \
+
+               README.md docs/ src/ corpus/ 2>/dev/null; then
+
+            echo "a judge-facing file names another sponsor or competition"; exit 1
+
+          fi
+
+          echo "clean"
+
+      - name: judge-facing prose does not read as generated
+        run: python tools/prose_gate.py
+
+  hero:
+    name: interrupt survives process death
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-
       - name: install
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install -e ".[dev]"
-          python -m pip show strands-agents | head -3
+        run: python -m pip install -e .
 
-      - name: the corpus is reproducible from its generator
+      # Each `run:` is a separate OS process. That is the whole point: the
+      # approval below is given by a process that did not exist when the run
+      # stopped, exactly as a 1st AD approving at 06:40 would be.
+      - name: 'process 1  ·  23:10, the checkpoint stops at the 1st AD'
+        run: lasttake checkpoint
+
+      - name: what survived on disk between the two processes
+        run: find .lasttake/sessions -type f | sort
+
+      - name: 'process 2  ·  06:40, a new process resumes the same run'
+        run: lasttake approve --yes --hours 7.5
+
+      - name: 'the late take arrives, and only the affected checks rerun'
+        run: lasttake late-take --beat B-17
+
+      - name: 'production supplies the missing release'
+        run: lasttake resolve rights --subject BG-07
+
+      - name: the event log, end to end
+        run: lasttake events
+
+      - name: 'negative control  ·  wipe the session, resume must FAIL'
         run: |
-          python corpus/build_corpus.py
-          git diff --exit-code -- corpus/ || {
-            echo "corpus/ differs from what build_corpus.py produces. Regenerate and commit."
+          rm -rf .lasttake/sessions
+          if lasttake approve --yes 2>/dev/null; then
+            echo "NEGATIVE CONTROL FAILED: resumed with no session on disk."
             exit 1
-          }
-
-      - name: tests and coverage
-        run: |
-          python -m pytest --cov --cov-report=term-missing --cov-fail-under=85
-
-      - name: secret scan
-        run: python tools/secret_scan.py
-
-      - name: no other competition is named in judge-facing files
-        run: |
-          if grep -rEin "cockroach|backblaze|qwen|nebius|xprize|kaggle|gemini|vertex ai" \
-               README.md docs/ src/ corpus/ 2>/dev/null; then
-            echo "a judge-facing file names another sponsor or competition"; exit 1
           fi
-          echo "clean"
-
-      - name: judge-facing prose does not read as generated
-        run: |
-          python - <<'PY'
-          import pathlib, re, sys
-
-          # docs/ is judge-facing too. The first version of this gate checked
-          # README.md alone, and the assurance tables were written under no gate
-          # at all until they were added here.
-          targets = [pathlib.Path("README.md")] + sorted(pathlib.Path("docs").glob("*.md"))
-
-          # Whole words, not prefixes. The banned item is the marketing
-          # adjective "robust"; "robustness" is the title of EU AI Act Article
-          # 15 and citing a regulation accurately is not a style problem.
-          BANNED = ("leverage", "robust", "seamless", "comprehensive", "delve")
-          FORBIDDEN_CLAIMS = ("compliant", "conformity")
-
-          problems = []
-          for path in targets:
-              text = path.read_text(encoding="utf-8")
-              if "—" in text:
-                  problems.append(f"{path}: em dash")
-              for word in BANNED:
-                  if re.search(rf"{re.escape(word)}", text, re.I):
-                      problems.append(f"{path}: banned word {word!r}")
-              for word in FORBIDDEN_CLAIMS:
-                  if re.search(rf"{word}", text, re.I):
-                      problems.append(f"{path}: forbidden claim {word!r}")
-              if "in today's world" in text.lower():
-                  problems.append(f"{path}: banned phrase")
-
-          if problems:
-              print("
-".join(problems))
-              sys.exit(1)
-          print(f"prose gate passed over {len(targets)} file(s)")
-          PY
+          echo "NEGATIVE CONTROL HELD: with the session wiped, there is nothing to resume."
