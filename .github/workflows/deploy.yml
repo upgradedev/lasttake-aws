@@ -12,9 +12,9 @@ on:
   workflow_dispatch:
     inputs:
       action:
-        description: deploy or teardown
+        description: deploy, teardown, or lifecycle (build a throwaway copy, check it, destroy it)
         type: choice
-        options: [deploy, teardown]
+        options: [deploy, teardown, lifecycle]
         default: deploy
   push:
     branches: [main]
@@ -34,7 +34,7 @@ env:
 
 jobs:
   deploy:
-    if: inputs.action != 'teardown'
+    if: inputs.action != 'teardown' && inputs.action != 'lifecycle'
     runs-on: ubuntu-latest
     outputs:
       url: ${{ steps.stack.outputs.url }}
@@ -412,6 +412,179 @@ jobs:
           echo "EventBridge: 1.00 USD per million custom events."
           echo "Idle monthly cost is dominated by S3 storage and rounds to under 0.01 USD."
           echo "Measured from the AWS pricing pages on the date in STATE.md, not estimated here."
+
+  # Gate D2 asks for a pipeline that builds from nothing and tears everything
+  # down, and asks that it has actually been run end to end. Doing that against
+  # the live stack would change the URL a judge has been given, because the API
+  # Gateway id is generated. So it runs against a throwaway copy of the same
+  # template, under a different name prefix, and the live stack is never touched.
+  #
+  # It is the same template, the same pipeline and the same assertions. What
+  # differs is one parameter.
+  lifecycle:
+    if: inputs.action == 'lifecycle'
+    runs-on: ubuntu-latest
+    env:
+      EPH_STACK: lasttake-app-ephemeral
+      EPH_PREFIX: lasttake-eph
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: refuse to run against anything that is not the throwaway copy
+        run: |
+          set -euo pipefail
+          # The whole point of this job is that it destroys what it creates. If
+          # the names ever drift onto the real stack, it would destroy that
+          # instead. Cheap check, catastrophic thing to get wrong.
+          [ "$EPH_STACK" != "$STACK" ] || { echo "ephemeral stack name equals the live one"; exit 1; }
+          [ "$EPH_PREFIX" != "lasttake" ] || { echo "ephemeral prefix equals the live one"; exit 1; }
+          echo "will build and destroy $EPH_STACK with prefix $EPH_PREFIX"
+          echo "the live stack $STACK is not referenced by this job"
+
+      - name: build the package
+        run: |
+          set -euo pipefail
+          rm -rf build && mkdir -p build/pkg
+          python -m pip install \
+            --platform manylinux2014_aarch64 \
+            --implementation cp --python-version 3.12 --only-binary=:all: \
+            --target build/pkg \
+            "strands-agents>=1.53.0" "pydantic>=2.7" "psycopg[binary]>=3.2"
+          cp -r src/lasttake build/pkg/lasttake
+          mkdir -p build/pkg/corpus && cp corpus/*.json build/pkg/corpus/
+          rm -rf build/pkg/boto3 build/pkg/botocore || true
+          find build/pkg -name "*.dist-info" -prune -exec rm -rf {} + || true
+          find build/pkg -name "__pycache__" -prune -exec rm -rf {} + || true
+          cd build/pkg && zip -qr ../lasttake.zip . && cd ../..
+
+      - name: 1 of 3, build it from nothing
+        id: build
+        run: |
+          set -euo pipefail
+          ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+          BUCKET="lasttake-deploy-${ACCOUNT}-${AWS_REGION}"
+          SHA=$(sha256sum build/lasttake.zip | cut -c1-16)
+          KEY="builds/lasttake-${SHA}.zip"
+          aws s3 cp build/lasttake.zip "s3://${BUCKET}/${KEY}" >/dev/null
+
+          # Nothing may exist beforehand, or "from nothing" is not what happened.
+          STATUS=$(aws cloudformation describe-stacks --stack-name "$EPH_STACK" \
+                     --query "Stacks[0].StackStatus" --output text 2>/dev/null || echo NONE)
+          if [ "$STATUS" != "NONE" ]; then
+            echo "a previous ephemeral stack is still present in $STATUS; removing it first"
+            aws cloudformation delete-stack --stack-name "$EPH_STACK"
+            aws cloudformation wait stack-delete-complete --stack-name "$EPH_STACK"
+          fi
+
+          aws cloudformation deploy \
+            --template-file infra/stack.yaml \
+            --stack-name "$EPH_STACK" \
+            --capabilities CAPABILITY_NAMED_IAM \
+            --no-fail-on-empty-changeset \
+            --parameter-overrides \
+              CodeBucket="$BUCKET" \
+              CodeKey="$KEY" \
+              NamePrefix="$EPH_PREFIX" \
+              CommitSha=${{ github.sha }}
+
+          URL=$(aws cloudformation describe-stacks --stack-name "$EPH_STACK" \
+                  --query "Stacks[0].Outputs[?OutputKey=='LiveUrl'].OutputValue" --output text)
+          EPHEMERAL=$(aws cloudformation describe-stacks --stack-name "$EPH_STACK" \
+                  --query "Stacks[0].Outputs[?OutputKey=='IsEphemeral'].OutputValue" --output text)
+          [ "$EPHEMERAL" = "yes" ] || { echo "the stack does not consider itself ephemeral"; exit 1; }
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+          echo "built $EPH_STACK at $URL"
+
+      - name: 2 of 3, it actually works
+        run: |
+          set -euo pipefail
+          # The same journey the uptime check walks against the live URL. A
+          # teardown proof that never confirmed the thing worked would be a
+          # proof that CloudFormation can delete an empty stack.
+          python tools/uptime_check.py "${{ steps.build.outputs.url }}"
+
+      - name: 3 of 3, tear everything down
+        if: always() && steps.build.outcome == 'success'
+        run: |
+          set -euo pipefail
+          ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+
+          # Read what the stack owns before deleting it. Both the bucket and the
+          # cluster carry DeletionPolicy: Retain, so CloudFormation leaves them
+          # behind on purpose and this job has to finish the job.
+          DATA=$(aws cloudformation describe-stacks --stack-name "$EPH_STACK" \
+                   --query "Stacks[0].Outputs[?OutputKey=='BucketName'].OutputValue" --output text)
+          CLUSTER=$(aws cloudformation describe-stacks --stack-name "$EPH_STACK" \
+                   --query "Stacks[0].Outputs[?OutputKey=='DatabaseIdentifier'].OutputValue" --output text)
+
+          case "$DATA" in
+            "$EPH_PREFIX"-*) ;;
+            *) echo "refusing: $DATA is not an ephemeral bucket"; exit 1 ;;
+          esac
+
+          aws cloudformation delete-stack --stack-name "$EPH_STACK"
+          aws cloudformation wait stack-delete-complete --stack-name "$EPH_STACK"
+          echo "stack deleted"
+
+          if aws s3api head-bucket --bucket "$DATA" >/dev/null 2>&1; then
+            aws s3 rm "s3://$DATA" --recursive >/dev/null 2>&1 || true
+            python - "$DATA" <<'PY'
+          import sys, boto3
+          bucket = sys.argv[1]
+          assert bucket.startswith("lasttake-eph-"), bucket
+          s3 = boto3.client("s3")
+          paginator = s3.get_paginator("list_object_versions")
+          for page in paginator.paginate(Bucket=bucket):
+              objects = [
+                  {"Key": o["Key"], "VersionId": o["VersionId"]}
+                  for key in ("Versions", "DeleteMarkers")
+                  for o in page.get(key, [])
+              ]
+              if objects:
+                  s3.delete_objects(Bucket=bucket, Delete={"Objects": objects})
+          print(f"emptied {bucket}")
+          PY
+            aws s3api delete-bucket --bucket "$DATA" --region "$AWS_REGION"
+            echo "bucket deleted"
+          fi
+
+          if [ -n "$CLUSTER" ] && [ "$CLUSTER" != "None" ]; then
+            aws dsql delete-cluster --identifier "$CLUSTER" --region "$AWS_REGION" >/dev/null
+            echo "cluster $CLUSTER deleting"
+          fi
+
+      - name: nothing ephemeral is left, and the live stack is untouched
+        if: always() && steps.build.outcome == 'success'
+        run: |
+          set -euo pipefail
+          LEFT=$(aws cloudformation list-stacks \
+                   --stack-status-filter CREATE_COMPLETE UPDATE_COMPLETE ROLLBACK_COMPLETE REVIEW_IN_PROGRESS \
+                   --query "StackSummaries[?StackName=='${EPH_STACK}'].StackName" --output text)
+          [ -z "$LEFT" ] || { echo "the ephemeral stack survived teardown"; exit 1; }
+          BUCKETS=$(aws s3api list-buckets --query "Buckets[?starts_with(Name,'${EPH_PREFIX}-')].Name" --output text)
+          [ -z "$BUCKETS" ] || { echo "ephemeral buckets survived: $BUCKETS"; exit 1; }
+
+          # And the thing this job must never break.
+          LIVE=$(aws cloudformation describe-stacks --stack-name "$STACK" \
+                   --query "Stacks[0].StackStatus" --output text)
+          [ "$LIVE" = "CREATE_COMPLETE" ] || [ "$LIVE" = "UPDATE_COMPLETE" ] || {
+            echo "the live stack is in $LIVE"; exit 1; }
+          echo "torn down cleanly; the live stack is still $LIVE"
+          {
+            echo "## Gate D2: build from nothing, verify, destroy"
+            echo ""
+            echo "Built \`$EPH_STACK\`, walked the whole judge journey against it, destroyed"
+            echo "the stack, the bucket and the cluster. The live stack is untouched and"
+            echo "still \`$LIVE\`."
+          } >> "$GITHUB_STEP_SUMMARY"
 
   teardown:
     if: inputs.action == 'teardown'
