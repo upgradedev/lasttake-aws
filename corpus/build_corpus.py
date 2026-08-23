@@ -133,8 +133,15 @@ RIGHTS = [
 ]
 
 
-def _slate(beat_index: int, take_number: int) -> str:
-    return f"42{chr(ord('A') + (beat_index % 6))}/{take_number}"
+#: One letter per camera setup, numbered within that setup. I and O are skipped
+#: because on a slate they read as 1 and 0. A slate identifies exactly one take,
+#: so a letter that cycled would put the same slate on takes shot hours apart,
+#: which is the first thing a script supervisor would catch.
+SLATE_LETTERS = [c for c in "ABCDEFGHIJKLMNOPQRSTUVWXYZ" if c not in ("I", "O")]
+
+
+def _slate(setup_letter: str, take_number: int) -> str:
+    return f"42{setup_letter}/{take_number}"
 
 
 def _timecode(seconds: int) -> str:
@@ -165,14 +172,22 @@ def build_takes() -> tuple[list[dict], list[dict], dict[str, str]]:
     # beat stays covered while the DIT still gets a real finding.
     doubled = {"B-03", "B-05", "B-11", "B-13", "B-23", "B-26", "B-31"}
 
+    setup_order: list[str] = []
+    setup_takes: dict[str, int] = {}
+
     take_number = 1
     clock = 0
     for index, (beat_id, _page, _line, _slug, characters) in enumerate(BEAT_SPECS):
         if beat_id == "B-17":
             continue  # never shot. This is the whole point of the demo.
         repeats = 2 if beat_id in doubled else 1
+        setup = shot_for_beat.get(beat_id, "S-42-UNPLANNED")
+        if setup not in setup_order:
+            setup_order.append(setup)
+        letter = SLATE_LETTERS[setup_order.index(setup)]
         for repeat in range(repeats):
             take_id = f"T-{take_number:03d}"
+            setup_takes[setup] = setup_takes.get(setup, 0) + 1
             roll_index = index // 8
             camera_roll = f"A{roll_index + 1:03d}"
             media_id = f"{camera_roll}R2{chr(ord('A') + roll_index)}{take_number:02d}"
@@ -199,9 +214,9 @@ def build_takes() -> tuple[list[dict], list[dict], dict[str, str]]:
             takes.append(
                 {
                     "take_id": take_id,
-                    "shot_id": shot_for_beat.get(beat_id, "S-42-UNPLANNED"),
+                    "shot_id": setup,
                     "beat_ids": [beat_id],
-                    "slate": _slate(index, repeat + 1),
+                    "slate": _slate(letter, setup_takes[setup]),
                     "camera_roll": camera_roll,
                     "sound_roll": f"SR{roll_index + 1:02d}",
                     "timecode_in": _timecode(clock),
