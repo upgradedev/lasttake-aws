@@ -151,7 +151,78 @@ def check(base: str) -> list[str]:
         )
     lines.append("- the gate still refuses, because a release is still missing")
 
-    # 8. The cross-run query that is the reason a database is here at all.
+    # 8. The rest of the shoot day, to a published turnover. This walk is here
+    #    because it was not: three defects lived on the live URL for a day
+    #    behind a check that stopped at step seven. A take that did not survive
+    #    the request that captured it, a raw 500 from any prompt while an
+    #    approval was open, and a gate reached by asking a model to invoke it,
+    #    which on a resumed run returned the previous packet.
+    status, late = _request(base + "api/late-take", {"run_id": run_id, "beat_id": "B-17"})
+    if status != 200:
+        raise CheckFailed(f"late-take returned {status}: {late}")
+    status, after = _request(base + "api/state", {"run_id": run_id})
+    covered = {b["beat_id"]: b["status"] for b in after.get("beats", [])}
+    if covered.get("B-17") != "covered_with_evidence":
+        raise CheckFailed(
+            "the pickup take did not survive the request that captured it: B-17 reads "
+            f"{covered.get('B-17')!r} on the next request"
+        )
+    lines.append("- the pickup take is still on the card on the following request")
+
+    status, _ = _request(base + "api/resolve-rights", {"run_id": run_id, "subject": "BG-07"})
+    if status != 200:
+        raise CheckFailed(f"resolve-rights returned {status}")
+    status, gated = _request(base + "api/evaluate", {"run_id": run_id})
+    if status != 200:
+        raise CheckFailed(f"evaluate returned {status}: {gated}")
+    if gated.get("eligible"):
+        raise CheckFailed(
+            "the scene reads as eligible while two conflicts are untriaged. Supplying "
+            "evidence is not the same as settling a judgement."
+        )
+    owed = {c["finding_id"]: c["required_role"] for c in gated.get("causes", [])}
+    if set(owed.values()) != {"script_supervisor", "dit"}:
+        raise CheckFailed(f"the gate owes the wrong people: {owed}")
+    lines.append(
+        "- evidence is on file and the gate still refuses, naming two people who owe a "
+        "judgement it will not make for them"
+    )
+
+    for finding_id, role in owed.items():
+        status, _ = _request(
+            base + "api/decide",
+            {
+                "run_id": run_id,
+                "finding_id": finding_id,
+                "action": "accept_exception",
+                "role": role,
+                "actor": f"uptime check standing in as the {role}",
+                "reason": "Automated liveness walk.",
+            },
+        )
+        if status != 200:
+            raise CheckFailed(f"{role} could not triage {finding_id}: {status}")
+    status, cleared = _request(base + "api/evaluate", {"run_id": run_id})
+    if not cleared.get("eligible"):
+        raise CheckFailed(f"still not eligible after triage: {cleared.get('causes')}")
+    lines.append("- both judgements recorded by the role the policy names, and the gate clears")
+
+    status, asked = _request(base + "api/wrap", {"run_id": run_id})
+    approval = (asked or {}).get("pending_approval")
+    if status != 200 or not approval:
+        raise CheckFailed(f"the wrap was not put to the 1st AD: {status} {asked}")
+    status, wrapped = _request(
+        base + "api/wrap",
+        {"run_id": run_id, "interrupt_id": approval["id"], "approve": True},
+    )
+    if not wrapped.get("wrap_approved"):
+        raise CheckFailed("the wrap approval did not take")
+    status, turnover = _request(base + "api/turnover", {"run_id": run_id})
+    if status != 200 or not turnover.get("turnover"):
+        raise CheckFailed(f"editorial received nothing: {status}")
+    lines.append("- the 1st AD approved the wrap and the turnover is published and sealed")
+
+    # 9. The cross-run query that is the reason a database is here at all.
     status, blocked = _request(base + "api/blocked")
     if status != 200 or not isinstance(blocked, dict) or "blocked" not in blocked:
         raise CheckFailed(f"the blocked-runs query returned {status}: {blocked}")
