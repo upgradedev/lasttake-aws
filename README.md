@@ -58,11 +58,21 @@ reshoot.
 **https://1p6s28nyf0.execute-api.eu-west-1.amazonaws.com/**
 
 No account, no install, no credential. The page opens on the scene as a script supervisor
-holds it: the lined script, thirty-four required beats down the page, and beside each one
+holds it: the lined script, thirty-four required beats down the left, and beside each one
 the takes that were actually shot against it. The checkpoint fires on arrival, so within a
-few seconds the verdict lands on top of that script and the exceptions appear with the page
-and line they sit on, what each costs to fix now against what it costs after wrap, and
-which role can act.
+few seconds the verdict lands in the right pane and the exceptions appear with the page and
+line they sit on, what each costs to fix now against what it costs after wrap, and which
+role can act.
+
+The two panes scroll independently and are linked in both directions. Click an exception and
+the script scrolls to the lines it is about and flashes them; click a beat and its exceptions
+light up. Click any slate and an inspector puts the two records of that take side by side, the
+sidecar and the camera report, with the field the departments disagree on marked.
+
+**If you have ninety seconds, use the bar across the top.** It runs one shoot day in five
+moves: the checkpoint, the 1st AD's overnight pause, a late take, the signed release, the
+turnover. It changes role for you where the next move belongs to somebody else, and it stops
+at every point a human has to decide rather than deciding for them.
 
 Then the run **stops**, because a pickup needs the 1st AD and you are signed in as the
 supervisor. Change the role in the slate to stand in for them. Close the tab first if you
