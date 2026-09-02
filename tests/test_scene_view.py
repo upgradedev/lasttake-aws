@@ -31,6 +31,11 @@ def findings() -> list:
     run_id = "test-sceneview"
     return (
         coverage_check.run(package, run_id, interpreter, policy.POLICY_VERSION)
+        # The orchestrator adds this one, and it is the only finding that
+        # carries no requirement id at all. It was left out of this list once,
+        # and the interface printed the wrong headline over it on the live URL
+        # while every test here passed.
+        + coverage_check.orphan_shots(package, run_id, policy.POLICY_VERSION)
         + continuity_check.run(package, run_id, interpreter, policy.POLICY_VERSION)
         + metadata_check.run(package, run_id, policy.POLICY_VERSION)
         + rights_check.run(package, run_id, policy.POLICY_VERSION)
@@ -68,8 +73,19 @@ def test_the_beat_with_no_coverage_is_visibly_empty():
 
 
 def test_every_finding_can_be_pointed_at_a_place_a_person_can_turn_to():
+    """Either the scene locates its subject, or it carries a locator that does.
+
+    A finding with neither is an assertion, and the page has nothing to print
+    beside it but an identifier.
+    """
     v = view()
     for finding in findings():
+        if finding.requirement_id is None:
+            assert finding.locators, (
+                f"{finding.finding_id} names no requirement and carries no "
+                "locator, so nothing on this page can say where it came from"
+            )
+            continue
         where = v["locations"].get(finding.requirement_id)
         assert where, (
             f"{finding.check_type.value} finding {finding.finding_id} names "
@@ -80,6 +96,20 @@ def test_every_finding_can_be_pointed_at_a_place_a_person_can_turn_to():
             f"{finding.requirement_id!r} resolves to itself, which tells nobody "
             "which page to turn to"
         )
+
+
+def test_the_orphan_shot_advisory_is_not_a_missing_beat():
+    """It is a coverage finding, and it is not about a beat at all.
+
+    The page keys its headline off check_type, so this one has to be
+    distinguishable from a beat with no coverage or it gets the wrong sentence.
+    """
+    orphans = [f for f in findings() if f.requirement_id is None]
+    assert orphans, "the corpus is meant to contain a shot the revision cut"
+    for finding in orphans:
+        assert finding.truth_state.value == "unknown"
+        assert finding.severity.value == "advisory", "it must not block a wrap"
+        assert any(loc.kind == "shot" for loc in finding.locators)
 
 
 def test_the_view_carries_no_verdict():

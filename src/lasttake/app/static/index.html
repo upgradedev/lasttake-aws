@@ -119,6 +119,7 @@ h2.sec{font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:var(--
 .k-continuity{color:var(--warn);background:var(--warn-bg)}
 .k-metadata{color:var(--warn);background:var(--warn-bg)}
 .k-rights{color:var(--legal);background:var(--legal-bg)}
+.kind.advisory{color:var(--mute);background:#f0eee9;margin-left:6px}
 .card h3{margin:9px 0 3px;font-size:15px;font-weight:620;line-height:1.3}
 .where{font-size:12px;color:var(--mute);margin:0 0 8px}
 .where .jump{color:var(--focus);font-weight:600}
@@ -383,6 +384,34 @@ var KIND = {
     later: 'They have gone home. Counsel decides whether the frame can ship.'
   }
 };
+/* Not every coverage finding is a missing beat. The orphan-shot advisory is a
+   coverage finding with no requirement id at all, because it is about a shot
+   that plans for a beat the current revision no longer has, and saying "a
+   required beat has no viable coverage" over it would be stating something
+   untrue on the surface a judge reads. */
+var KIND_UNKNOWN = {
+  coverage: {
+    label: 'Coverage',
+    title: 'The shot plan and the script have drifted',
+    now: 'Ask whether the plan was rebuilt against the current revision.',
+    later: 'The first visible symptom of a revision nobody circulated.'
+  },
+  continuity: {
+    label: 'Continuity',
+    title: 'Nothing was written down either way',
+    now: 'A note on the take, while the setup is still remembered.',
+    later: 'Silence in the notes reads as agreement, and it is not.'
+  }
+};
+
+function kindOf(f) {
+  if (f.truth_state === 'unknown' && KIND_UNKNOWN[f.check_type]) {
+    return KIND_UNKNOWN[f.check_type];
+  }
+  return KIND[f.check_type] ||
+    {label: f.check_type, title: f.check_type, now: '', later: ''};
+}
+
 var COST_ORDER = {coverage: 0, rights: 1, continuity: 2, metadata: 3};
 var STATUS_CLASS = {
   covered_with_evidence: 'covered',
@@ -751,9 +780,15 @@ function paintCards() {
   var interpreter = (STATE && STATE.interpreter) || 'the interpreter';
 
   $('cards').innerHTML = list.map(function (f) {
-    var k = KIND[f.check_type] ||
-      {label: f.check_type, title: f.check_type, now: '', later: ''};
-    var where = where_of[f.requirement_id] || f.requirement_id;
+    var k = kindOf(f);
+    var lines = f.requirement_id ? beatsFor(f.requirement_id) : [];
+    // A finding without a requirement id still has to say where it came from,
+    // and its locators are what a person opens. That is the reason a finding
+    // with no locator is rejected before it ever reaches this page.
+    var where = (f.requirement_id && where_of[f.requirement_id]) ||
+      (f.locators || []).map(function (l) {
+        return l.kind.replace(/_/g, ' ') + ' ' + l.value;
+      }).join(' · ') || f.finding_id;
     var auth = (SCENE && SCENE.authority && SCENE.authority[f.check_type]) || {};
     var mine = (auth.may_confirm || []).indexOf(ROLE) >= 0;
     var nobodyAccepts = (auth.may_accept || []).length === 0;
@@ -768,13 +803,17 @@ function paintCards() {
         '</span></div>';
     }).join('');
 
-    return '<div class="card' + (LINKED === f.requirement_id ? ' linked' : '') +
-      '" data-finding="' + esc(f.finding_id) + '" data-req="' + esc(f.requirement_id) + '">' +
+    return '<div class="card' +
+      (f.requirement_id && LINKED === f.requirement_id ? ' linked' : '') +
+      '" data-finding="' + esc(f.finding_id) + '"' +
+      (lines.length ? ' data-req="' + esc(f.requirement_id) + '"' : '') + '>' +
       '<span class="kind k-' + esc(f.check_type) + '">' + esc(k.label) + ' · ' +
         esc(f.truth_state) + '</span>' +
+      (f.severity === 'advisory'
+        ? '<span class="kind advisory">advisory, does not block the wrap</span>' : '') +
       '<h3>' + esc(k.title) + '</h3>' +
       '<div class="where">' + esc(where) +
-        ' <span class="jump">Show me on the script</span></div>' +
+        (lines.length ? ' <span class="jump">Show me on the script</span>' : '') + '</div>' +
       '<p class="obs">' + esc(f.observation) + '</p>' +
       (f.inference
         ? '<p class="infer"><b>Read by ' + esc(interpreter) + ', and kept apart from what ' +
