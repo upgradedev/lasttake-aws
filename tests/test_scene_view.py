@@ -93,9 +93,13 @@ def test_the_view_carries_no_verdict():
         for take in beat["takes"]:
             assert set(take) == {
                 "take_id", "slate", "shot_id", "lens_mm", "camera_roll", "sound_roll",
-                "timecode_in", "media_id", "preferred", "usable", "note",
-                "visible_people", "visible_assets",
-            }, "a take is what the report says it is, with nothing added"
+                "timecode_in", "timecode_out", "captured_at", "media_id", "preferred",
+                "usable", "note", "visible_people", "visible_assets", "camera_report",
+            }, "a take is what the two reports say it is, with nothing added"
+            # The camera report is carried as written, never reconciled here.
+            assert take["camera_report"] is None or set(take["camera_report"]) == {
+                "media_id", "lens_mm", "camera_roll",
+            }
 
 
 def test_nobody_is_offered_a_way_to_accept_away_a_missing_release():

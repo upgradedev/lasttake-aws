@@ -18,6 +18,19 @@ from ..domain.package import ScenePackage
 
 
 def scene_view(package: ScenePackage) -> dict:
+    # The camera report is a separate document written by a separate department.
+    # The inspector shows both side by side and lets a DIT read them; it does not
+    # decide whether they agree. That decision is the metadata check's, and it
+    # arrives as a finding with its own sources.
+    reported = {
+        row.take_id: {
+            "media_id": row.media_id,
+            "lens_mm": row.lens_mm,
+            "camera_roll": row.camera_roll,
+        }
+        for row in package.camera_report
+    }
+
     by_beat: dict[str, list[dict]] = {}
     for take in package.takes:
         row = {
@@ -32,8 +45,14 @@ def scene_view(package: ScenePackage) -> dict:
             "preferred": take.preferred,
             "usable": take.usable,
             "note": take.note or package.script_notes.get(take.take_id, ""),
+            "timecode_out": take.timecode_out,
+            "captured_at": take.captured_at,
             "visible_people": list(take.visible_people),
             "visible_assets": list(take.visible_assets),
+            # What the camera department wrote down about the same take, as
+            # written. None means the report has no row for it at all, which is
+            # itself something a DIT needs to see.
+            "camera_report": reported.get(take.take_id),
         }
         for beat_id in take.beat_ids:
             by_beat.setdefault(beat_id, []).append(row)
@@ -95,6 +114,9 @@ def scene_view(package: ScenePackage) -> dict:
             for b in package.beats
         ],
         "subjects": [{"subject_id": s, "released": s in released} for s in subjects],
+        "sound_rolls": sorted(
+            {take.sound_roll for take in package.takes if take.sound_roll}
+        ),
         "locations": locations,
         # Who may act is read out of the policy tables, not written into the
         # page. When the interface declines to offer a control it is because the

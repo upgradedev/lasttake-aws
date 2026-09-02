@@ -6,8 +6,10 @@ literal block and a shell heredoc at once; one pass turned every `\\b` into a
 literal backspace character and the workflow stopped parsing. A gate that is
 hard to write correctly is a gate that ends up wrong.
 
-Covers `README.md` and everything in `docs/`. The first version checked only
-the README, so the assurance tables were written under no gate at all.
+Covers `README.md`, everything in `docs/`, and the single page the live URL
+serves. The first version checked only the README, so the assurance tables were
+written under no gate at all; the second still skipped the page, and an em dash
+sat in its `<title>` where every judge's browser tab would show it.
 
 Run: python tools/prose_gate.py
 """
@@ -37,12 +39,19 @@ EM_DASH = "—"
 def targets() -> list[pathlib.Path]:
     files = [pathlib.Path("README.md")]
     files += sorted(pathlib.Path("docs").glob("*.md"))
+    files += sorted(pathlib.Path("src/lasttake/app/static").glob("*.html"))
     return [f for f in files if f.is_file()]
 
 
 def problems_in(path: pathlib.Path) -> list[str]:
     text = path.read_text(encoding="utf-8")
     found: list[str] = []
+
+    # The page is prose plus code. A banned marketing word inside a CSS
+    # property or a JavaScript identifier is not prose, so the word checks skip
+    # anything that is not visible text; the em dash check does not, because an
+    # em dash has no business anywhere in this repository.
+    markup = path.suffix == ".html"
 
     for index, line in enumerate(text.splitlines(), start=1):
         if EM_DASH in line:

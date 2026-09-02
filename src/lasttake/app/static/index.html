@@ -3,103 +3,160 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>LastTake — SC-042, THE LAST FERRY</title>
+<title>LastTake - SC-042, THE LAST FERRY</title>
 <style>
 /* Everything is inline and same-origin on purpose. The page is served with
    default-src 'none' and no font-src, so a webfont or a CDN would fail silently
-   on the deployed URL while passing on a laptop. System stack only. */
+   on the deployed URL while passing on a laptop. System stack only.
+
+   The layout target is a video cart laptop or an iPad Pro in landscape, which
+   is where a script supervisor and a 1st AD actually stand. Two panes that
+   scroll independently: the script on the left, everything you act on to the
+   right of it, so nobody scrolls a thousand pixels to connect a finding to the
+   line it is about. Below 1100px, which includes an iPad Pro held in portrait, it becomes one column
+   and scrolls normally. */
 :root{
   --paper:#fbfaf7; --ink:#16181d; --mute:#6b7280; --rule:#e2e0da;
-  --card:#ffffff; --slate:#1b1e24;
+  --card:#ffffff; --slate:#1b1e24; --slate2:#2b2f37;
   --ok:#137a4c; --ok-bg:#e8f4ed;
   --gap:#b4232a; --gap-bg:#fbeaea;
   --warn:#8a5a00; --warn-bg:#fdf3e0;
   --legal:#5b3ea8; --legal-bg:#efeafb;
   --idle:#9aa0a6;
+  --focus:#0b62d6;
 }
 *{box-sizing:border-box}
+html,body{height:100%}
 body{margin:0;background:var(--paper);color:var(--ink);
   font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-  -webkit-font-smoothing:antialiased}
+  -webkit-font-smoothing:antialiased;display:flex;flex-direction:column;overflow:hidden}
 .mono{font-family:ui-monospace,SFMono-Regular,"SF Mono",Consolas,"Liberation Mono",monospace}
-.wrap{max-width:1180px;margin:0 auto;padding:0 22px 80px}
+button{font:inherit;font-size:13.5px;padding:8px 14px;border-radius:5px;cursor:pointer;
+  border:1px solid var(--rule);background:#fff;color:var(--ink)}
+button:hover:not(:disabled){border-color:#b9b6ae}
+button:disabled{opacity:.42;cursor:not-allowed}
+button.approve{background:var(--ok);color:#fff;border-color:var(--ok);font-weight:600}
+button:focus-visible,select:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--focus);
+  outline-offset:2px}
 
 /* ---- the slate ---- */
-header{background:var(--slate);color:#f4f3ef}
-.slate{max-width:1180px;margin:0 auto;padding:14px 22px;display:flex;
-  align-items:center;gap:18px;flex-wrap:wrap}
-.brandbox{display:flex;flex-direction:column;gap:4px}
-.promise{font-size:11px;color:#a7adb8;max-width:24ch;line-height:1.3}
-.brand{align-self:flex-start;font-weight:700;letter-spacing:.14em;font-size:12px;text-transform:uppercase;
-  border:1px solid #4a4f59;padding:4px 9px;border-radius:3px;white-space:nowrap}
+header{background:var(--slate);color:#f4f3ef;flex:none}
+.slate{padding:11px 20px;display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+.brandbox{display:flex;flex-direction:column;gap:3px}
+.brand{align-self:flex-start;font-weight:700;letter-spacing:.14em;font-size:12px;
+  text-transform:uppercase;border:1px solid #4a4f59;padding:4px 9px;border-radius:3px;
+  white-space:nowrap}
+.promise{font-size:11px;color:#a7adb8;max-width:26ch;line-height:1.3}
 .prod{font-size:13px;line-height:1.35}
 .prod b{font-size:15px;font-weight:600}
 .prod span{color:#a7adb8}
-.slate .right{margin-left:auto;display:flex;align-items:center;gap:10px}
+.slate .right{margin-left:auto;display:flex;align-items:center;gap:9px}
 label.rolelabel{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#a7adb8}
-select{font:inherit;font-size:13px;background:#2b2f37;color:#f4f3ef;border:1px solid #4a4f59;
-  border-radius:4px;padding:6px 9px}
+select{font:inherit;font-size:13px;background:var(--slate2);color:#f4f3ef;
+  border:1px solid #4a4f59;border-radius:4px;padding:6px 9px}
+select.pulse{border-color:#e0b44a;box-shadow:0 0 0 3px rgba(224,180,74,.25)}
+
+/* ---- the guided walk ---- */
+.walk{flex:none;background:#23272f;color:#e8e7e3;border-top:1px solid #343941;
+  display:flex;align-items:center;gap:10px;padding:9px 20px;overflow-x:auto}
+.walk .lead{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#9aa2ad;
+  white-space:nowrap;flex:none}
+.steps{display:flex;align-items:center;gap:6px;flex:1;min-width:0}
+.step{display:flex;align-items:center;gap:7px;background:#2e333c;border:1px solid #3d434d;
+  color:#cfd3d9;border-radius:20px;padding:5px 12px 5px 6px;font-size:12.5px;
+  white-space:nowrap;cursor:pointer}
+.step:hover{border-color:#5a616c}
+.step .n{width:19px;height:19px;border-radius:50%;background:#454b56;color:#e8e7e3;
+  display:grid;place-items:center;font-size:11px;font-weight:700;flex:none}
+.step.now{background:#3a4250;border-color:#7d8896;color:#fff}
+.step.now .n{background:#e0b44a;color:#23272f}
+.step.done{color:#8fd3ae;border-color:#2f5c45;background:#25352d}
+.step.done .n{background:var(--ok);color:#fff}
+.step[aria-disabled="true"]{opacity:.5;cursor:not-allowed}
+.arrow{color:#5a616c;flex:none;font-size:12px}
+.walk .go{flex:none;background:#e0b44a;border-color:#e0b44a;color:#23272f;font-weight:650;
+  padding:7px 14px}
+.walk .go:hover:not(:disabled){border-color:#f0c96a}
+.walk .go:disabled{background:#3d434d;border-color:#3d434d;color:#8b9199;opacity:1}
+
+/* ---- the two panes ---- */
+.panes{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr)}
+.pane{min-height:0;overflow-y:auto;overscroll-behavior:contain}
+.pane.left{border-right:1px solid var(--rule);padding:0 0 60px}
+.pane.right{background:#f6f4f0;padding:16px 18px 60px}
+.synth{padding:9px 18px 0;font-size:11.5px;color:var(--mute)}
+.synth b{color:#8a5a00}
 
 /* ---- the verdict ---- */
-.verdict{margin:22px 0 0;background:var(--card);border:1px solid var(--rule);
-  border-left:5px solid var(--idle);border-radius:6px;padding:20px 22px}
+.verdict{background:var(--card);border:1px solid var(--rule);
+  border-left:5px solid var(--idle);border-radius:6px;padding:16px 18px}
 .verdict.gap{border-left-color:var(--gap)}
 .verdict.ok{border-left-color:var(--ok)}
-.verdict h1{margin:0 0 6px;font-size:25px;letter-spacing:-.01em;font-weight:650}
-.verdict p{margin:0;color:var(--mute);max-width:74ch}
-.tally{display:flex;gap:26px;margin:16px 0 0;flex-wrap:wrap}
-.tally div{min-width:80px}
-.tally b{display:block;font-size:27px;font-weight:650;line-height:1.1;font-variant-numeric:tabular-nums}
-.tally span{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--mute)}
+.verdict h1{margin:0 0 5px;font-size:21px;letter-spacing:-.01em;font-weight:650}
+.verdict p{margin:0;color:var(--mute);font-size:13.5px}
+.tally{display:flex;gap:18px;margin:13px 0 0;flex-wrap:wrap}
+.tally div{min-width:66px}
+.tally b{display:block;font-size:23px;font-weight:650;line-height:1.1;
+  font-variant-numeric:tabular-nums}
+.tally span{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--mute);
+  display:block;line-height:1.25}
 .t-ok b{color:var(--ok)} .t-gap b{color:var(--gap)}
 .t-warn b{color:var(--warn)} .t-legal b{color:var(--legal)}
 
-h2.sec{font-size:12px;letter-spacing:.13em;text-transform:uppercase;color:var(--mute);
-  margin:34px 0 12px;font-weight:600}
+h2.sec{font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:var(--mute);
+  margin:22px 0 9px;font-weight:600}
+.pane.left h2.sec{margin:16px 18px 9px}
 
-/* ---- one exception, as a thing a person does ---- */
-.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px}
+/* ---- exception cards ---- */
+.cards{display:flex;flex-direction:column;gap:10px}
 .card{background:var(--card);border:1px solid var(--rule);border-radius:6px;
-  padding:16px 17px;display:flex;flex-direction:column}
-.card .kind{font-size:11px;letter-spacing:.09em;text-transform:uppercase;font-weight:650;
-  display:inline-block;padding:3px 8px;border-radius:3px;align-self:flex-start}
+  padding:14px 15px;cursor:pointer;transition:border-color .12s,box-shadow .12s}
+.card:hover{border-color:#c3bfb6}
+.card.linked{border-color:var(--focus);box-shadow:0 0 0 3px rgba(11,98,214,.14)}
+.card .kind{font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;font-weight:650;
+  display:inline-block;padding:3px 8px;border-radius:3px}
 .k-coverage{color:var(--gap);background:var(--gap-bg)}
 .k-continuity{color:var(--warn);background:var(--warn-bg)}
 .k-metadata{color:var(--warn);background:var(--warn-bg)}
 .k-rights{color:var(--legal);background:var(--legal-bg)}
-.card h3{margin:11px 0 3px;font-size:16px;font-weight:620;line-height:1.3}
-.where{font-size:12px;color:var(--mute);margin:0 0 9px}
-.infer{font-size:12.5px;color:#3d434c;margin:0 0 11px;background:#f7f6f2;
-  border-left:2px solid var(--rule);padding:7px 10px;border-radius:0 4px 4px 0}
+.card h3{margin:9px 0 3px;font-size:15px;font-weight:620;line-height:1.3}
+.where{font-size:12px;color:var(--mute);margin:0 0 8px}
+.where .jump{color:var(--focus);font-weight:600}
+.infer{font-size:12px;color:#3d434c;margin:0 0 10px;background:#f7f6f2;
+  border-left:2px solid var(--rule);padding:7px 9px;border-radius:0 4px 4px 0}
 .infer b{font-weight:620;color:var(--ink)}
-.obs{margin:0 0 11px;font-size:14px}
-.cost{border-top:1px dashed var(--rule);padding-top:10px;margin-top:auto;font-size:13px}
+.obs{margin:0 0 10px;font-size:13.5px}
+.cost{border-top:1px dashed var(--rule);padding-top:9px;font-size:12.5px}
 .cost b{font-weight:620}
 .cost .now{color:var(--ok)} .cost .later{color:var(--gap)}
-.who{font-size:12.5px;color:var(--mute);margin:11px 0 0}
-.acts{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
-.acts button{font-size:12.5px;padding:6px 10px}
-.decided{margin-top:10px;font-size:12.5px;background:var(--ok-bg);color:#0e5c39;
-  border-radius:4px;padding:7px 10px}
-.withheld{margin-top:10px;font-size:12.5px;background:var(--legal-bg);color:#40297d;
-  border-radius:4px;padding:7px 10px}
-details.ev{margin-top:11px;border-top:1px dashed var(--rule);padding-top:9px}
-details.ev summary{cursor:pointer;font-size:12.5px;color:var(--mute);list-style:none}
+.who{font-size:12px;color:var(--mute);margin:9px 0 0}
+.acts{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}
+.acts button{font-size:12px;padding:6px 10px}
+.decided{margin-top:9px;font-size:12px;background:var(--ok-bg);color:#0e5c39;
+  border-radius:4px;padding:7px 9px}
+.withheld{margin-top:9px;font-size:12px;background:var(--legal-bg);color:#40297d;
+  border-radius:4px;padding:7px 9px}
+details.ev{margin-top:9px;border-top:1px dashed var(--rule);padding-top:8px}
+details.ev summary{cursor:pointer;font-size:12px;color:var(--mute);list-style:none}
 details.ev summary::-webkit-details-marker{display:none}
 details.ev summary:before{content:"\25B8  "}
 details.ev[open] summary:before{content:"\25BE  "}
-.src{font-size:11.5px;margin-top:7px;line-height:1.6;word-break:break-all;color:#3d434c}
+.src{font-size:11px;margin-top:6px;line-height:1.55;word-break:break-all;color:#3d434c}
 .src b{color:var(--ink);font-weight:600}
 
 /* ---- the lined script ---- */
-.script{background:var(--card);border:1px solid var(--rule);border-radius:6px;overflow:hidden}
-.scripthead{padding:11px 16px;border-bottom:1px solid var(--rule);font-size:12.5px;
-  color:var(--mute);display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+.scripthead{padding:10px 18px;border-bottom:1px solid var(--rule);font-size:12px;
+  color:var(--mute);display:flex;gap:12px;flex-wrap:wrap;align-items:center;
+  background:var(--card);position:sticky;top:0;z-index:2}
 .key{display:inline-flex;align-items:center;gap:5px}
 .key i{width:9px;height:9px;border-radius:2px;display:inline-block}
-.beat{display:grid;grid-template-columns:62px 5px 1fr;border-top:1px solid #f0eee9}
-.beat:first-child{border-top:none}
-.beat .pg{padding:11px 8px 11px 16px;font-size:11px;color:var(--mute);text-align:right;
+.beat{display:grid;grid-template-columns:58px 5px 1fr;border-bottom:1px solid #f0eee9;
+  background:var(--card);cursor:pointer}
+.beat:hover{background:#fdfcfa}
+.beat.linked{background:#eef4fd}
+.beat.flash{animation:flash 1.5s ease-out}
+@keyframes flash{0%{background:#dbe9fc}100%{background:var(--card)}}
+.beat .pg{padding:11px 8px 11px 18px;font-size:11px;color:var(--mute);text-align:right;
   white-space:nowrap;line-height:1.35}
 .beat .rule{background:var(--idle)}
 .beat.s-covered .rule{background:var(--ok)}
@@ -108,57 +165,93 @@ details.ev[open] summary:before{content:"\25BE  "}
 .beat.s-media .rule{background:var(--warn)}
 .beat.s-rights .rule{background:var(--legal)}
 .beat.s-extra .rule{background:#d6d3cc}
-.beat .body{padding:10px 16px 11px 13px}
+.beat .body{padding:10px 18px 11px 13px}
 .beat .slug{font-size:14.5px}
 .beat.s-extra .slug{color:var(--mute)}
 .beat .meta{font-size:11.5px;color:var(--mute);margin-top:2px}
 .takes{margin-top:7px;display:flex;flex-wrap:wrap;gap:5px}
-.take{font-size:11.5px;border:1px solid var(--rule);border-radius:3px;padding:2px 7px;
-  background:#fafaf8;white-space:nowrap}
+.take{font-size:11.5px;border:1px solid var(--rule);border-radius:3px;padding:3px 8px;
+  background:#fafaf8;white-space:nowrap;cursor:pointer}
+.take:hover{border-color:#9aa0a6;background:#fff}
 .take.pref{border-color:var(--ok);background:var(--ok-bg);color:#0e5c39;font-weight:600}
 .take.bad{color:#9aa0a6;text-decoration:line-through}
 .take.late{border-style:dashed;border-color:var(--ok)}
 .none{font-size:12.5px;color:var(--gap);margin-top:7px;font-weight:600}
 
-/* ---- the inbox ---- */
-.inbox{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:12px}
-.item{background:var(--card);border:1px solid var(--rule);border-radius:6px;padding:14px 15px}
-.item .from{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--mute)}
-.item p{margin:6px 0 11px;font-size:13.5px}
-button{font:inherit;font-size:13.5px;padding:8px 14px;border-radius:5px;cursor:pointer;
-  border:1px solid var(--rule);background:#fff;color:var(--ink)}
-button:hover:not(:disabled){border-color:#b9b6ae}
-button:disabled{opacity:.42;cursor:not-allowed}
-button.approve{background:var(--ok);color:#fff;border-color:var(--ok);font-weight:600}
-.rowbtn{display:flex;gap:8px;flex-wrap:wrap}
+/* ---- inbox, turnover, cross-run ---- */
+.item{background:var(--card);border:1px solid var(--rule);border-radius:6px;
+  padding:12px 14px;margin-bottom:10px}
+.item .from{font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--mute)}
+.item p{margin:5px 0 10px;font-size:13px}
+.xrun{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:4px}
+.xrun th{text-align:left;font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;
+  color:var(--mute);font-weight:600;padding:0 10px 5px 0;border-bottom:1px solid var(--rule)}
+.xrun td{padding:6px 10px 6px 0;border-bottom:1px solid #f0eee9;
+  font-variant-numeric:tabular-nums}
+.xrun tr.you td{font-weight:600}
+pre{background:#fff;border:1px solid var(--rule);border-radius:5px;padding:10px;
+  overflow:auto;font-size:11px;max-height:300px;
+  font-family:ui-monospace,SFMono-Regular,Consolas,monospace}
 
 /* ---- the pause ---- */
-.pause{margin-top:22px;background:#fff;border:1px solid var(--rule);
-  border-left:5px solid var(--warn);border-radius:6px;padding:18px 20px}
-.pause h3{margin:0 0 6px;font-size:17px}
-.pause p{margin:0 0 12px;color:var(--mute);max-width:74ch;font-size:14px}
-.notyou{font-size:13px;color:var(--mute);background:#faf9f6;border:1px dashed var(--rule);
-  border-radius:5px;padding:9px 12px}
-
-.synth{max-width:1180px;margin:0 auto;padding:9px 22px 0;font-size:11.5px;color:var(--mute)}
-.synth b{color:#8a5a00}
-.xrun{width:100%;border-collapse:collapse;font-size:13px;margin-top:4px}
-.xrun th{text-align:left;font-size:11px;letter-spacing:.07em;text-transform:uppercase;
-  color:var(--mute);font-weight:600;padding:0 12px 6px 0;border-bottom:1px solid var(--rule)}
-.xrun td{padding:7px 12px 7px 0;border-bottom:1px solid #f0eee9;font-variant-numeric:tabular-nums}
-.xrun tr.you td{font-weight:600}
-.foot{margin-top:34px;font-size:12px;color:var(--mute);line-height:1.7}
-pre{background:#fff;border:1px solid var(--rule);border-radius:5px;padding:12px;
-  overflow:auto;font-size:11.5px;max-height:340px;
-  font-family:ui-monospace,SFMono-Regular,Consolas,monospace}
-.banner{margin-top:14px;font-size:12.5px;color:#3d434c;background:#f5f3ee;
-  border:1px solid var(--rule);border-radius:5px;padding:9px 13px;max-width:90ch}
+.pause{margin-top:12px;background:#fff;border:1px solid var(--rule);
+  border-left:5px solid var(--warn);border-radius:6px;padding:15px 17px}
+.pause h3{margin:0 0 5px;font-size:16px}
+.pause p{margin:0 0 10px;color:var(--mute);max-width:64ch;font-size:13px}
+.notyou{font-size:12.5px;color:var(--mute);background:#faf9f6;border:1px dashed var(--rule);
+  border-radius:5px;padding:9px 11px}
+.rowbtn{display:flex;gap:8px;flex-wrap:wrap}
+.banner{margin-top:12px;font-size:12.5px;color:#3d434c;background:#fff;
+  border:1px solid var(--rule);border-radius:5px;padding:9px 12px}
 .err{background:var(--gap-bg);border-color:#e8bcbc;color:#8a1a20}
 .skel{color:var(--mute)}
-@media (max-width:640px){
-  .beat{grid-template-columns:46px 4px 1fr}
-  .verdict h1{font-size:21px}
-  .tally{gap:16px}
+.foot{margin-top:22px;font-size:11.5px;color:var(--mute);line-height:1.7}
+
+/* ---- the process boundary, always on screen ---- */
+.proof{flex:none;background:var(--slate);color:#a7adb8;font-size:11px;padding:7px 20px;
+  display:flex;gap:16px;align-items:baseline;flex-wrap:wrap;border-top:1px solid #343941}
+.proof b{color:#f4f3ef;font-weight:600}
+.proof .lbl{letter-spacing:.09em;text-transform:uppercase;color:#767d88;flex:none}
+.proof .note{color:#767d88}
+
+/* ---- the take inspector ---- */
+.scrim{position:fixed;inset:0;background:rgba(20,22,26,.5);display:none;z-index:40}
+.scrim.on{display:block}
+.dock{position:fixed;inset:0;overflow:hidden;pointer-events:none;z-index:41}
+.drawer{position:absolute;top:0;right:0;bottom:0;width:min(430px,100%);background:var(--card);
+  border-left:1px solid var(--rule);transform:translateX(100%);
+  transition:transform .18s ease-out;overflow-y:auto;padding:20px 22px 40px}
+.drawer.on{transform:none;pointer-events:auto}
+.drawer h3{margin:0;font-size:20px}
+.drawer .sub{color:var(--mute);font-size:12.5px;margin:3px 0 16px}
+.drawer .x{position:absolute;top:14px;right:16px;padding:4px 10px;font-size:16px;
+  line-height:1.2}
+.spec{width:100%;border-collapse:collapse;font-size:13px}
+.spec th{text-align:left;color:var(--mute);font-weight:500;padding:7px 12px 7px 0;
+  border-bottom:1px solid #f0eee9;white-space:nowrap;width:42%}
+.spec td{padding:7px 0;border-bottom:1px solid #f0eee9;font-variant-numeric:tabular-nums}
+.spec tr.disagree td,.spec tr.disagree th{background:var(--gap-bg)}
+.spec tr.disagree td{color:#8a1a20;font-weight:600}
+.agree{font-size:12.5px;margin:14px 0 0;padding:9px 11px;border-radius:5px;
+  background:var(--ok-bg);color:#0e5c39}
+.agree.bad{background:var(--gap-bg);color:#8a1a20}
+
+@media (max-width:1099px){
+  body{overflow:auto;height:auto;min-height:100%}
+  .panes{grid-template-columns:1fr}
+  .pane{overflow:visible}
+  .pane.left{border-right:none;border-bottom:1px solid var(--rule);padding-bottom:20px}
+  .pane.right{padding-bottom:30px}
+  .scripthead{position:static}
+  .proof{position:sticky;bottom:0}
+  .drawer{width:100%}
+}
+@media (max-width:700px){
+  /* On a phone the step chips overflow their own scroller, and the Next button
+     was the thing that scrolled out of reach. It gets its own row, above them. */
+  .walk{flex-wrap:wrap;row-gap:8px}
+  .walk .go{order:1;margin-left:auto}
+  .steps{order:2;width:100%;overflow-x:auto;padding-bottom:2px}
 }
 </style>
 </head>
@@ -183,47 +276,62 @@ pre{background:#fff;border:1px solid var(--rule);border-radius:5px;padding:12px;
   </div>
 </header>
 
-<p class="synth" id="disclaimer"><b>Synthetic data.</b> THE LAST FERRY is a fictional
-  production. Every person, place, identifier and record on this page is invented for
-  demonstration. No real production data and no real footage is referenced.</p>
+<nav class="walk" aria-label="Guided walkthrough">
+  <span class="lead">One shoot day</span>
+  <span class="steps" id="steps"></span>
+  <button class="go" id="go">Next step</button>
+</nav>
 
-<div class="wrap">
-
-  <div class="verdict" id="verdict">
-    <h1 class="skel" id="vhead">Reconciling the scene&hellip;</h1>
-    <p id="vsub">Four checks are reading the script revision, the shot plan, the takes, the camera
-      and sound reports, the continuity references and the rights ledger. The lined script below is
-      already what was shot. The verdict lands on top of it.</p>
-    <div class="tally" id="tally"></div>
-  </div>
-
-  <div id="pausebox"></div>
-  <div id="banner"></div>
-
-  <h2 class="sec" id="exchead" style="display:none">Before you wrap</h2>
-  <div class="cards" id="cards"></div>
-
-  <h2 class="sec">The lined script</h2>
-  <div class="script">
+<main class="panes">
+  <section class="pane left" id="paneLeft" aria-label="The lined script">
+    <p class="synth"><b>Synthetic data.</b> THE LAST FERRY is a fictional production. Every
+      person, place, identifier and record on this page is invented for demonstration. No real
+      production data and no real footage is referenced.</p>
+    <h2 class="sec">The lined script</h2>
     <div class="scripthead" id="scripthead"><span class="skel">Loading&hellip;</span></div>
     <div id="beats"></div>
-  </div>
+  </section>
 
-  <h2 class="sec">Shoot-day inbox</h2>
-  <div class="inbox" id="inbox"></div>
+  <aside class="pane right" id="paneRight" aria-label="Action and triage">
+    <div class="verdict" id="verdict">
+      <h1 class="skel" id="vhead">Reconciling the scene&hellip;</h1>
+      <p id="vsub">Four checks are reading the script revision, the shot plan, the takes, the
+        camera and sound reports, the continuity references and the rights ledger. The lined
+        script beside this is already what was shot. The verdict lands on top of it.</p>
+      <div class="tally" id="tally"></div>
+    </div>
 
-  <div id="turnbox"></div>
+    <div id="pausebox"></div>
+    <div id="banner"></div>
 
-  <h2 class="sec">Across the production tonight</h2>
-  <div class="item" id="blocked"><p class="skel">Asking the database&hellip;</p></div>
+    <h2 class="sec" id="exchead" style="display:none">Before you wrap</h2>
+    <div class="cards" id="cards"></div>
 
-  <div class="foot">
-    <p id="served"></p>
-    <p><span id="policy"></span>
-      <button id="bEvents" style="padding:3px 9px;font-size:12px">Event log</button>
-      <button id="bReset" style="padding:3px 9px;font-size:12px">Start a fresh shoot day</button></p>
-    <div id="events"></div>
-  </div>
+    <h2 class="sec">Shoot-day inbox</h2>
+    <div id="inbox"></div>
+
+    <div id="turnbox"></div>
+
+    <h2 class="sec">Across the production tonight</h2>
+    <div class="item" id="blocked"><p class="skel">Asking the database&hellip;</p></div>
+
+    <div class="foot">
+      <p><span id="policy"></span>
+        <button id="bEvents" style="padding:3px 9px;font-size:11.5px">Event log</button>
+        <button id="bReset" style="padding:3px 9px;font-size:11.5px">Fresh shoot day</button></p>
+      <div id="events"></div>
+    </div>
+  </aside>
+</main>
+
+<div class="proof">
+  <span class="lbl">Process boundary</span>
+  <span id="served">Nothing served yet.</span>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<div class="dock">
+  <div class="drawer" id="drawer" role="dialog" aria-modal="true" aria-labelledby="dslate"></div>
 </div>
 
 <script>
@@ -236,6 +344,8 @@ function esc(s) {
 
 var RUN = null, SCENE = null, STATE = null, PENDING = null, BUSY = false;
 var ROLE = 'script_supervisor';
+var LINKED = null;      // the requirement id currently linked across the two panes
+var PICKUP_APPROVED = false;  // see WALK step 2
 var ROLE_NAME = {
   script_supervisor: 'the script supervisor',
   first_ad: 'the 1st AD',
@@ -273,6 +383,7 @@ var KIND = {
     later: 'They have gone home. Counsel decides whether the frame can ship.'
   }
 };
+var COST_ORDER = {coverage: 0, rights: 1, continuity: 2, metadata: 3};
 var STATUS_CLASS = {
   covered_with_evidence: 'covered',
   no_viable_coverage: 'nocov',
@@ -281,6 +392,124 @@ var STATUS_CLASS = {
   no_release_record: 'rights',
   not_assessed: ''
 };
+
+/* ---------- the guided walk ----------------------------------------------
+
+   One shoot day in five moves. Each step performs the real call and then gets
+   out of the way: where a human has to decide, the step sets the approval up
+   and stops, because the product's claim is that it waits for a person and a
+   tour that clicked Approve for you would be demonstrating the opposite.
+
+   Every step but the second reads its own completion out of server state.
+   Step 2 cannot: once the pickup is approved the run simply has no pending
+   approval, which is also true before the checkpoint runs. So that one is a
+   local flag, set when the approval call actually returned, and it means "this
+   browser watched it happen", not "the server says so". */
+var WALK = [
+  {
+    id: 's1', label: 'Checkpoint', sub: '23:10, the unit is wrapping',
+    role: null,
+    run: function () { return call('/api/checkpoint'); },
+    done: function () { return !!(STATE && STATE.counts); },
+    hint: 'Four agents read the scene package and the count appears.'
+  },
+  {
+    id: 's2', label: '1st AD approves the pickup', sub: 'the overnight pause',
+    role: 'first_ad',
+    run: function () {
+      // Nothing to call. The run is already stopped and waiting; this step
+      // just puts the visitor in the chair that can answer.
+      return Promise.resolve(null);
+    },
+    done: function () { return PICKUP_APPROVED; },
+    hint: 'The run has stopped. Press Approve on the panel below.'
+  },
+  {
+    id: 's3', label: 'A late take arrives', sub: 'targeted rerun',
+    role: null,
+    run: function () { return call('/api/late-take', {beat_id: 'B-17'}); },
+    done: function () { return beatStatus('B-17') === 'covered_with_evidence'; },
+    hint: 'The takes digest moved, so the checks that read the takes reran.'
+  },
+  {
+    id: 's4', label: 'The signed release is filed', sub: 'one check reruns',
+    role: 'production_coordinator',
+    run: function () {
+      return call('/api/resolve-rights', {subject: 'BG-07'}).then(function () {
+        return call('/api/evaluate');
+      });
+    },
+    done: function () {
+      return !!(STATE && STATE.counts && STATE.counts.without_release_record === 0);
+    },
+    hint: 'Only the ledger moved, so only the rights check ran again.'
+  },
+  {
+    id: 's5', label: 'Turnover to editorial', sub: 'sealed and versioned',
+    role: 'first_ad',
+    run: function () {
+      if (STATE && STATE.wrap_approved) return call('/api/turnover').then(showTurnover);
+      return call('/api/wrap');
+    },
+    done: function () { return !!$('turnbox').innerHTML; },
+    hint: 'The gate is satisfied. The wrap is still the 1st AD’s to approve.'
+  }
+];
+
+function beatStatus(beatId) {
+  var rows = (STATE && STATE.beats) || [];
+  for (var i = 0; i < rows.length; i++) {
+    if (rows[i].beat_id === beatId) return rows[i].status;
+  }
+  return null;
+}
+
+function currentStep() {
+  for (var i = 0; i < WALK.length; i++) {
+    if (!WALK[i].done()) return i;
+  }
+  return WALK.length;
+}
+
+function paintWalk() {
+  var now = currentStep();
+  $('steps').innerHTML = WALK.map(function (s, i) {
+    var cls = s.done() ? 'done' : (i === now ? 'now' : '');
+    var reachable = s.done() || i <= now;
+    return (i ? '<span class="arrow">&#9654;</span>' : '') +
+      '<span class="step ' + cls + '" data-step="' + s.id + '" role="button" tabindex="0"' +
+      (reachable ? '' : ' aria-disabled="true"') + ' title="' + esc(s.hint) + '">' +
+      '<span class="n">' + (s.done() ? '&#10003;' : (i + 1)) + '</span>' +
+      esc(s.label) + '</span>';
+  }).join('');
+  var go = $('go');
+  if (now >= WALK.length) {
+    go.textContent = 'Walkthrough complete';
+    go.disabled = true;
+  } else {
+    go.textContent = 'Next: ' + WALK[now].label;
+    go.disabled = BUSY;
+  }
+}
+
+function runStep(index) {
+  var s = WALK[index];
+  if (!s || BUSY) return Promise.resolve();
+  if (s.role && ROLE !== s.role) {
+    ROLE = s.role;
+    $('role').value = ROLE;
+    $('role').classList.add('pulse');
+    setTimeout(function () { $('role').classList.remove('pulse'); }, 1600);
+    // Repaint before the call, not after it. Step two performs no request at
+    // all: the whole step is putting the visitor in the chair that can answer,
+    // so the approve control has to appear the instant the role changes.
+    paint();
+  }
+  banner(s.hint, false);
+  return s.run().then(function () { paint(); });
+}
+
+/* ---------- the wire --------------------------------------------------- */
 
 function call(path, extra) {
   if (BUSY) return Promise.resolve(null);
@@ -316,14 +545,77 @@ function banner(msg, bad) {
     ? '<div class="banner' + (bad ? ' err' : '') + '">' + esc(msg) + '</div>'
     : '';
 }
+
 function served(s) {
   if (!s) return;
-  $('served').innerHTML = 'Served by Lambda invocation <span class="mono">' +
-    esc(s.lambda_request_id) + '</span>, container <span class="mono">' +
-    esc(s.container_id) + '</span>, up ' + esc(s.container_age_seconds) + 's. ' + esc(s.note);
+  $('served').innerHTML = 'invocation <b class="mono">' + esc(s.lambda_request_id) +
+    '</b> &middot; container <b class="mono">' + esc(s.container_id) + '</b> &middot; up ' +
+    esc(s.container_age_seconds) + 's <span class="note">' + esc(s.note) + '</span>';
 }
 
-/* ---------- the lined script ---------- */
+/* ---------- what a finding is about ------------------------------------
+
+   A finding names its subject by requirement id, and that is a beat for
+   coverage, a continuity reference for continuity, a take for metadata and a
+   person or asset for rights. Both panes need the same answer to "which lines
+   is this about", so it is worked out once, here, from the package. */
+function beatsFor(requirementId) {
+  var out = [];
+  var beats = (SCENE && SCENE.beats) || [];
+  for (var i = 0; i < beats.length; i++) {
+    var b = beats[i], hit = false;
+    if (b.beat_id === requirementId || b.continuity_ref === requirementId) hit = true;
+    for (var j = 0; !hit && j < b.takes.length; j++) {
+      var t = b.takes[j];
+      if (t.take_id === requirementId) hit = true;
+      else if (t.visible_people.indexOf(requirementId) >= 0) hit = true;
+      else if (t.visible_assets.indexOf(requirementId) >= 0) hit = true;
+    }
+    if (hit) out.push(b.beat_id);
+  }
+  return out;
+}
+
+function findingsForBeat(beatId) {
+  var out = [];
+  var list = (STATE && STATE.exceptions) || [];
+  for (var i = 0; i < list.length; i++) {
+    if (beatsFor(list[i].requirement_id).indexOf(beatId) >= 0) out.push(list[i].finding_id);
+  }
+  return out;
+}
+
+function linkTo(requirementId) {
+  LINKED = requirementId;
+  paint();
+  var beats = beatsFor(requirementId);
+  if (!beats.length) return;
+  var el = document.querySelector('[data-beat="' + beats[0] + '"]');
+  if (!el) return;
+  el.scrollIntoView({behavior: 'smooth', block: 'center'});
+  el.classList.remove('flash');
+  void el.offsetWidth;
+  el.classList.add('flash');
+}
+
+function linkFromBeat(beatId) {
+  var ids = findingsForBeat(beatId);
+  if (!ids.length) {
+    LINKED = beatId;
+    paint();
+    banner('No exception is open against this beat.', false);
+    return;
+  }
+  var list = (STATE && STATE.exceptions) || [];
+  for (var i = 0; i < list.length; i++) {
+    if (list[i].finding_id === ids[0]) { LINKED = list[i].requirement_id; break; }
+  }
+  paint();
+  var card = document.querySelector('[data-finding="' + ids[0] + '"]');
+  if (card) card.scrollIntoView({behavior: 'smooth', block: 'center'});
+}
+
+/* ---------- the lined script ------------------------------------------- */
 
 function paintScene() {
   var s = SCENE;
@@ -334,8 +626,7 @@ function paintScene() {
     esc(s.revision) + ' &middot; ' + esc(s.take_count) + ' takes on the card</span>';
   $('policy').textContent = 'Policy version ' + s.policy_version + '. ';
   $('scripthead').innerHTML =
-    esc(s.required_beats) + ' beats required by the ' + esc(s.revision) +
-    ' revision. The shot plan was prepared against ' + esc(s.shot_plan_revision) + '. ' +
+    esc(s.required_beats) + ' beats required by the ' + esc(s.revision) + ' revision. ' +
     '<span class="key"><i style="background:var(--ok)"></i>covered</span>' +
     '<span class="key"><i style="background:var(--gap)"></i>no coverage</span>' +
     '<span class="key"><i style="background:var(--warn)"></i>exception</span>' +
@@ -345,16 +636,15 @@ function paintScene() {
   var outcome = {};
   var rows = (STATE && STATE.beats) || [];
   for (var i = 0; i < rows.length; i++) outcome[rows[i].beat_id] = rows[i];
+  var lit = LINKED ? beatsFor(LINKED) : [];
 
   $('beats').innerHTML = s.beats.map(function (b) {
     var o = outcome[b.beat_id];
     var cls = b.required ? (o ? (STATUS_CLASS[o.status] || '') : '') : 'extra';
     var takes = b.takes.map(function (t) {
-      var tip = t.take_id + ' · ' + t.lens_mm + 'mm · roll ' + t.camera_roll + '/' +
-        t.sound_roll + ' · TC ' + t.timecode_in + ' · media ' + t.media_id +
-        (t.note ? ' · ' + t.note : '');
       return '<span class="take' + (t.preferred ? ' pref' : '') + (t.usable ? '' : ' bad') +
-        (t.shot_id === 'S-42-PICKUP' ? ' late' : '') + '" title="' + esc(tip) + '">' +
+        (t.shot_id === 'S-42-PICKUP' ? ' late' : '') + '" data-take="' + esc(t.take_id) +
+        '" role="button" tabindex="0" title="Open the slate inspector">' +
         (t.preferred ? '★ ' : '') + '<span class="mono">' + esc(t.slate) + '</span></span>';
     }).join('');
     var meta = [];
@@ -363,7 +653,8 @@ function paintScene() {
     else if (b.required) meta.push('not on the shot plan');
     if (b.continuity_ref) meta.push('continuity ' + b.continuity_ref);
     if (!b.required) meta.push('on the shot plan, not required by the ' + s.revision + ' revision');
-    return '<div class="beat s-' + cls + '">' +
+    return '<div class="beat s-' + cls + (lit.indexOf(b.beat_id) >= 0 ? ' linked' : '') +
+      '" data-beat="' + esc(b.beat_id) + '" role="button" tabindex="0">' +
       '<div class="pg">p.' + esc(b.page) + '<br>l.' + esc(b.line) + '</div>' +
       '<div class="rule"></div>' +
       '<div class="body">' +
@@ -379,7 +670,7 @@ function paintScene() {
   }).join('');
 }
 
-/* ---------- the verdict ---------- */
+/* ---------- the verdict ------------------------------------------------ */
 
 function tile(cls, n, label) {
   return '<div class="' + cls + '"><b>' + esc(n) + '</b><span>' + esc(label) + '</span></div>';
@@ -409,12 +700,7 @@ function paintVerdict() {
     (c.not_assessed ? tile('t-gap', c.not_assessed, 'not assessed') : '');
 }
 
-/* ---------- the exceptions ---------- */
-
-/* Ordered by what the fact costs once the set is struck, not by finding id.
-   A missing beat needs the crew back; a release needs the person back; a
-   continuity conflict costs the edit; a metadata mismatch costs a lookup. */
-var COST_ORDER = {coverage: 0, rights: 1, continuity: 2, metadata: 3};
+/* ---------- the exceptions --------------------------------------------- */
 
 function decidedBy(f) {
   var list = (STATE && STATE.decisions) || [];
@@ -462,6 +748,7 @@ function paintCards() {
     ? 'Before you wrap · one open exception'
     : 'Before you wrap · ' + list.length + ' open exceptions';
   var where_of = (SCENE && SCENE.locations) || {};
+  var interpreter = (STATE && STATE.interpreter) || 'the interpreter';
 
   $('cards').innerHTML = list.map(function (f) {
     var k = KIND[f.check_type] ||
@@ -481,15 +768,18 @@ function paintCards() {
         '</span></div>';
     }).join('');
 
-    return '<div class="card">' +
+    return '<div class="card' + (LINKED === f.requirement_id ? ' linked' : '') +
+      '" data-finding="' + esc(f.finding_id) + '" data-req="' + esc(f.requirement_id) + '">' +
       '<span class="kind k-' + esc(f.check_type) + '">' + esc(k.label) + ' · ' +
         esc(f.truth_state) + '</span>' +
       '<h3>' + esc(k.title) + '</h3>' +
-      '<div class="where">' + esc(where) + '</div>' +
+      '<div class="where">' + esc(where) +
+        ' <span class="jump">Show me on the script</span></div>' +
       '<p class="obs">' + esc(f.observation) + '</p>' +
       (f.inference
-        ? '<p class="infer"><b>A model read this, and it is kept apart from what was ' +
-          'read directly:</b> ' + esc(f.inference) + ' Confidence ' + esc(f.confidence) + '.</p>'
+        ? '<p class="infer"><b>Read by ' + esc(interpreter) + ', and kept apart from what ' +
+          'was read directly:</b> ' + esc(f.inference) + ' Confidence ' + esc(f.confidence) +
+          '.</p>'
         : '') +
       '<div class="cost"><b class="now">Now:</b> ' + esc(k.now) +
         '<br><b class="later">After wrap:</b> ' + esc(k.later) + '</div>' +
@@ -501,16 +791,15 @@ function paintCards() {
       (mine && !decidedBy(f)
         ? '<div class="acts">' +
           act(f, 'confirm', 'Confirm the finding') +
-          act(f, 'reject_false_positive', 'Reject, it is a false positive') +
+          act(f, 'reject_false_positive', 'Reject, false positive') +
           ((auth.may_accept || []).indexOf(ROLE) >= 0
             ? act(f, 'accept_exception', 'Accept as intentional') : '') +
           '</div>'
         : '') +
       (nobodyAccepts
-        ? '<div class="withheld">No role is offered a way to accept this away, not even ' +
-          'the one that owns it. That is the policy table the gate enforces, read by this ' +
-          'page, not a decision the interface made. It leaves here and goes to production.' +
-          '</div>'
+        ? '<div class="withheld">No role is offered a way to accept this away, not even the ' +
+          'one that owns it. That is the policy table the gate enforces, read by this page, ' +
+          'not a decision the interface made. It leaves here and goes to production.</div>'
         : '') +
       '<details class="ev"><summary>Show me the evidence</summary>' +
         '<div class="src"><b>Read from</b></div>' + sources +
@@ -522,7 +811,7 @@ function paintCards() {
   }).join('');
 }
 
-/* ---------- the pause, which is the product ---------- */
+/* ---------- the pause, which is the product ---------------------------- */
 
 function paintPause() {
   if (!PENDING) { $('pausebox').innerHTML = ''; return; }
@@ -535,31 +824,40 @@ function paintPause() {
       ? 'Waiting for the 1st AD to approve the wrap.'
       : 'Waiting for the 1st AD to approve a pickup' +
         (r.beat_id ? ' on ' + esc(r.beat_id) : '') + '.') +
-    '</h3><p>The run has stopped and the process that started it has ended. Nothing is held in ' +
-    'memory in between. Close this page, come back tomorrow morning before the first setup, and ' +
-    'it resumes from exactly here.</p>' +
+    '</h3><p>The run has stopped and the process that started it has ended. Nothing is held ' +
+    'in memory in between. Close this page, come back tomorrow morning before the first setup, ' +
+    'and it resumes from exactly here.</p>' +
     (r.justification ? '<p>' + esc(r.justification) + '</p>' : '') +
     (mine
-      ? '<div class="rowbtn"><button class="approve" onclick="decide(true)">Approve</button>' +
-        '<button onclick="decide(false)">Decline</button></div>'
+      ? '<div class="rowbtn"><button class="approve" id="bYes">Approve</button>' +
+        '<button id="bNo">Decline</button></div>'
       : '<div class="notyou">You are signed in as ' + esc(ROLE_NAME[ROLE]) + '. Only ' +
-        esc(ROLE_NAME[need]) + ' can approve this. Change the role in the slate above to stand ' +
-        'in for them.</div>') +
+        esc(ROLE_NAME[need]) + ' can approve this. Change the role in the slate above to ' +
+        'stand in for them.</div>') +
     '</div>';
+  if (mine) {
+    $('bYes').onclick = function () { decide(true); };
+    $('bNo').onclick = function () { decide(false); };
+  }
 }
 
 function decide(yes) {
   var isWrap = (PENDING.reason || {}).kind === 'wrap';
   return call(isWrap ? '/api/wrap' : '/api/approve',
-    {interrupt_id: PENDING.id, approve: yes});
+    {interrupt_id: PENDING.id, approve: yes}).then(function (d) {
+    if (d && !isWrap && yes) PICKUP_APPROVED = true;
+    if (d && isWrap && yes) return call('/api/turnover').then(showTurnover);
+    paint();
+    return d;
+  });
 }
 
-/* ---------- the shoot-day inbox ---------- */
+/* ---------- the shoot-day inbox ---------------------------------------- */
 
-function item(from, tag, text, label, action, disabled) {
+function item(from, tag, text, label, id, disabled) {
   return '<div class="item"><div class="from">' + esc(from) + ' · ' + esc(tag) + '</div>' +
-    '<p>' + esc(text) + '</p><button ' + (disabled || BUSY ? 'disabled' : '') +
-    ' onclick="' + action + '">' + esc(label) + '</button></div>';
+    '<p>' + esc(text) + '</p><button id="' + id + '" ' +
+    (disabled || BUSY ? 'disabled' : '') + '>' + esc(label) + '</button></div>';
 }
 
 function paintInbox() {
@@ -568,33 +866,57 @@ function paintInbox() {
   var wrapped = !!(STATE && STATE.wrap_approved);
   $('inbox').innerHTML = [
     item('Camera department', 'T-041',
-      'A pickup take came in after the checkpoint. Ingest it and the checks that read the takes ' +
-      'run again, because the takes digest moved.',
-      'Ingest the take', "call('/api/late-take', {beat_id: 'B-17'})", !started),
+      'A pickup take came in after the checkpoint. Ingest it and the checks that read the ' +
+      'takes run again, because the takes digest moved.',
+      'Ingest the take', 'iLate', !started),
     item('Production', 'BG-07',
-      'The background performer’s release has come back signed. File it and only the rights ' +
-      'check runs again, because only the ledger moved.',
-      'File the release', "call('/api/resolve-rights', {subject: 'BG-07'})", !started),
+      'The background performer’s release has come back signed. File it and only the ' +
+      'rights check runs again, because only the ledger moved.',
+      'File the release', 'iRights', !started),
     item('You', 'Re-check',
       'Ask the gate to decide again against everything now on file. The gate is deterministic ' +
       'policy. No model takes part in that decision.',
-      'Re-check the scene', "call('/api/evaluate')", !started),
+      'Re-check the scene', 'iEval', !started),
     item('1st AD', 'Wrap',
       eligible
         ? 'The gate is satisfied. The wrap itself is still a human decision.'
         : 'The gate is not satisfied yet, so the wrap cannot be put to the 1st AD.',
-      'Put the wrap to the 1st AD', "call('/api/wrap')", !eligible || wrapped),
+      'Put the wrap to the 1st AD', 'iWrap', !eligible || wrapped),
     item('Editorial', 'Turnover',
       wrapped
         ? 'The wrap is approved. Publish the sealed, versioned manifest editorial receives.'
         : 'Available once the 1st AD has approved the wrap.',
-      'Publish the turnover', "call('/api/turnover').then(showTurnover)", !wrapped)
+      'Publish the turnover', 'iTurn', !wrapped)
   ].join('');
+  bind('iLate', function () { call('/api/late-take', {beat_id: 'B-17'}); });
+  bind('iRights', function () { call('/api/resolve-rights', {subject: 'BG-07'}); });
+  bind('iEval', function () { call('/api/evaluate'); });
+  bind('iWrap', function () { call('/api/wrap'); });
+  bind('iTurn', function () { call('/api/turnover').then(showTurnover); });
 }
 
-/* The one question a customer asks after the first scene: and my other sixty?
-   One query over every run on the cluster, which is the reason run state is in a
-   database and not in the bucket beside the artifacts. */
+function bind(id, fn) {
+  var el = $(id);
+  if (el && !el.disabled) el.onclick = fn;
+}
+
+function showTurnover(d) {
+  if (!d || !d.turnover) return d;
+  $('turnbox').innerHTML = '<h2 class="sec">Turnover to editorial</h2>' +
+    '<div class="item"><p>Published and sealed. Editorial receives a versioned manifest ' +
+    'naming every source it was built from, so any claim in it can be traced back to the ' +
+    'artifact it came from.</p>' +
+    (d.turnover_download
+      ? '<p><a href="' + esc(d.turnover_download) + '">Download the manifest</a></p>'
+      : '') +
+    '<details class="ev"><summary>Show the sealed manifest</summary><pre>' +
+    esc(JSON.stringify(d.turnover, null, 2)) + '</pre></details></div>';
+  paintWalk();
+  return d;
+}
+
+/* ---------- the cross-run question ------------------------------------- */
+
 function loadBlocked() {
   fetch('/api/blocked').then(function (r) {
     return r.json().then(function (d) { return {ok: r.ok, d: d}; });
@@ -614,36 +936,123 @@ function loadBlocked() {
       return;
     }
     el.innerHTML = '<p>Every run still carrying an exception nobody has decided on, and how ' +
-      'many departments each one touches. One query across the whole cluster, ordered by how ' +
-      'much is open. A 1st AD on a two-unit day wants this list, not a scene at a time.</p>' +
+      'many departments each one touches. One query across the whole cluster. A 1st AD on a ' +
+      'two-unit day wants this list, not a scene at a time.</p>' +
       '<div style="overflow-x:auto"><table class="xrun"><thead><tr><th>Run</th>' +
-      '<th>Open exceptions</th><th>Departments</th><th>Last seen</th></tr></thead><tbody>' +
-      rows.slice(0, 12).map(function (b) {
+      '<th>Open</th><th>Departments</th><th>Last seen</th></tr></thead><tbody>' +
+      rows.slice(0, 10).map(function (b) {
         return '<tr' + (b.run_id === RUN ? ' class="you"' : '') + '><td class="mono">' +
           esc(b.run_id) + (b.run_id === RUN ? ' ← this one' : '') + '</td><td>' +
           esc(b.open_exceptions) + '</td><td>' + esc(b.departments_involved) + '</td><td>' +
           esc(String(b.last_seen || '').replace('T', ' ').slice(0, 19)) + '</td></tr>';
       }).join('') + '</tbody></table></div>' +
-      (rows.length > 12 ? '<p>' + (rows.length - 12) + ' more not shown.</p>' : '');
+      (rows.length > 10 ? '<p>' + (rows.length - 10) + ' more not shown.</p>' : '');
   }).catch(function (e) {
     $('blocked').innerHTML = '<p>' + esc(String(e)) + '</p>';
   });
 }
 
-function showTurnover(d) {
-  if (!d || !d.turnover) return;
-  $('turnbox').innerHTML = '<h2 class="sec">Turnover to editorial</h2>' +
-    '<div class="item"><p>Published and sealed. Editorial receives a versioned manifest naming ' +
-    'every source it was built from, so any claim in it can be traced back to the artifact it ' +
-    'came from.</p>' +
-    (d.turnover_download
-      ? '<p><a href="' + esc(d.turnover_download) + '">Download the manifest</a></p>'
-      : '') +
-    '<details class="ev"><summary>Show the sealed manifest</summary><pre>' +
-    esc(JSON.stringify(d.turnover, null, 2)) + '</pre></details></div>';
+/* ---------- the slate inspector ----------------------------------------
+
+   Two departments wrote down the same take. This puts their two records beside
+   each other and marks any field where they differ. It does not decide whether
+   the take is good: that is the metadata check's finding, which carries its own
+   sources and its own role. */
+function findTake(takeId) {
+  var beats = (SCENE && SCENE.beats) || [];
+  for (var i = 0; i < beats.length; i++) {
+    for (var j = 0; j < beats[i].takes.length; j++) {
+      if (beats[i].takes[j].take_id === takeId) {
+        return {take: beats[i].takes[j], beat: beats[i]};
+      }
+    }
+  }
+  return null;
 }
 
-/* ---------- paint ---------- */
+function row(label, sidecar, reported) {
+  var differs = reported !== undefined && reported !== null && String(sidecar) !== String(reported);
+  return '<tr' + (differs ? ' class="disagree"' : '') + '><th>' + esc(label) + '</th><td>' +
+    '<span class="mono">' + esc(sidecar) + '</span>' +
+    (differs ? '<br><span class="mono">report says ' + esc(reported) + '</span>' : '') +
+    '</td></tr>';
+}
+
+function openTake(takeId) {
+  var hit = findTake(takeId);
+  if (!hit) return;
+  var t = hit.take, b = hit.beat;
+  var cr = t.camera_report;
+  var mismatch = cr
+    ? ['media_id', 'lens_mm', 'camera_roll'].filter(function (f) {
+        return String(t[f]) !== String(cr[f]);
+      })
+    : null;
+  // A finding names this take either as its subject or in its locators. The
+  // continuity conflict is about a reference, not a take, but it points at the
+  // two takes that disagree, and a supervisor opening either one wants to see
+  // it. Locators are what make that possible, which is why a finding without
+  // one is rejected upstream.
+  var named = ((STATE && STATE.exceptions) || []).filter(function (f) {
+    if (f.requirement_id === takeId) return true;
+    return (f.locators || []).some(function (l) {
+      return l.kind === 'take' && l.value === takeId;
+    });
+  });
+  var interpreter = (STATE && STATE.interpreter) || 'the interpreter';
+  var soundOk = (SCENE.sound_rolls || []).indexOf(t.sound_roll) >= 0;
+
+  $('drawer').innerHTML =
+    '<button class="x" id="dx" aria-label="Close">&times;</button>' +
+    '<h3 id="dslate" class="mono">' + (t.preferred ? '★ ' : '') + esc(t.slate) + '</h3>' +
+    '<p class="sub">' + esc(t.take_id) + ' · setup ' + esc(t.shot_id) +
+      ' · page ' + esc(b.page) + ', line ' + esc(b.line) + '<br>' + esc(b.slug) + '</p>' +
+    '<table class="spec">' +
+      row('Media identifier', t.media_id, cr && cr.media_id) +
+      row('Lens', t.lens_mm + 'mm', cr && (cr.lens_mm + 'mm')) +
+      row('Camera roll', t.camera_roll, cr && cr.camera_roll) +
+      '<tr><th>Sound roll</th><td><span class="mono">' + esc(t.sound_roll) + '</span>' +
+        (soundOk ? '' : '<br>not on the sound report') + '</td></tr>' +
+      '<tr><th>Timecode</th><td><span class="mono">' + esc(t.timecode_in) + '</span> to ' +
+        '<span class="mono">' + esc(t.timecode_out) + '</span></td></tr>' +
+      '<tr><th>Captured</th><td>' + esc(String(t.captured_at).replace('T', ' ')) + '</td></tr>' +
+      '<tr><th>Circled</th><td>' + (t.preferred ? 'yes, preferred' : 'no') + '</td></tr>' +
+      '<tr><th>Usable</th><td>' + (t.usable ? 'yes' : 'no') + '</td></tr>' +
+      '<tr><th>On camera</th><td>' +
+        esc((t.visible_people.concat(t.visible_assets)).join(', ') || 'nobody recorded') +
+        '</td></tr>' +
+    '</table>' +
+    (t.note ? '<p class="sub" style="margin-top:14px"><b>Supervisor’s note.</b> ' +
+      esc(t.note) + '</p>' : '') +
+    (cr === null
+      ? '<p class="agree bad">The camera report has no row for this take at all.</p>'
+      : (mismatch.length
+        ? '<p class="agree bad">The sidecar and the camera report disagree on ' +
+          esc(mismatch.join(', ').replace(/_/g, ' ')) +
+          '. Absent or conflicting evidence is a finding, never a pass.</p>'
+        : '<p class="agree">The sidecar and the camera report agree on media, lens and ' +
+          'roll.</p>')) +
+    named.map(function (f) {
+      return '<p class="sub" style="margin-top:14px"><b>An open ' + esc(f.check_type) +
+        ' exception names this take.</b> ' + esc(f.observation) + '</p>' +
+        (f.inference
+          ? '<p class="infer"><b>Read by ' + esc(interpreter) + ', kept apart from what ' +
+            'was read directly:</b> ' + esc(f.inference) + ' Confidence ' +
+            esc(f.confidence) + '.</p>'
+          : '');
+    }).join('');
+  $('dx').onclick = closeTake;
+  $('scrim').classList.add('on');
+  $('drawer').classList.add('on');
+  $('drawer').focus();
+}
+
+function closeTake() {
+  $('scrim').classList.remove('on');
+  $('drawer').classList.remove('on');
+}
+
+/* ---------- paint ------------------------------------------------------ */
 
 function paint() {
   paintScene();
@@ -651,13 +1060,56 @@ function paint() {
   paintCards();
   paintPause();
   paintInbox();
+  paintWalk();
 }
 
+/* ---------- events ----------------------------------------------------- */
+
 $('role').onchange = function (e) { ROLE = e.target.value; paint(); };
+$('go').onclick = function () { runStep(currentStep()); };
+$('scrim').onclick = closeTake;
+document.addEventListener('keydown', function (e) {
+  if (e.key === 'Escape') closeTake();
+});
+
+$('steps').addEventListener('click', function (e) {
+  var el = e.target.closest ? e.target.closest('.step') : null;
+  if (!el || el.getAttribute('aria-disabled') === 'true') return;
+  for (var i = 0; i < WALK.length; i++) {
+    if (WALK[i].id === el.getAttribute('data-step')) { runStep(i); return; }
+  }
+});
+
+$('paneLeft').addEventListener('click', function (e) {
+  var take = e.target.closest ? e.target.closest('[data-take]') : null;
+  if (take) { openTake(take.getAttribute('data-take')); return; }
+  var beat = e.target.closest ? e.target.closest('[data-beat]') : null;
+  if (beat) linkFromBeat(beat.getAttribute('data-beat'));
+});
 
 $('cards').addEventListener('click', function (e) {
   var b = e.target.closest ? e.target.closest('button.decide') : null;
-  if (b) decideFinding(b.getAttribute('data-finding'), b.getAttribute('data-action'));
+  if (b) {
+    decideFinding(b.getAttribute('data-finding'), b.getAttribute('data-action'));
+    return;
+  }
+  if (e.target.closest && e.target.closest('details')) return;
+  var card = e.target.closest ? e.target.closest('[data-req]') : null;
+  if (card) linkTo(card.getAttribute('data-req'));
+});
+
+document.addEventListener('keydown', function (e) {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  var el = document.activeElement;
+  if (!el || !el.getAttribute) return;
+  if (el.getAttribute('data-take')) { e.preventDefault(); openTake(el.getAttribute('data-take')); }
+  else if (el.getAttribute('data-beat')) {
+    e.preventDefault();
+    linkFromBeat(el.getAttribute('data-beat'));
+  } else if (el.getAttribute('data-step')) {
+    e.preventDefault();
+    el.click();
+  }
 });
 
 $('bEvents').onclick = function () {
@@ -674,11 +1126,13 @@ $('bReset').onclick = function () {
     method: 'POST', headers: {'content-type': 'application/json'}, body: '{}'
   }).then(function (r) { return r.json(); }).then(function (d) {
     RUN = d.run_id;
-    STATE = null; PENDING = null;
+    STATE = null; PENDING = null; LINKED = null; PICKUP_APPROVED = false;
     $('turnbox').innerHTML = ''; $('events').innerHTML = ''; $('tally').innerHTML = '';
     $('vhead').className = 'skel';
     $('vhead').textContent = 'Reconciling the scene…';
     $('verdict').className = 'verdict';
+    ROLE = 'script_supervisor';
+    $('role').value = ROLE;
     return start();
   });
 };
