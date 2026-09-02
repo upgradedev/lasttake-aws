@@ -69,10 +69,18 @@ the script scrolls to the lines it is about and flashes them; click a beat and i
 light up. Click any slate and an inspector puts the two records of that take side by side, the
 sidecar and the camera report, with the field the departments disagree on marked.
 
-**If you have ninety seconds, use the bar across the top.** It runs one shoot day in five
-moves: the checkpoint, the 1st AD's overnight pause, a late take, the signed release, the
-turnover. It changes role for you where the next move belongs to somebody else, and it stops
-at every point a human has to decide rather than deciding for them.
+**If you have two minutes, use the bar across the top.** It runs one shoot day in six moves:
+the checkpoint, the 1st AD's overnight pause, a late take, the signed release, the two
+judgements that are nobody else's to make, and the turnover. It changes role for you where the
+next move belongs to somebody else, and it stops at every point a human has to decide rather
+than deciding for them.
+
+The fifth move is the one worth watching. Supplying the missing take and the missing release
+leaves the scene at 33 of 34, because two conflicts remain and neither of them is evidence.
+What counts as intentional continuity is the supervisor's call and the authoritative technical
+record is the DIT's, so the gate refuses, names both findings, and names who owes each
+judgement. The walk reads that list rather than keeping its own, and hands you whichever chair
+is needed next.
 
 Then the run **stops**, because a pickup needs the 1st AD and you are signed in as the
 supervisor. Change the role in the slate to stand in for them. Close the tab first if you
