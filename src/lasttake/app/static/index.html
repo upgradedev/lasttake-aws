@@ -474,7 +474,25 @@ var WALK = [
     hint: 'Only the ledger moved, so only the rights check ran again.'
   },
   {
-    id: 's5', label: 'Turnover to editorial', sub: 'sealed and versioned',
+    id: 's5', label: 'Two conflicts need a person', sub: 'and not the same person',
+    role: null,
+    run: function () {
+      var owed = openCause();
+      if (!owed) return Promise.resolve(null);
+      ROLE = owed.required_role;
+      $('role').value = ROLE;
+      $('role').classList.add('pulse');
+      setTimeout(function () { $('role').classList.remove('pulse'); }, 1600);
+      paint();
+      linkTo(owed.requirement_id);
+      return Promise.resolve(null);
+    },
+    done: function () { return !openCause(); },
+    hint: 'Evidence is on file and two judgements are not. Settle the one that ' +
+          'is highlighted, then press Next again for the other.'
+  },
+  {
+    id: 's6', label: 'Turnover to editorial', sub: 'sealed and versioned',
     role: 'first_ad',
     run: function () {
       if (STATE && STATE.wrap_approved) return call('/api/turnover').then(showTurnover);
@@ -484,6 +502,22 @@ var WALK = [
     hint: 'The gate is satisfied. The wrap is still the 1st AD’s to approve.'
   }
 ];
+
+/* The gate says what is blocking and who owes the judgement. The walk reads
+   that rather than keeping its own list, so if the policy ever changes who owns
+   a check, this follows without being told. */
+function openCause() {
+  var causes = (STATE && STATE.causes) || [];
+  for (var i = 0; i < causes.length; i++) {
+    var decided = false;
+    var made = (STATE && STATE.decisions) || [];
+    for (var j = 0; j < made.length; j++) {
+      if (made[j].finding_id === causes[i].finding_id) decided = true;
+    }
+    if (!decided) return causes[i];
+  }
+  return null;
+}
 
 function beatStatus(beatId) {
   var rows = (STATE && STATE.beats) || [];
@@ -763,6 +797,11 @@ function decideFinding(findingId, action) {
     role: ROLE,
     actor: 'demo visitor standing in as ' + ROLE_NAME[ROLE],
     reason: 'Recorded from the wrap checkpoint page.'
+  }).then(function (d) {
+    // A decision changes what the gate concludes, so ask it again rather than
+    // leaving the page showing an eligibility that is one decision out of date.
+    if (d) return call('/api/evaluate');
+    return d;
   });
 }
 

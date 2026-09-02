@@ -105,6 +105,67 @@ def scene_package():
 _SCHEMA_READY = False
 
 
+# -- package amendments -----------------------------------------------------
+#
+# A take that was captured and a release that was signed are facts about the
+# world, and the next request has to see them. They were being applied in
+# memory and thrown away when the Lambda returned, so `POST /api/late-take`
+# reported a beat covered and the very next `POST /api/state` reported it
+# uncovered again, correctly: the take was not in the package any more, so the
+# finding that cited it was stale and the gate withdrew it. The staleness rule
+# was right. The take should have been there.
+#
+# Each amendment is written once, under its own key, and read back by probing
+# the sequence. The artifact store has no update, no delete and no list, and
+# that is the contract, not an inconvenience to work around.
+
+AMENDMENT_LIMIT = 200
+
+
+def _amendment_key(run_id: str, index: int) -> str:
+    return f"amendments/{run_id.replace(':', '_')}/{index:04d}.json"
+
+
+def load_amendments(artifacts, run_id: str) -> list[dict]:
+    out: list[dict] = []
+    for index in range(AMENDMENT_LIMIT):
+        key = _amendment_key(run_id, index)
+        if not artifacts.exists(key):
+            break
+        out.append(json.loads(artifacts.get(key).decode("utf-8")))
+    return out
+
+
+def record_amendment(artifacts, run_id: str, amendment: dict) -> None:
+    for index in range(AMENDMENT_LIMIT):
+        key = _amendment_key(run_id, index)
+        if not artifacts.exists(key):
+            artifacts.put(key, json.dumps(amendment, sort_keys=True).encode("utf-8"))
+            return
+    raise RuntimeError(f"{run_id} has {AMENDMENT_LIMIT} amendments; refusing to add more")
+
+
+def apply_amendments(package, amendments: list[dict]):
+    """Replay amendments onto the base package, in the order they arrived.
+
+    Deterministic: the same amendments produce the same package and therefore
+    the same digests, which is what lets a finding written in one request stay
+    admissible in the next.
+    """
+    for amendment in amendments:
+        if amendment["kind"] == "take":
+            package = with_extra_take(
+                package,
+                Take(**amendment["take"]),
+                CameraReportRow(**amendment["camera_report_row"]),
+            )
+        elif amendment["kind"] == "rights_record":
+            package = with_rights_record(package, RightsRecord(**amendment["record"]))
+        else:
+            raise ValueError(f"unknown amendment kind {amendment['kind']!r}")
+    return package
+
+
 def build_run(run_id: str, package=None) -> WrapRun:
     """Assemble a run against the deployed adapters.
 
@@ -118,10 +179,12 @@ def build_run(run_id: str, package=None) -> WrapRun:
     if not _SCHEMA_READY and hasattr(runs, "ensure_schema"):
         runs.ensure_schema()
         _SCHEMA_READY = True
+    if package is None:
+        package = apply_amendments(scene_package(), load_amendments(artifacts, run_id))
     return WrapRun(
         run_id=run_id,
         correlation_id=run_id,
-        package=package or scene_package(),
+        package=package,
         bus=bus,
         artifacts=artifacts,
         runs=runs,
@@ -245,6 +308,24 @@ def _last_tool_result(agent) -> str:
 # -- routes -----------------------------------------------------------------
 
 
+def resume_required(exc: Exception) -> bool:
+    """True when Strands refused a plain prompt because a run is mid-interrupt.
+
+    A run that has stopped for the 1st AD can only be spoken to with an
+    interruptResponse. Any route that prompts with a sentence therefore fails
+    while an approval is outstanding, and it was failing as a raw 500 with a
+    stack trace, which tells a script supervisor nothing and tells a judge
+    something worse.
+    """
+    return isinstance(exc, TypeError) and "must resume from interrupt" in str(exc)
+
+
+WAITING = (
+    "This run has stopped and is waiting for a human. Answer the approval that "
+    "is open before asking it to do anything else. Nothing was changed."
+)
+
+
 def route_checkpoint(body: dict, request_id: str) -> dict:
     run_id = body["run_id"]
     run = build_run(run_id)
@@ -323,9 +404,15 @@ def route_late_take(body: dict, request_id: str) -> dict:
         visible_assets=[],
         captured_at="2026-08-19T22:41:00Z",
     )
-    package = with_extra_take(
-        run.package, take, CameraReportRow("T-041", "A006R2F41", 50, "A006")
-    )
+    row = CameraReportRow("T-041", "A006R2F41", 50, "A006")
+    already = any(t.take_id == take.take_id for t in run.package.takes)
+    if not already:
+        record_amendment(
+            run.artifacts,
+            run.run_id,
+            {"kind": "take", "take": take.__dict__, "camera_report_row": row.__dict__},
+        )
+    package = run.package if already else with_extra_take(run.package, take, row)
     new_run = build_run(run.run_id, package)
     event = new_run.build_event(
         EventType.TAKE_CAPTURED, {"take_id": take.take_id, "beat_ids": [beat]}
@@ -363,7 +450,12 @@ def route_resolve_rights(body: dict, request_id: str) -> dict:
         expires_on=None,
         status="executed",
     )
-    package = with_rights_record(run.package, record)
+    already = any(r.record_id == record.record_id for r in run.package.rights_records)
+    if not already:
+        record_amendment(
+            run.artifacts, run.run_id, {"kind": "rights_record", "record": record.__dict__}
+        )
+    package = run.package if already else with_rights_record(run.package, record)
     new_run = build_run(run.run_id, package)
     event = new_run.build_event(
         EventType.RIGHTS_RECORD_UPDATED,
@@ -429,11 +521,24 @@ def route_decide(body: dict, request_id: str) -> dict:
 
 
 def route_evaluate(body: dict, request_id: str) -> dict:
+    """Run the gate directly, not through a prompt.
+
+    The gate is deterministic policy and the architecture's fourth property is
+    that a model does not combine the findings. Asking a model to please invoke
+    it put the model back in the path for no gain, and it cost correctness: on
+    a run that had already been resumed once, the prompt did not reach the tool
+    and the response carried the *previous* eligibility packet, so a scene that
+    had been fixed still read as broken. Calling the tool is what the turnover
+    route already does.
+    """
     run = build_run(body["run_id"])
-    agent = build_agent(run, plan=("evaluate_wrap_eligibility",))
-    agent("Evaluate eligibility.")
+    from ..agents.tools import build_tools
+
+    evaluate = build_tools(run)[4]
+    assert evaluate.__name__ == "evaluate_wrap_eligibility", evaluate.__name__
     state = _state(run)
-    state["message"] = _last_tool_result(agent) or "Evaluated."
+    state["message"] = str(evaluate())
+    state.update({k: v for k, v in _state(run).items() if k in ("eligible", "causes")})
     return _json(200, state, request_id)
 
 
@@ -456,7 +561,14 @@ def route_wrap(body: dict, request_id: str) -> dict:
         state["pending_approval"] = _pending_interrupt(result)
         return _json(200, state, request_id)
 
-    result = agent("Ask the 1st AD for wrap approval.")
+    try:
+        result = agent("Ask the 1st AD for wrap approval.")
+    except Exception as exc:  # noqa: BLE001 - one known cause, re-raised otherwise
+        if not resume_required(exc):
+            raise
+        state = _state(run)
+        state["message"] = WAITING
+        return _json(409, state, request_id)
     state = _state(run)
     state["pending_approval"] = _pending_interrupt(result)
     state["message"] = _last_tool_result(agent) or "Asked the 1st AD."

@@ -338,3 +338,138 @@ def test_a_decision_by_the_right_role_is_recorded_and_the_finding_survives():
     assert any(
         f["finding_id"] == coverage["finding_id"] for f in after["exceptions"]
     ), "a confirmed finding does not disappear; it travels on the turnover"
+
+
+# -- what has to survive the request that created it ------------------------
+
+
+def test_a_captured_take_is_still_there_on_the_next_request():
+    """It was not, and the symptom was a beat that covered itself and uncovered.
+
+    `POST /api/late-take` reported B-17 covered; the next `POST /api/state`
+    reported it uncovered again. The package was amended in memory and thrown
+    away when the function returned, so the finding that cited the new take was
+    stale on the following request and the gate withdrew it. The gate was
+    right. The take should have been there.
+    """
+    post("/api/checkpoint", {"run_id": RUN})
+    after = post("/api/late-take", {"run_id": RUN, "beat_id": "B-17"})
+    covered = {b["beat_id"]: b["status"] for b in after["beats"]}
+    assert covered["B-17"] == "covered_with_evidence"
+
+    later = post("/api/state", {"run_id": RUN})
+    still = {b["beat_id"]: b["status"] for b in later["beats"]}
+    assert still["B-17"] == "covered_with_evidence", (
+        "the take stopped existing between two requests"
+    )
+
+    scene = post("/api/scene", {"run_id": RUN})
+    assert scene["take_count"] == 41
+    slates = [t["slate"] for b in scene["beats"] for t in b["takes"]]
+    assert len(set(slates)) == 41, "the pickup reused a slate"
+
+
+def test_a_filed_release_is_still_there_on_the_next_request():
+    post("/api/checkpoint", {"run_id": RUN})
+    post("/api/resolve-rights", {"run_id": RUN, "subject": "BG-07"})
+    scene = post("/api/scene", {"run_id": RUN})
+    subjects = {s["subject_id"]: s["released"] for s in scene["subjects"]}
+    assert subjects["BG-07"] is True
+
+
+def test_amending_twice_does_not_add_the_take_twice():
+    post("/api/checkpoint", {"run_id": RUN})
+    post("/api/late-take", {"run_id": RUN, "beat_id": "B-17"})
+    post("/api/late-take", {"run_id": RUN, "beat_id": "B-17"})
+    scene = post("/api/scene", {"run_id": RUN})
+    ids = [t["take_id"] for b in scene["beats"] for t in b["takes"]]
+    assert ids.count("T-041") == 1
+
+
+def test_a_run_waiting_on_a_human_refuses_a_sentence_instead_of_a_stack_trace():
+    """A route that prompts with a string fails while an interrupt is open.
+
+    It was failing as a raw 500 carrying a Strands stack trace. A judge who
+    asked for the wrap before answering the pickup would have seen it.
+    """
+    state = post("/api/checkpoint", {"run_id": RUN})
+    assert state["pending_approval"], "this test needs the run to be stopped"
+
+    refused = post("/api/wrap", {"run_id": RUN})
+    assert refused["status"] == 409
+    assert "waiting for a human" in refused["message"]
+    assert refused["counts"], "the state still comes back, so the page keeps working"
+
+
+def test_the_gate_runs_without_a_prompt_and_therefore_without_a_model():
+    """It is arithmetic over evidence and it answers whenever it is asked.
+
+    It used to be reached by asking a model to please invoke it, which put a
+    model back inside a deterministic decision and, on a run that had been
+    resumed once, quietly returned the previous packet.
+    """
+    post("/api/checkpoint", {"run_id": RUN})
+    evaluated = post("/api/evaluate", {"run_id": RUN})
+    assert evaluated["status"] == 200
+    assert evaluated["eligible"] is False
+    assert evaluated["causes"], "the gate has to say what is blocking"
+
+
+def test_the_whole_shoot_day_reaches_a_turnover():
+    """The five moves the page walks a judge through, end to end.
+
+    Each one is a separate request, which is the point: nothing about the run
+    is held in memory between them.
+    """
+    state = post("/api/checkpoint", {"run_id": RUN})
+    assert state["counts"]["covered_with_evidence"] == 31
+    pending = state["pending_approval"]
+    assert pending["reason"]["required_role"] == "first_ad"
+
+    resumed = post(
+        "/api/approve",
+        {"run_id": RUN, "interrupt_id": pending["id"], "approve": True},
+    )
+    assert resumed["status"] == 200
+
+    post("/api/late-take", {"run_id": RUN, "beat_id": "B-17"})
+    post("/api/resolve-rights", {"run_id": RUN, "subject": "BG-07"})
+    evaluated = post("/api/evaluate", {"run_id": RUN})
+    assert evaluated["counts"]["covered_with_evidence"] == 33
+    assert evaluated["counts"]["without_release_record"] == 0
+    assert evaluated["eligible"] is False, "two conflicts are still untriaged"
+
+    # Supplying evidence is not the same as settling a judgement. Two conflicts
+    # remain and each belongs to a different person: what counts as intentional
+    # continuity is the supervisor's, and the authoritative technical record is
+    # the DIT's. The gate names both, and it names who.
+    owed = {c["finding_id"]: c["required_role"] for c in evaluated["causes"]}
+    assert set(owed.values()) == {"script_supervisor", "dit"}
+    for finding_id, role in owed.items():
+        recorded = post(
+            "/api/decide",
+            {
+                "run_id": RUN,
+                "finding_id": finding_id,
+                "action": "accept_exception",
+                "role": role,
+                "actor": f"the {role} on this unit",
+                "reason": "Reviewed on the floor before wrap.",
+            },
+        )
+        assert recorded["status"] == 200, recorded.get("error")
+
+    evaluated = post("/api/evaluate", {"run_id": RUN})
+    assert evaluated["eligible"] is True, evaluated.get("causes")
+
+    asked = post("/api/wrap", {"run_id": RUN})
+    approval = asked["pending_approval"]
+    assert approval and approval["reason"]["required_role"] == "first_ad"
+    wrapped = post(
+        "/api/wrap",
+        {"run_id": RUN, "interrupt_id": approval["id"], "approve": True},
+    )
+    assert wrapped["wrap_approved"] is True
+
+    turnover = post("/api/turnover", {"run_id": RUN})
+    assert turnover["turnover"], "editorial received nothing"
