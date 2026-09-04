@@ -203,6 +203,17 @@ def _admissible(
     kept: list[Finding] = []
     discarded: list[str] = []
     for finding in findings:
+        # The seal first, because everything below it reads fields off a record
+        # that may have been edited after it was written. This module's own
+        # header has said "a finding whose seal does not verify is discarded"
+        # since the first commit, and until now nothing did it.
+        if not finding.seal_verifies():
+            discarded.append(
+                f"{finding.finding_id}: its seal does not verify, so the record was "
+                "changed after it was written or was never sealed. Discarded, not "
+                "repaired"
+            )
+            continue
         moved = [
             source.artifact_id
             for source in finding.sources

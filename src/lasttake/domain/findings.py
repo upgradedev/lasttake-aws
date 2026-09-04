@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Optional
 
-from .sealing import seal, utc_now_iso
+from .sealing import SEAL_KEY, seal, utc_now_iso, verify_seal
 
 
 class TruthState(str, Enum):
@@ -124,6 +124,10 @@ class Finding:
     inference: Optional[str] = None
     confidence: float = 1.0
     recommended_action: Optional[str] = None
+    #: The digest this record carried when it was read back from storage. It is
+    #: not part of ``to_dict``, because a seal cannot cover itself, and it is
+    #: None on a finding that has never been stored.
+    record_sha256: Optional[str] = None
     created_at: str = field(default_factory=utc_now_iso)
 
     def to_dict(self) -> dict:
@@ -150,6 +154,28 @@ class Finding:
 
     def sealed(self) -> dict:
         return seal(self.to_dict())
+
+    def seal_verifies(self) -> bool:
+        """True when this record still matches the digest it was stored with.
+
+        False when it carries no digest at all. A record nobody sealed is not a
+        record somebody checked, and absent evidence is a finding rather than a
+        pass. That rule is the spine of the product and it applies to the
+        product's own records first.
+        """
+        if not self.record_sha256:
+            return False
+        return verify_seal({**self.to_dict(), SEAL_KEY: self.record_sha256})
+
+    def resealed(self) -> "Finding":
+        """The same finding, carrying the digest it would be stored with.
+
+        For callers that build a finding and hand it straight to the gate
+        without a round trip through storage.
+        """
+        stored = self.sealed()
+        self.record_sha256 = stored[SEAL_KEY]
+        return self
 
 
 class FindingContractError(ValueError):
@@ -211,4 +237,5 @@ def from_dict(data: dict) -> Finding:
         confidence=data.get("confidence", 1.0),
         recommended_action=data.get("recommended_action"),
         created_at=data["created_at"],
+        record_sha256=data.get(SEAL_KEY),
     )

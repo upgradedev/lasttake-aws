@@ -75,8 +75,18 @@ class _Index:
             elif finding.check_type is CheckType.COVERAGE:
                 self.coverage[finding.requirement_id] = finding
             elif finding.check_type is CheckType.CONTINUITY:
-                if finding.truth_state is TruthState.CONFLICTING:
-                    # A continuity conflict names the takes it is between. Those
+                # Any continuity result that is not verified takes its takes out
+                # of evidence, not only a confident conflict.
+                #
+                # This used to read `is TruthState.CONFLICTING`, so a reference
+                # the check could not answer left every take under it viable and
+                # the beat read as covered. That is absent evidence counted as a
+                # pass, in the one number a 1st AD acts on at 23:10. It was found
+                # by `tools/ablation.py`: with the model unreachable the covered
+                # count went *up*, from 31 to 32, because the unanswered conflict
+                # stopped blocking anything.
+                if finding.truth_state.is_exception:
+                    # A continuity finding names the takes it is about. Those
                     # takes, and only those, stop being viable evidence.
                     for locator in finding.locators:
                         if locator.kind == "take":
@@ -98,7 +108,10 @@ class _Index:
 
         conflict = self.continuity_takes.get(take.take_id)
         if conflict is not None:
-            return ("continuity conflict cites this take", [conflict.finding_id])
+            return (
+                f"continuity {conflict.truth_state.value} and cites this take",
+                [conflict.finding_id],
+            )
 
         for subject in list(take.visible_people) + list(take.visible_assets):
             rights = self.rights.get(subject)
@@ -151,6 +164,35 @@ def roll_up(package: ScenePackage, findings: list[Finding]) -> list[BeatOutcome]
                 clean = take
                 break
             blocked.append((reason, finding_ids))
+
+        # A take naming a beat is the production's own assertion that it
+        # contains it. The coverage check is the second reading of that
+        # assertion, and until now the rollup ignored it: a beat whose coverage
+        # result was `unknown` still counted as covered, because a viable take
+        # named it. The gate refused, so nothing unsafe shipped, but the number
+        # on the page said covered while the check said it could not tell.
+        # Found by `tools/ablation.py`, which removed the model and watched the
+        # covered count refuse to move.
+        coverage = index.coverage.get(beat.beat_id)
+        if clean is not None and (
+            coverage is None or coverage.truth_state is not TruthState.VERIFIED
+        ):
+            outcomes.append(
+                BeatOutcome(
+                    beat_id=beat.beat_id,
+                    slug=beat.slug,
+                    status=BeatStatus.NO_COVERAGE,
+                    reason=(
+                        "no current coverage result for this beat"
+                        if coverage is None
+                        else f"coverage {coverage.truth_state.value}: a take names this "
+                        "beat, and the check could not establish that it contains it"
+                    ),
+                    evidence_take_id=None,
+                    blocking_finding_ids=(coverage.finding_id,) if coverage else (),
+                )
+            )
+            continue
 
         if clean is not None:
             outcomes.append(

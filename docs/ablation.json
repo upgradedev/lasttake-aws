@@ -1,0 +1,23 @@
+[
+  {
+    "ablation": "the finding seal is not verified",
+    "with_the_rule": "the edited record is discarded and the reason is named (1 discarded, the rest admitted)",
+    "without_the_rule": "all 85 records are admitted, the edited one among them, and the beat it names reads as covered",
+    "delta": "1 tampered record admitted instead of 0",
+    "matters_because": "the tampered beat is B-17, the one with no coverage at all. Taking the record at face value is how a scene with a hole in it reaches editorial."
+  },
+  {
+    "ablation": "staleness is asserted from a table instead of derived from digests",
+    "with_the_rule": "85 findings are discarded because they cite the takes digest from before the pickup arrived",
+    "without_the_rule": "50 of those findings are carried forward and re-stamped with the new revision, so the gate cannot tell they are stale",
+    "delta": "50 stale findings admitted instead of 0",
+    "matters_because": "continuity, media identity and rights all read the takes document. A table that says a new take affects coverage only is wrong about three checks, and the gate has no way to notice."
+  },
+  {
+    "ablation": "the model cannot be reached",
+    "with_the_rule": "31 of 34 beats are covered with evidence",
+    "without_the_rule": "0 of 34 beats are covered with evidence",
+    "delta": "31 beats lose their evidence, and every one of them becomes unknown rather than a pass",
+    "matters_because": "a model outage degrades this product to refusing, never to agreeing. The failure direction is the claim, and this is the measurement of it."
+  }
+]

@@ -1,14 +1,28 @@
 # LastTake: Enterprise Amazon Bedrock AgentCore Alignment Architecture
 
+> **Status: a design proposal. None of it is deployed.**
+>
+> LastTake does not run on Amazon Bedrock AgentCore today. What is deployed is described in
+> the README under "What is deployed, and what it costs": one Lambda behind an HTTP API, one
+> Aurora DSQL cluster, one S3 bucket and one EventBridge bus, and the interpretations on the
+> live URL come from the offline lexical interpreter rather than from a model. This document
+> is what a move onto AgentCore would look like. Every sentence below describes an intention,
+> not a running system, and nothing in it should be read as a capability claim.
+>
+> The rest of this file is also written for a wider audience than the product has. LastTake
+> is aimed at **one script supervisor on one shoot day**, which is the positioning the README
+> leads with. Where this document says "productions", read it as the eventual market rather
+> than the user we designed for.
+
 This specification details how LastTake's autonomous film set shoot-day assurance and wrap risk engine maps to the **Amazon Bedrock AgentCore** architecture and enterprise runtime primitives.
 
 ---
 
 ## 1. Executive Summary
 
-LastTake provides real-time shoot-day assurance for independent film and episodic television productions. Standing between camera reports, sound logs, script supervisor notes, and the production office, LastTake evaluates whether a scene can safely be wrapped before expensive sets are struck and cast released.
+LastTake is pre-wrap assurance for a script supervisor on a shoot day. It reads artifacts that a production already writes down; it is not a real-time telemetry system and nothing streams into it. Standing between camera reports, sound logs, script supervisor notes, and the production office, LastTake evaluates whether a scene can safely be wrapped before expensive sets are struck and cast released.
 
-By deploying onto Amazon Bedrock AgentCore, LastTake coordinates multi-agent analysis across creative continuity and production logistics, while ensuring that all decisions are verified by deterministic domain rules and held at an overnight human approval gate.
+Were it deployed onto Amazon Bedrock AgentCore, LastTake would coordinate multi-agent analysis across creative continuity and production logistics, while decisions stayed with the deterministic domain rules and the overnight human approval gate that the running system already has.
 
 ```
                     ┌─────────────────────────────────────────┐

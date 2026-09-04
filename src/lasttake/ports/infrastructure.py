@@ -58,6 +58,24 @@ class RunStore(Protocol):
 
     def mark_handled(self, idempotency_key: str, run_id: str) -> None: ...
 
+    def claim(self, idempotency_key: str, run_id: str) -> bool:
+        """Record the key and say whether *this* caller was the one that did it.
+
+        One atomic step. ``already_handled`` followed by ``mark_handled`` is a
+        check-then-set and two callers can both read false, however well the
+        storage behaves, so a real assistant director gets the same pickup
+        request twice.
+        """
+        ...
+
+    def release(self, idempotency_key: str) -> None:
+        """Give a claim back, for a caller that claimed and then failed to publish.
+
+        Without this the pair is not idempotency, it is loss: the key is on
+        file, the event never reached the bus, and no retry can ever send it.
+        """
+        ...
+
     def save_findings(self, run_id: str, findings: list[dict]) -> None: ...
 
     def load_findings(self, run_id: str) -> list[dict]: ...

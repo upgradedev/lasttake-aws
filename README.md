@@ -5,7 +5,7 @@
 [![python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/)
 
 **It checks every required beat against the takes actually captured before the crew is
-released, so a missing shot costs fifteen minutes instead of a pickup day.**
+released, so a missing shot costs minutes, not a pickup day.**
 
 Before you wrap the set, know whether you truly have the scene.
 
@@ -21,6 +21,7 @@ Before you wrap the set, know whether you truly have the scene.
 - [Architecture](#architecture)
 - [How Strands is load-bearing](#how-strands-is-load-bearing)
 - [The rule the whole product turns on](#the-rule-the-whole-product-turns-on)
+- [What each rule is worth, measured by removing it](#what-each-rule-is-worth-measured-by-removing-it)
 - [The numbers, and the commands that produce them](#the-numbers-and-the-commands-that-produce-them)
 - [The demo corpus is synthetic](#the-demo-corpus-is-synthetic)
 - [What it will not do](#what-it-will-not-do)
@@ -348,6 +349,33 @@ The last one is a table, not an `if`. A DIT may resolve a media identity questio
 not accept a rights exception. Nobody at all may accept away a missing release, including
 the role that owns rights, because that decision belongs to production and counsel and not
 to this system.
+
+## What each rule is worth, measured by removing it
+
+Every other number here is a count of our own fixture. A count is not an argument until
+something can be compared against it, so the same corpus runs through the same pipeline
+three times, each time with one load-bearing rule removed. The removed rule is the only
+thing that differs, so the delta is attributable to it.
+
+```bash
+PYTHONPATH=src python tools/ablation.py
+```
+
+| Rule removed | With it | Without it |
+|---|---|---|
+| the finding seal is verified before anything reads the record | the edited record is discarded and the reason named | all 85 records are admitted, the edited one among them, and the beat it names reads as covered |
+| staleness is derived from the digests a finding cites, not asserted from a table | every finding that read the takes document before the pickup is discarded | **50 stale findings** are carried forward and re-stamped, and the gate cannot tell |
+| the model is reachable | **31 of 34** beats are covered with evidence | **0 of 34**, and every one of them is `unknown` rather than a pass |
+
+The third row is the one to read twice. A model outage takes this product to refusing,
+never to agreeing, and that is a measurement rather than a description of an intention.
+
+Both of the first two ablations found a real defect the first time they ran. With the model
+removed the covered count went **up**, from 31 to 32, because a continuity question nobody
+could answer stopped blocking anything, and because a beat counted as covered whenever a
+viable take named it, whatever the coverage check had concluded. Two places where absent
+evidence was being read as a pass, in the one number a 1st AD acts on at 23:10. Both are
+fixed and both are pinned by a test.
 
 ## The numbers, and the commands that produce them
 

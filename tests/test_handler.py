@@ -245,15 +245,28 @@ def test_reset_hands_out_a_new_run_and_deletes_nothing():
     assert post("/api/state", {"run_id": RUN})["counts"]["required_beats"] == 34
 
 
-def test_an_unexpected_failure_returns_the_reason_not_a_blank_500(monkeypatch):
+def test_an_unexpected_failure_says_what_broke_without_handing_over_the_map(monkeypatch, capsys):
+    """A blank 500 tells a visitor nothing. A stack trace tells an attacker a lot.
+
+    The response carries the exception type and the invocation id, which is
+    enough to report it and enough for us to find it. The trace goes to the log.
+    """
     def boom(*a, **k):
-        raise RuntimeError("the cart caught fire")
+        raise RuntimeError("the cart caught fire, /home/secret/path.py line 42")
 
     monkeypatch.setattr(H, "route_state", boom)
     monkeypatch.setitem(H.ROUTES, "/api/state", boom)
     body = post("/api/state", {"run_id": RUN})
+
     assert body["status"] == 500
-    assert "the cart caught fire" in body["error"]
+    assert body["error"] == "RuntimeError"
+    assert body["served_by"]["lambda_request_id"], "nothing to quote when reporting it"
+
+    printed = json.dumps(body)
+    for leak in ("Traceback", "/home/secret", "line 42", "handler.py", "the cart caught fire"):
+        assert leak not in printed, f"{leak!r} reached the public response"
+
+    assert "the cart caught fire" in capsys.readouterr().out, "nor did it reach the log"
 
 
 # -- the lined script, which is the first thing a visitor sees --------------

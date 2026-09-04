@@ -17,6 +17,7 @@ from lasttake.adapters.local.interpreter import OfflineInterpreter
 from lasttake.checks import coverage, rights
 from lasttake.domain import policy, rollup
 from lasttake.domain.events import Event, EventType, affected_by
+from lasttake.ports.infrastructure import Receipt
 from lasttake.domain.findings import TruthState
 from lasttake.domain.package import (
     CameraReportRow,
@@ -234,3 +235,84 @@ def test_a_scope_narrower_than_policy_is_not_verified(package):
     )[0]
     assert finding.truth_state is TruthState.CONFLICTING
     assert "festival only" in finding.observation
+
+
+# -- one claim, one publish, and a failure that can be retried --------------
+
+
+def test_two_callers_racing_one_approval_publish_it_once(tmp_path):
+    """The check-then-set this replaced let both of them through.
+
+    Two Lambdas resuming the same approval is not hypothetical: it is what a
+    double-tapped Approve button on a slow connection does. The cost of getting
+    it wrong is a real assistant director receiving the same pickup request
+    twice, which is exactly the noise this product exists to remove.
+    """
+    import threading
+
+    from lasttake.adapters.local.infrastructure import LocalRunStore
+
+    store = LocalRunStore(tmp_path / "runs")
+    key = "the-same-approval"
+    won: list[bool] = []
+    barrier = threading.Barrier(8)
+
+    def race() -> None:
+        barrier.wait()
+        won.append(store.claim(key, "run-1"))
+
+    threads = [threading.Thread(target=race) for _ in range(8)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    assert sum(won) == 1, f"{sum(won)} callers were told they had the claim"
+    assert store.already_handled(key)
+
+
+def test_a_publish_that_fails_can_be_retried(tmp_path):
+    """Marking before publishing turned a bus outage into a lost event.
+
+    The key was on file, nothing was on the bus, and no retry could ever send
+    it. One lost event is worse than two duplicates on a set.
+    """
+    from lasttake.adapters.local.infrastructure import LocalArtifactStore, LocalRunStore
+    from lasttake.agents.runtime import WrapRun
+    from lasttake.domain.events import EventType
+
+    class BrokenBus:
+        def __init__(self) -> None:
+            self.attempts = 0
+            self.working = False
+
+        def publish(self, event):
+            self.attempts += 1
+            if not self.working:
+                raise RuntimeError("the bus is down")
+            return Receipt(accepted=True, reference=event.event_id, detail="published")
+
+    bus = BrokenBus()
+    store = LocalRunStore(tmp_path / "runs")
+    run = WrapRun(
+        run_id="demo-retryable",
+        correlation_id="demo-retryable",
+        package=load_package(CORPUS),
+        bus=bus,
+        artifacts=LocalArtifactStore(tmp_path / "artifacts"),
+        runs=store,
+        interpreter=OfflineInterpreter(),
+    )
+
+    with pytest.raises(RuntimeError):
+        run.publish(EventType.PICKUP_REQUESTED, {"beat_id": "B-17"}, idempotent=True)
+    assert bus.attempts == 1
+
+    bus.working = True
+    receipt = run.publish(EventType.PICKUP_REQUESTED, {"beat_id": "B-17"}, idempotent=True)
+    assert receipt.accepted and bus.attempts == 2
+    assert "already handled" not in receipt.detail, "the failure was never released"
+
+    again = run.publish(EventType.PICKUP_REQUESTED, {"beat_id": "B-17"}, idempotent=True)
+    assert "already handled" in again.detail
+    assert bus.attempts == 2, "a successful publish was repeated"

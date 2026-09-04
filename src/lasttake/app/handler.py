@@ -711,14 +711,23 @@ def handler(event: dict, context: Any) -> dict:
 
     try:
         return route(body, request_id)
-    except Exception as exc:  # noqa: BLE001 - surface it, never a blank 500
+    except Exception as exc:  # noqa: BLE001 - logged in full, never returned in full
         import traceback
 
+        # The full trace goes to CloudWatch, where the operator can read it and
+        # the public cannot. The response carries the exception type and the
+        # invocation id, which is enough for a visitor to report it and enough
+        # for us to find it, and no file paths, no line numbers and no internal
+        # names. A stack trace on a public endpoint is a map of the code.
+        print(f"unhandled {type(exc).__name__} on {path}: {traceback.format_exc()}")
         return _json(
             500,
             {
-                "error": f"{type(exc).__name__}: {exc}",
-                "where": traceback.format_exc().splitlines()[-3:],
+                "error": type(exc).__name__,
+                "detail": (
+                    "Something failed on our side and the details are in our logs, not "
+                    "in this response. Quote the invocation id below and we can find it."
+                ),
             },
             request_id,
         )

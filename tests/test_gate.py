@@ -35,7 +35,11 @@ def findings(package):
     out += continuity.run(package, RUN, interp, policy.POLICY_VERSION)
     out += metadata.run(package, RUN, policy.POLICY_VERSION)
     out += rights.run(package, RUN, policy.POLICY_VERSION)
-    return out
+    # The gate only admits sealed records. In the running system a finding is
+    # sealed on the way into storage and read back with its digest; these are
+    # built in memory, so they are sealed here instead. A test that handed the
+    # gate unsealed records would be testing a path the product does not have.
+    return [f.resealed() for f in out]
 
 
 def test_the_corpus_is_not_eligible_on_the_first_pass(package, findings):
@@ -56,9 +60,39 @@ def test_a_missing_check_result_is_not_a_pass(package, findings):
 def test_two_results_for_one_check_is_a_contradiction(package, findings):
     duplicated = list(findings) + [copy.deepcopy(findings[0])]
     duplicated[-1].truth_state = TruthState.VERIFIED
+    # Resealed on purpose. An edited record that was not resealed is caught one
+    # rule earlier, by the seal, and the contradiction rule would never be
+    # reached. This test is about the contradiction rule.
+    duplicated[-1].resealed()
     packet = policy.evaluate(RUN, package, duplicated, [])
     reasons = " ".join(c.reason for c in packet.causes)
     assert "current results for one check" in reasons
+
+
+def test_a_finding_edited_after_it_was_sealed_is_discarded(package, findings):
+    """The seal is checked before anything else reads the record.
+
+    Someone with write access to the findings store flips one truth state from
+    missing to verified. Without this check the gate reads the field and
+    believes it, because every other rule in this module trusts the record it
+    was handed.
+    """
+    tampered = [copy.deepcopy(f) for f in findings]
+    gap = next(f for f in tampered if f.truth_state is TruthState.MISSING)
+    gap.truth_state = TruthState.VERIFIED
+
+    packet = policy.evaluate(RUN, package, tampered, [])
+    assert packet.eligible is False
+    assert any("seal does not verify" in note for note in packet.discarded), packet.discarded
+
+
+def test_a_finding_that_was_never_sealed_is_not_a_pass(package, findings):
+    unsealed = [copy.deepcopy(f) for f in findings]
+    for finding in unsealed:
+        finding.record_sha256 = None
+    packet = policy.evaluate(RUN, package, unsealed, [])
+    assert packet.eligible is False
+    assert len(packet.discarded) == len(unsealed)
 
 
 def test_a_finding_whose_evidence_moved_is_discarded_not_reused(package, findings):
@@ -70,6 +104,10 @@ def test_a_finding_whose_evidence_moved_is_discarded_not_reused(package, finding
         finding.sources = [
             Source(s.artifact_id, "f" * 64, s.kind) for s in finding.sources
         ]
+        # Resealed, so the record is intact and only its evidence has moved.
+        # Without this the seal rule fires first and this test would pass for
+        # the wrong reason.
+        finding.resealed()
     packet = policy.evaluate(RUN, package, stale, [])
     assert packet.eligible is False
     assert len(packet.discarded) == len(stale)
@@ -104,6 +142,8 @@ def test_a_finding_judged_under_an_older_policy_is_discarded(package, findings):
     old = copy.deepcopy(findings)
     for finding in old:
         finding.policy_version = "0.0.1"
+        # Resealed: a record legitimately rewritten, just under an old policy.
+        finding.resealed()
     packet = policy.evaluate(RUN, package, old, [])
     assert all("policy" in d for d in packet.discarded)
 

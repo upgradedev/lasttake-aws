@@ -267,7 +267,7 @@ pre{background:#fff;border:1px solid var(--rule);border-radius:5px;padding:10px;
     <span class="prod" id="prod"><b>Loading the scene&hellip;</b><br><span>&nbsp;</span></span>
     <span class="right">
       <button id="bSandbox" type="button" onclick="openSandbox()" style="font-size:12px;padding:5px 10px;background:var(--slate2);color:#f4f3ef;border:1px solid #4a4f59;border-radius:4px;cursor:pointer">Scenario Sandbox</button>
-      <label class="rolelabel" for="role">Signed in as</label>
+      <label class="rolelabel" for="role" title="Nobody is signed in. This demo lets you stand in any of the four chairs so the authority tables are something you can feel.">Standing in as</label>
       <select id="role">
         <option value="script_supervisor">Script supervisor</option>
         <option value="first_ad">1st AD</option>
@@ -329,6 +329,10 @@ pre{background:#fff;border:1px solid var(--rule);border-radius:5px;padding:10px;
 <div class="proof">
   <span class="lbl">Process boundary</span>
   <span id="served">Nothing served yet.</span>
+  <span class="lbl" style="margin-left:auto">Role simulation</span>
+  <span class="note">Nobody is authenticated. The chair in the slate is a claim this page
+    makes and the server checks it against the policy tables, but it does not check who you
+    are. A production deployment puts SSO in front of this.</span>
 </div>
 
 <div class="scrim" id="scrim"></div>
