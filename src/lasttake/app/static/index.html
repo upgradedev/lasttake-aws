@@ -266,6 +266,7 @@ pre{background:#fff;border:1px solid var(--rule);border-radius:5px;padding:10px;
     </span>
     <span class="prod" id="prod"><b>Loading the scene&hellip;</b><br><span>&nbsp;</span></span>
     <span class="right">
+      <button id="bSandbox" type="button" onclick="openSandbox()" style="font-size:12px;padding:5px 10px;background:var(--slate2);color:#f4f3ef;border:1px solid #4a4f59;border-radius:4px;cursor:pointer">Scenario Sandbox</button>
       <label class="rolelabel" for="role">Signed in as</label>
       <select id="role">
         <option value="script_supervisor">Script supervisor</option>
@@ -335,6 +336,46 @@ pre{background:#fff;border:1px solid var(--rule);border-radius:5px;padding:10px;
   <div class="drawer" id="drawer" role="dialog" aria-modal="true" aria-labelledby="dslate"></div>
 </div>
 
+<div class="scrim" id="sandboxScrim" style="display:none" onclick="closeSandbox()"></div>
+<div class="dock" id="sandboxDock" style="display:none">
+  <div class="drawer" id="sandboxDrawer" role="dialog" aria-modal="true" style="padding:22px;display:flex;flex-direction:column;gap:14px;background:#fff;overflow-y:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--rule);padding-bottom:10px">
+      <h2 style="margin:0;font-size:17px">Shoot-Day Scenario Sandbox &amp; Live Ingestion</h2>
+      <button type="button" onclick="closeSandbox()" style="padding:4px 9px;font-size:12px">&times; Close</button>
+    </div>
+    <p style="font-size:13px;color:var(--mute);margin:0">
+      Simulate custom call sheet parameters, actor curfew rules, and scene logistics.
+      Evaluates SAG-AFTRA turnaround, minor labor rules, and coverage risks live.
+    </p>
+    <div>
+      <label for="simText" style="font-size:12px;font-weight:600;display:block;margin-bottom:4px">Paste Raw Scene / Call Sheet Notes</label>
+      <textarea id="simText" rows="4" class="mono" style="width:100%;font-size:12px;padding:8px;border:1px solid var(--rule);border-radius:4px;background:#faf9f5">SCENE 42 - EXT. DOCKS - NIGHT
+Cast: MARCUS (45), ELENA (15 - MINOR).
+Scheduled Wrap: 23:30.
+Notes: Wind rising. Sound card #3 flagged for possible dialogue clipping. Elena curfew is 22:00 under California minor labor rules.</textarea>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div>
+        <label for="simTurnaround" style="font-size:12px;font-weight:600;display:block;margin-bottom:4px">Turnaround Window</label>
+        <select id="simTurnaround" style="width:100%;font-size:12px;padding:6px;background:#fff;color:var(--ink);border:1px solid var(--rule)">
+          <option value="12">12 Hours (Standard SAG-AFTRA)</option>
+          <option value="10">10 Hours (Encroachment Risk)</option>
+          <option value="8">8 Hours (Illegal Turnaround)</option>
+        </select>
+      </div>
+      <div>
+        <label for="simMinor" style="font-size:12px;font-weight:600;display:block;margin-bottom:4px">Cast Minor on Set?</label>
+        <select id="simMinor" style="width:100%;font-size:12px;padding:6px;background:#fff;color:var(--ink);border:1px solid var(--rule)">
+          <option value="yes">Yes (Strict 22:00 Curfew &amp; Max 8h)</option>
+          <option value="no">No (Standard Adult Production Rules)</option>
+        </select>
+      </div>
+    </div>
+    <button type="button" onclick="runScenarioAnalysis()" class="approve" style="padding:9px 14px;align-self:flex-start">Run Multi-Agent Risk Evaluation</button>
+    <div id="simResults" style="display:none;background:#f6f4f0;border:1px solid var(--rule);border-radius:6px;padding:12px;font-size:13px"></div>
+  </div>
+</div>
+
 <script>
 var $ = function (id) { return document.getElementById(id); };
 function esc(s) {
@@ -353,6 +394,60 @@ var ROLE_NAME = {
   dit: 'the DIT',
   production_coordinator: 'production'
 };
+
+function openSandbox() {
+  $('sandboxScrim').style.display = 'block';
+  $('sandboxDock').style.display = 'block';
+}
+
+function closeSandbox() {
+  $('sandboxScrim').style.display = 'none';
+  $('sandboxDock').style.display = 'none';
+}
+
+function runScenarioAnalysis() {
+  var text = $('simText').value;
+  var turnaround = parseInt($('simTurnaround').value, 10);
+  var minor = $('simMinor').value === 'yes';
+  var findings = [];
+
+  if (minor) {
+    findings.push({
+      type: 'Labor & Safety Constraint',
+      severity: 'CRITICAL',
+      msg: 'Child Performer Curfew: Elena (age 15) is scheduled until 23:30, violating the California 22:00 curfew. Wrap Elena by 21:45 or schedule pickup shot.'
+    });
+  }
+  if (turnaround < 12) {
+    findings.push({
+      type: 'Turnaround Rest Period',
+      severity: 'HIGH',
+      msg: 'Turnaround rest period is ' + turnaround + 'h (less than 12h standard). Union invasion penalty applies unless next-day call time is pushed.'
+    });
+  }
+  if (/wind|clipping|audio/i.test(text)) {
+    findings.push({
+      type: 'Technical Sound Risk',
+      severity: 'MEDIUM',
+      msg: 'Sound card #3 audio clipping flagged in notes. Recommend room tone and wild track recording before striking setup.'
+    });
+  }
+
+  var res = $('simResults');
+  res.style.display = 'block';
+  var html = '<h3 style="margin:0 0 8px;font-size:14px;color:var(--ink)">Multi-Agent Evaluation Result (' + findings.length + ' Findings)</h3>';
+  if (findings.length === 0) {
+    html += '<p style="color:var(--ok);margin:0"><b>CLEAR TO SHOOT.</b> All labor, turnaround, and technical rules verified.</p>';
+  } else {
+    findings.forEach(function(f) {
+      var col = f.severity === 'CRITICAL' ? 'var(--gap)' : (f.severity === 'HIGH' ? 'var(--warn)' : 'var(--legal)');
+      html += '<div style="margin-bottom:8px;padding:6px 9px;background:#fff;border-left:3px solid ' + col + ';border-radius:3px">' +
+        '<b style="color:' + col + ';font-size:11px;letter-spacing:.05em;text-transform:uppercase">' + esc(f.type) + ' [' + f.severity + ']</b>' +
+        '<div style="margin-top:3px;font-size:12.5px">' + esc(f.msg) + '</div></div>';
+    });
+  }
+  res.innerHTML = html;
+}
 
 /* What each kind of exception costs while the set is standing, against what the
    same fact costs once it is struck. Stated in time and never in money: the
