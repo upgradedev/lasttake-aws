@@ -76,6 +76,15 @@ test.describe("one shoot day, on the deployed page", () => {
     await page.locator('.beat[data-beat="B-09"] .slug').click();
     await expect(page.locator('.card[data-req="BG-07"]')).toHaveClass(/linked/);
     await expect(page.locator("#drawer")).not.toHaveClass(/on/);
+
+    // The orphan-shot advisory names no requirement, so it is about no lines and
+    // must never be what a beat links to. It was: `b.continuity_ref === null` is
+    // true on 29 of 36 beats, so the advisory matched almost the whole scene and
+    // clicking a beat lit nothing.
+    const advisory = page.locator(".card").filter({ hasText: "shot plan and the script have drifted" });
+    await expect(advisory).toHaveCount(1);
+    await expect(advisory).not.toHaveAttribute("data-req", /./);
+    await expect(page.locator(".beat.linked")).toHaveCount(1);
   });
 
   test("a slate opens the two records side by side", async ({ page }) => {

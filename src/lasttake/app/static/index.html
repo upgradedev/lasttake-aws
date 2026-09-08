@@ -627,6 +627,14 @@ function served(s) {
    is this about", so it is worked out once, here, from the package. */
 function beatsFor(requirementId) {
   var out = [];
+  // A finding that names no requirement is about no lines, and saying so first
+  // is not a formality. `b.continuity_ref` is null on every beat that carries no
+  // continuity reference, so `b.continuity_ref === requirementId` was true for
+  // 29 of 36 beats when requirementId was null, and the orphan-shot advisory,
+  // which is the one finding in the system with no requirement id, appeared to
+  // be about almost the whole scene. Clicking a beat then linked to null and lit
+  // nothing at all, silently. Found by the browser test on its second run.
+  if (requirementId === null || requirementId === undefined) return out;
   var beats = (SCENE && SCENE.beats) || [];
   for (var i = 0; i < beats.length; i++) {
     var b = beats[i], hit = false;
@@ -646,6 +654,7 @@ function findingsForBeat(beatId) {
   var out = [];
   var list = (STATE && STATE.exceptions) || [];
   for (var i = 0; i < list.length; i++) {
+    if (!list[i].requirement_id) continue;
     if (beatsFor(list[i].requirement_id).indexOf(beatId) >= 0) out.push(list[i].finding_id);
   }
   return out;
