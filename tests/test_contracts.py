@@ -165,3 +165,63 @@ def test_no_source_file_is_over_800_lines():
         if lines > 800:
             too_long.append(f"{path.relative_to(SRC)}: {lines}")
     assert not too_long, too_long
+
+
+def test_a_model_failure_produces_unknown_and_never_a_pass():
+    """Every path out of the interpreter that is not an answer is `unknown`.
+
+    `docs/assurance.md` states that a model can withhold a pass and cannot
+    manufacture one. That sentence used to say the model "can never set a truth
+    state", which was not true: it chooses between verified and unknown. The
+    claim was corrected and this pins the half of it that is load-bearing.
+    """
+    from lasttake.checks import continuity as continuity_check
+    from lasttake.checks import coverage as coverage_check
+    from lasttake.domain import policy
+    from lasttake.domain.findings import TruthState
+    from lasttake.domain.package import load_package
+    from lasttake.ports.interpreter import BeatMatch, ContinuityOpinion
+
+    class Unreachable:
+        """What every adapter returns when the model cannot be reached."""
+
+        model_id = "unreachable/0"
+
+        def match_beat_to_take(self, **_):
+            return BeatMatch(covers=False, confidence=0.0, rationale="not reached")
+
+        def compare_continuity(self, **_):
+            return ContinuityOpinion(
+                states_agree=False,
+                possibly_intentional=True,
+                confidence=0.0,
+                rationale="not reached",
+            )
+
+    package = load_package(Path(__file__).resolve().parents[1] / "corpus")
+    findings = coverage_check.run(package, "t", Unreachable(), policy.POLICY_VERSION)
+    findings += continuity_check.run(package, "t", Unreachable(), policy.POLICY_VERSION)
+
+    assert findings, "the checks must still produce results when the model is down"
+
+    # Not every result depends on the model. A continuity reference whose
+    # preferred takes sit on different beats cannot conflict, and that is
+    # arithmetic: the state is meant to change between beats. Those verify
+    # without anyone asking a model anything, and they are allowed to.
+    model_dependent = [f for f in findings if f.inference is not None]
+    assert model_dependent, "this test is worthless if nothing consulted the model"
+    passed = [f for f in model_dependent if f.truth_state is TruthState.VERIFIED]
+    assert not passed, (
+        "a model that answered nothing produced a pass: "
+        f"{[f.finding_id for f in passed]}"
+    )
+
+    covered = [
+        f
+        for f in findings
+        if f.check_type.value == "coverage" and f.truth_state is TruthState.VERIFIED
+    ]
+    assert not covered, (
+        "coverage cannot be established without reading the take, so every beat "
+        f"must be unknown when the model is down: {[f.finding_id for f in covered]}"
+    )

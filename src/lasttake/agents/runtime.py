@@ -57,15 +57,34 @@ class WrapRun:
         rather than firing a second pickup request at a tired 1st AD.
         """
         event = self.build_event(event_type, payload)
-        if idempotent:
-            if self.runs.already_handled(event.idempotency_key):
-                return Receipt(
-                    accepted=True,
-                    reference=event.idempotency_key[:16],
-                    detail="already handled; not republished",
-                )
-            self.runs.mark_handled(event.idempotency_key, self.run_id)
-        return self.bus.publish(event)
+        if not idempotent:
+            return self.bus.publish(event)
+
+        # Claim, then publish, then give the claim back if the publish failed.
+        #
+        # The previous version asked `already_handled` and then `mark_handled`,
+        # which is a check-then-set: two Lambdas resuming the same approval can
+        # both read false and a real assistant director gets the pickup request
+        # twice. It also marked the key *before* publishing, so a bus failure
+        # left the key on file with nothing on the bus and no retry able to send
+        # it. One lost event is worse than two duplicates on a set.
+        #
+        # This is at-most-once *claiming*. EventBridge delivery itself is
+        # at-least-once and nothing here changes that, so a consumer still has
+        # to be idempotent. What this guarantees is that exactly one caller
+        # publishes a given event, and that a failure leaves the system able to
+        # try again rather than silently short of one event.
+        if not self.runs.claim(event.idempotency_key, self.run_id):
+            return Receipt(
+                accepted=True,
+                reference=event.idempotency_key[:16],
+                detail="already handled; not republished",
+            )
+        try:
+            return self.bus.publish(event)
+        except Exception:
+            self.runs.release(event.idempotency_key)
+            raise
 
     # -- findings and decisions --------------------------------------------
 

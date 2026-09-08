@@ -235,6 +235,9 @@ Resources:
       # checkpoint surfaces as a gateway timeout rather than running on unseen.
       Timeout: 120
       MemorySize: 1024
+      # A ceiling, not a target. Nothing here needs to fan out, and an
+      # unbounded function on an unauthenticated URL is an unbounded bill.
+      ReservedConcurrentExecutions: 20
       LoggingConfig:
         LogGroup: !Ref LogGroup
       Environment:
@@ -298,6 +301,14 @@ Resources:
       ApiId: !Ref HttpApi
       StageName: "$default"
       AutoDeploy: true
+      # The endpoint is deliberately open, because a judge has to reach it with
+      # no account. Open is not the same as unbounded. A checkpoint costs a
+      # Bedrock call and a DSQL write, so a loop pointed at this URL is a bill.
+      # These numbers are far above one human clicking through the walkthrough
+      # and far below anything that would matter.
+      DefaultRouteSettings:
+        ThrottlingRateLimit: 20
+        ThrottlingBurstLimit: 40
 
   InvokePermission:
     Type: AWS::Lambda::Permission

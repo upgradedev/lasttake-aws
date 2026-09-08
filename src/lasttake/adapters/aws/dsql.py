@@ -184,6 +184,18 @@ class DsqlRunStore:
             )
             return cur.fetchone() is not None
 
+    def release(self, idempotency_key: str) -> None:
+        """Give the claim back when the publish that followed it failed.
+
+        Without this the pair is not idempotency, it is loss: the key is on
+        file, the event never reached the bus, and no retry can ever send it.
+        """
+        with self._connect() as conn, conn.cursor() as cur:
+            cur.execute(
+                "DELETE FROM handled_events WHERE idempotency_key = %s",
+                (idempotency_key,),
+            )
+
     # -- findings -----------------------------------------------------------
 
     def save_findings(self, run_id: str, findings: list[dict]) -> None:

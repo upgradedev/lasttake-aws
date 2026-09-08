@@ -153,7 +153,17 @@ class BedrockInterpreter:
             "</evidence>\n\n"
             "Could this take plausibly contain this beat?"
         )
-        out = self._coverage.structured_output(_BeatMatchOut, prompt)
+        try:
+            out = self._coverage.structured_output(_BeatMatchOut, prompt)
+        except Exception as exc:  # noqa: BLE001 - any failure means we did not read it
+            return BeatMatch(
+                covers=False,
+                confidence=0.0,
+                rationale=(
+                    "the model could not be reached, so this take was not read: "
+                    f"{type(exc).__name__}. Absent evidence is a finding, never a pass."
+                ),
+            )
         return BeatMatch(
             covers=out.covers, confidence=out.confidence, rationale=out.rationale
         )
@@ -170,7 +180,19 @@ class BedrockInterpreter:
             "</evidence>\n\n"
             "Do the two notes describe the same state?"
         )
-        out = self._continuity.structured_output(_ContinuityOut, prompt)
+        try:
+            out = self._continuity.structured_output(_ContinuityOut, prompt)
+        except Exception as exc:  # noqa: BLE001 - any failure means we did not read it
+            return ContinuityOpinion(
+                states_agree=False,
+                possibly_intentional=True,
+                confidence=0.0,
+                rationale=(
+                    "the model could not be reached, so the two notes were not "
+                    f"compared: {type(exc).__name__}. This is recorded as unknown, "
+                    "not as agreement."
+                ),
+            )
         return ContinuityOpinion(
             states_agree=out.states_agree,
             possibly_intentional=out.possibly_intentional,

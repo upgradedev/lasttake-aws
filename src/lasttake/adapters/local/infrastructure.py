@@ -12,6 +12,7 @@ product; the AWS adapters exist for that.
 from __future__ import annotations
 
 import json
+import threading
 import os
 from pathlib import Path
 from typing import Callable, Optional
@@ -108,6 +109,9 @@ class LocalRunStore:
         self.root = Path(root)
         self.root.mkdir(parents=True, exist_ok=True)
         self._seen_path = self.root / "handled.json"
+        # One process, one file. The lock makes claim and release atomic within
+        # it; the DSQL adapter gets the same guarantee from the database.
+        self._lock = threading.Lock()
 
     # -- idempotency --------------------------------------------------------
 
@@ -125,6 +129,28 @@ class LocalRunStore:
         _write_atomic(
             self._seen_path, json.dumps(seen, indent=2, sort_keys=True).encode("utf-8")
         )
+
+    def claim(self, idempotency_key: str, run_id: str) -> bool:
+        """One writer, one file, one lock. See the port for why it is one step."""
+        with self._lock:
+            seen = self._seen()
+            if idempotency_key in seen:
+                return False
+            seen[idempotency_key] = run_id
+            _write_atomic(
+                self._seen_path,
+                json.dumps(seen, indent=2, sort_keys=True).encode("utf-8"),
+            )
+            return True
+
+    def release(self, idempotency_key: str) -> None:
+        with self._lock:
+            seen = self._seen()
+            if seen.pop(idempotency_key, None) is not None:
+                _write_atomic(
+                    self._seen_path,
+                    json.dumps(seen, indent=2, sort_keys=True).encode("utf-8"),
+                )
 
     # -- run state ----------------------------------------------------------
 

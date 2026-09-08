@@ -5,7 +5,7 @@
 [![python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/)
 
 **It checks every required beat against the takes actually captured before the crew is
-released, so a missing shot costs fifteen minutes instead of a pickup day.**
+released, so a missing shot costs minutes, not a pickup day.**
 
 Before you wrap the set, know whether you truly have the scene.
 
@@ -14,6 +14,7 @@ Before you wrap the set, know whether you truly have the scene.
 ## Contents
 
 - [Who this is for](#who-this-is-for)
+- [What a script supervisor already uses](#what-a-script-supervisor-already-uses-and-what-this-does-instead)
 - [The problem](#the-problem)
 - [Try it without installing anything](#try-it-without-installing-anything)
 - [Quickstart](#quickstart)
@@ -21,6 +22,8 @@ Before you wrap the set, know whether you truly have the scene.
 - [Architecture](#architecture)
 - [How Strands is load-bearing](#how-strands-is-load-bearing)
 - [The rule the whole product turns on](#the-rule-the-whole-product-turns-on)
+- [What each rule is worth, measured by removing it](#what-each-rule-is-worth-measured-by-removing-it)
+- [The two interpreters disagree](#the-two-interpreters-disagree-and-the-published-number-comes-from-the-permissive-one)
 - [The numbers, and the commands that produce them](#the-numbers-and-the-commands-that-produce-them)
 - [The demo corpus is synthetic](#the-demo-corpus-is-synthetic)
 - [What it will not do](#what-it-will-not-do)
@@ -40,6 +43,36 @@ A **script supervisor** on a shoot day, with the **1st AD** as the second reader
 Not film crews, not production teams, not creators. One person, one afternoon, one
 decision: is this scene safe to wrap, and if not, what exactly is missing and who can
 fix it while the set is still standing.
+
+## What a script supervisor already uses, and what this does instead
+
+Script supervision has good software and this does not replace it. The tools below are where a
+supervisor writes things down; the gap is that nobody reconciles what was written down across the
+departments that wrote it.
+
+| Already on the cart | What it does | What it does not do |
+|---|---|---|
+| [ScriptE](https://www.scriptesystems.com/) | continuity and scheduling for script supervisors, with an image capture attachment that fires stills during a take for matching | holds the supervisor's own record. It does not read the camera report, the sound report and the rights ledger and tell you where the three disagree |
+| [Scriptation](https://scriptation.com/) | script annotation on iPad with a lining toolkit built with script supervisors, for tracking coverage | lines the script as the supervisor draws it. Coverage is what the person marked, not what the departments' records can evidence |
+| [Script Evolution](https://scriptevolution.app/en/) | a script supervisor application built for the iPad | the same shape: a faster place to record an observation |
+
+The difference is one sentence. Those are **recording** tools and this is a **reconciling** one, and
+it is the only one of the four that will refuse to conclude. A beat here is covered when a take that
+names it is usable, reconciles with the camera report, carries no unresolved continuity conflict and
+has every subject released. Absent evidence is a finding, never a pass, and
+[the ablation](#what-each-rule-is-worth-measured-by-removing-it) measures what that costs: take the
+model away and coverage falls from 31 of 34 to 0, every beat `unknown` rather than a pass.
+
+### Why this is possible now and was not five years ago
+
+The reconciliation needs the shoot day's records to be machine readable while the set is still
+standing. Camera to cloud made that true. Frame.io's C2C sends "timecode-accurate H.264 proxy files
+with matching filename metadata as well as appropriate production data" from the camera during the
+take ([Frame.io support](https://support.frame.io/en/articles/4887091-c2c-frame-io-camera-to-cloud-faqs)),
+and at Adobe MAX 2024 Canon, Nikon and Leica joined Fujifilm, Panasonic LUMIX and RED in supporting
+it ([Adobe](https://blog.adobe.com/en/publish/2024/11/12/frameios-camera-to-cloud-adds-real-time-photo-video-collaboration)).
+Before that, the camera report reached anyone who could compare it against the script the next
+morning, which is after the set is struck and after the answer stops being useful.
 
 ## The problem
 
@@ -193,6 +226,13 @@ Conflating "some take has a problem" with "the beat is missing" would report a s
 short of footage that is sitting on the card.
 
 ## Architecture
+
+The required diagram is a file of its own, [`docs/architecture.svg`](docs/architecture.svg), so it
+can be opened, downloaded and read without this README around it. The Mermaid sources below are the
+same system in two other cuts, the system view and the sequence from question to governed write.
+
+<img src="docs/architecture.svg" alt="LastTake architecture: a wrap checkpoint reaches an orchestrator on Lambda, four bounded checks read immutable artifacts from S3 and write sealed findings to Aurora DSQL, a deterministic gate with no model in it combines them, two material transitions suspend the run for a named human, and an approved action publishes to EventBridge and seals a versioned turnover for editorial." width="100%">
+
 
 ```mermaid
 flowchart LR
@@ -348,6 +388,62 @@ The last one is a table, not an `if`. A DIT may resolve a media identity questio
 not accept a rights exception. Nobody at all may accept away a missing release, including
 the role that owns rights, because that decision belongs to production and counsel and not
 to this system.
+
+## What each rule is worth, measured by removing it
+
+Every other number here is a count of our own fixture. A count is not an argument until
+something can be compared against it, so the same corpus runs through the same pipeline
+three times, each time with one load-bearing rule removed. The removed rule is the only
+thing that differs, so the delta is attributable to it.
+
+```bash
+PYTHONPATH=src python tools/ablation.py
+```
+
+| Rule removed | With it | Without it |
+|---|---|---|
+| the finding seal is verified before anything reads the record | the edited record is discarded and the reason named | all 85 records are admitted, the edited one among them, and the beat it names reads as covered |
+| staleness is derived from the digests a finding cites, not asserted from a table | every finding that read the takes document before the pickup is discarded | **50 stale findings** are carried forward and re-stamped, and the gate cannot tell |
+| the model is reachable | **31 of 34** beats are covered with evidence | **0 of 34**, and every one of them is `unknown` rather than a pass |
+
+The third row is the one to read twice. A model outage takes this product to refusing,
+never to agreeing, and that is a measurement rather than a description of an intention.
+
+Both of the first two ablations found a real defect the first time they ran. With the model
+removed the covered count went **up**, from 31 to 32, because a continuity question nobody
+could answer stopped blocking anything, and because a beat counted as covered whenever a
+viable take named it, whatever the coverage check had concluded. Two places where absent
+evidence was being read as a pass, in the one number a 1st AD acts on at 23:10. Both are
+fixed and both are pinned by a test.
+
+## The two interpreters disagree, and the published number comes from the permissive one
+
+`[PRIMARY]` 2026-09-08, deploy run 34195514875, which runs `lasttake checkpoint --bedrock` on the
+deployed role and prints the count.
+
+| Interpreter | Covered with evidence, of 34 |
+|---|---|
+| `offline-lexical/1.0.0`, which the live URL runs | **31** |
+| `bedrock:global.anthropic.claude-sonnet-5` | **19** |
+
+Twelve beats come back `coverage unknown: a take names this beat, and the check could not establish
+that it contains it`. That is not a bug in either one. The model is shown the beat, the take's slate,
+the supervisor's note and the setup description, and for most takes **there is no note**, because a
+supervisor writes one where continuity matters and not on every take. Asked whether a slate with no
+note contains a particular beat, a careful model says it cannot tell, and `unknown` is the correct
+answer to that question. The lexical interpreter matches words in the setup description and is more
+willing.
+
+So the honest statement about the headline is this. **31 of 34 is what the offline interpreter
+establishes, it is what the live URL runs, and a stricter reader of the same evidence gets 19.** The
+gate treats both the same way: `unknown` is an exception, it blocks, and a named human triages it.
+Neither interpreter can manufacture a pass, which is the property the deploy asserts on every run:
+required beats must stay 34, covered may fall and may never rise.
+
+What this exposes is the gap already declared in [`docs/assurance.md`](docs/assurance.md), that
+there is no evaluation set for the model's judgement on its two bounded questions. It now has a
+number attached instead of only a sentence. Closing it means labelled ground truth for "does this
+take contain this beat", which this corpus does not have and one shoot day would not settle.
 
 ## The numbers, and the commands that produce them
 

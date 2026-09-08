@@ -1,0 +1,9 @@
+{
+  "name": "lasttake-video-capture",
+  "private": true,
+  "description": "Drives the live URL for the submission video capture. Nothing here ships to a user.",
+  "type": "module",
+  "devDependencies": {
+    "@playwright/test": "1.56.1"
+  }
+}

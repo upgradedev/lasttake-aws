@@ -386,12 +386,33 @@ jobs:
           print("every model-touched finding reports confidence below 1.0")
           PY
 
-          grep -q "Of 34 required beats, 31 covered with evidence" "$RUNNER_TEMP/bedrock.log" || {
-            echo "the count moved when the interpreter changed. The model is deciding"
-            echo "something it must not decide, or the gate is reading it wrong."
-            exit 1
-          }
-          echo "the count is unchanged: the model explains, the policy decides"
+          # What must hold when the interpreter changes.
+          #
+          # This used to assert the count was byte-identical to the offline
+          # baseline, and it passed for the wrong reason: the rollup ignored the
+          # coverage check's verdict entirely, so no interpreter could move the
+          # number. That was absent evidence counted as a pass, and fixing it
+          # made this assertion fail, correctly.
+          #
+          # The property that is actually claimed, in docs/assurance.md, is that
+          # a model can withhold a pass and cannot manufacture one. So: the beat
+          # count is arithmetic and must not move, and covered may fall but must
+          # never rise above what the offline interpreter established. A model
+          # that disagrees produces `unknown`, which is an exception.
+          python3 - "$RUNNER_TEMP/bedrock.log" <<'PY'
+          import re, sys
+          text = open(sys.argv[1], encoding="utf-8").read()
+          m = re.search(r"Of (\d+) required beats, (\d+) covered with evidence", text)
+          assert m, "the headline count is not in the output at all"
+          required, covered = int(m.group(1)), int(m.group(2))
+          assert required == 34, f"required beats moved to {required}; that is arithmetic over the package"
+          assert covered <= 31, (
+              f"Bedrock reported {covered} covered against the offline interpreter's 31. "
+              "A model may withhold a pass. It may not manufacture one."
+          )
+          print(f"required {required}, covered {covered} against an offline baseline of 31")
+          print("the model withheld" if covered < 31 else "the two interpreters agreed")
+          PY
 
       - name: 'Bedrock, invoked for real from the deployed role'
         if: steps.gate.outputs.ready == 'true'
