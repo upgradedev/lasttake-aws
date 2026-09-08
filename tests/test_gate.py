@@ -214,3 +214,56 @@ def test_expected_checks_come_from_the_package_not_from_the_agent(package):
     beat_checks = {c.requirement_id for c in expected if c.check_type is CheckType.COVERAGE}
     assert beat_checks == {b.beat_id for b in package.required_beats}
     assert len(expected) > len(package.required_beats)
+
+
+def test_a_decision_does_not_survive_the_evidence_it_was_made_about(package, findings):
+    """An approval is about a reading, not about an identifier.
+
+    Finding ids are deterministic: `run:con:CR-01` is the same string before and
+    after a rerun. So without content binding a supervisor could accept the mug
+    conflict as intentional, a new take could change the evidence completely,
+    the finding would be recomputed under the same id, and the old acceptance
+    would still close it. Nobody would have looked at the new facts and nothing
+    would say so.
+    """
+    conflict = next(f for f in findings if f.check_type is CheckType.CONTINUITY)
+    accepted = policy.HumanDecision(
+        decision_id="dec-1",
+        finding_id=conflict.finding_id,
+        action=policy.DecisionAction.ACCEPT_EXCEPTION,
+        actor="the supervisor on this unit",
+        role=policy.Role.SCRIPT_SUPERVISOR,
+        reason="Reviewed on the floor.",
+        finding_sha256=conflict.record_sha256,
+    )
+    assert policy._resolution(conflict, [accepted]) is True
+
+    # The same requirement, read again, differently. Same id, new digest.
+    reread = copy.deepcopy(conflict)
+    reread.observation = conflict.observation + " A later take changes this."
+    reread.resealed()
+    assert reread.finding_id == conflict.finding_id
+    assert reread.record_sha256 != conflict.record_sha256
+
+    assert policy._resolution(reread, [accepted]) is None, (
+        "the acceptance carried over to a reading nobody has looked at"
+    )
+
+
+def test_a_decision_with_no_binding_still_applies(package, findings):
+    """Decisions recorded before content binding existed are not invalidated.
+
+    They are weaker, and the field being absent says so, but silently voiding
+    every historical approval would be its own kind of dishonesty.
+    """
+    gap = next(f for f in findings if f.check_type is CheckType.COVERAGE and f.requirement_id)
+    legacy = policy.HumanDecision(
+        decision_id="dec-old",
+        finding_id=gap.finding_id,
+        action=policy.DecisionAction.REJECT_FALSE_POSITIVE,
+        actor="somebody, before this field existed",
+        role=policy.Role.SCRIPT_SUPERVISOR,
+        reason="",
+    )
+    assert legacy.finding_sha256 is None
+    assert policy._resolution(gap, [legacy]) is True

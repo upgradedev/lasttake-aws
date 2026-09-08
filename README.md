@@ -23,7 +23,9 @@ Before you wrap the set, know whether you truly have the scene.
 - [How Strands is load-bearing](#how-strands-is-load-bearing)
 - [The rule the whole product turns on](#the-rule-the-whole-product-turns-on)
 - [What each rule is worth, measured by removing it](#what-each-rule-is-worth-measured-by-removing-it)
-- [The two interpreters disagree](#the-two-interpreters-disagree-and-the-published-number-comes-from-the-permissive-one)
+- [Bring your own record](#bring-your-own-record)
+- [Four kinds of input](#four-kinds-of-input-and-what-the-pipeline-does-with-each)
+- [What "covered" rests on](#what-covered-rests-on-and-why-two-readers-count-differently)
 - [The numbers, and the commands that produce them](#the-numbers-and-the-commands-that-produce-them)
 - [The demo corpus is synthetic](#the-demo-corpus-is-synthetic)
 - [What it will not do](#what-it-will-not-do)
@@ -416,34 +418,115 @@ viable take named it, whatever the coverage check had concluded. Two places wher
 evidence was being read as a pass, in the one number a 1st AD acts on at 23:10. Both are
 fixed and both are pinned by a test.
 
-## The two interpreters disagree, and the published number comes from the permissive one
+## Bring your own record
+
+The demo used to have two buttons that wrote a take and a release for you. They
+showed the targeted rerun honestly enough, but nobody could put their own scene
+through it, which made this a fixture with a play button. It takes a document now.
+
+```bash
+curl -s -X POST "$URL/api/ingest" -H 'content-type: application/json' -d '{
+  "run_id": "demo-yourrun0001",
+  "kind": "take",
+  "document": {
+    "take_id": "T-900", "shot_id": "S-42-PICKUP", "beat_ids": ["B-17"],
+    "slate": "42L/1", "camera_roll": "A007", "sound_roll": "SR07",
+    "timecode_in": "23:04:00:00", "timecode_out": "23:04:41:00",
+    "lens_mm": 50, "media_id": "A007R2G01",
+    "preferred": true, "usable": true,
+    "note": "Pickup on the reaction. Clean single.",
+    "visible_people": ["DELPHINE"]
+  }
+}'
+```
+
+`kind` is `take` or `rights_record`. A document that does not match the shape is refused before
+anything is written, and the refusal names the missing and the unexpected fields rather than
+failing quietly. The page carries an editable example of each, so a visitor edits a record rather
+than reading a schema.
+
+What happens next is the part worth watching. The document becomes a package amendment, the
+amended package produces new digests, and **the checks that read the artifact that moved run
+again**. A take moves the takes document, which all four checks read, so all four rerun. A release
+moves only the ledger, so only rights does. That narrowing is derived from which bytes changed and
+never from a table asserting it.
+
+### An approval does not survive the evidence it was about
+
+A human decision used to bind to a finding **id**, and ids are deterministic: `run:con:CR-01` is
+the same string before and after a rerun. So a supervisor could accept the mug conflict as
+intentional, a take could arrive that changed the continuity evidence completely, the finding
+would be recomputed under the same id, and the old acceptance would still close it. Nobody would
+have looked at the new facts and nothing would say so.
+
+A decision now carries the seal of the reading it was taken about. When the evidence moves the
+digest changes, the decision stops applying, and the ingest response lists what was withdrawn and
+why. Decisions recorded before this existed still apply; silently voiding every historical
+approval would be its own kind of dishonesty, and the absent field is what says they are weaker.
+
+## Four kinds of input, and what the pipeline does with each
+
+```bash
+PYTHONPATH=src python tools/evaluation_cases.py
+```
+
+| Input | What happens |
+|---|---|
+| **correct**, a take that covers the uncovered beat | B-17 goes from `no_viable_coverage`, basis `insufficient_evidence`, to `covered_with_evidence`, basis `corroborated_by_the_interpreter` |
+| **incomplete**, the same take with no slate | refused before anything is written, naming `slate` |
+| **conflicting**, a camera report naming a different card | `media_identity_exception`, basis `declared_by_the_production`. The only take does not reconcile, so the beat is not covered |
+| **changed**, evidence moving under an approval already given | the acceptance stops applying: `resolved=True` becomes `resolved=None` |
+
+It runs offline with no account and no credential, because the local adapters implement the same
+ports the deployed build uses. A test pins all four so they cannot drift.
+
+**These are our cases, scored by our pipeline.** That is a description of behaviour under four
+kinds of input. It is not an evaluation of judgement quality against labelled ground truth, and
+**no practising script supervisor has run any of it**. The trial that would matter is whether a
+supervisor finds the evidence available before wrap and the reconciliation work actually reduced.
+That has not happened, and nothing here should be read as though it had.
+
+## What "covered" rests on, and why two readers count differently
 
 `[PRIMARY]` 2026-09-08, deploy run 34195514875, which runs `lasttake checkpoint --bedrock` on the
 deployed role and prints the count.
 
-| Interpreter | Covered with evidence, of 34 |
+| Interpreter | Covered, of 34 |
 |---|---|
 | `offline-lexical/1.0.0`, which the live URL runs | **31** |
 | `bedrock:global.anthropic.claude-sonnet-5` | **19** |
 
-Twelve beats come back `coverage unknown: a take names this beat, and the check could not establish
-that it contains it`. That is not a bug in either one. The model is shown the beat, the take's slate,
-the supervisor's note and the setup description, and for most takes **there is no note**, because a
-supervisor writes one where continuity matters and not on every take. Asked whether a slate with no
-note contains a particular beat, a careful model says it cannot tell, and `unknown` is the correct
-answer to that question. The lexical interpreter matches words in the setup description and is more
-willing.
+Neither is wrong, and the difference is not a threshold to tune. "Covered" was one word doing four
+jobs, so the outcome now carries **what it rests on**, and the same run reports both:
 
-So the honest statement about the headline is this. **31 of 34 is what the offline interpreter
-establishes, it is what the live URL runs, and a stricter reader of the same evidence gets 19.** The
-gate treats both the same way: `unknown` is an exception, it blocks, and a named human triages it.
-Neither interpreter can manufacture a pass, which is the property the deploy asserts on every run:
-required beats must stay 34, covered may fall and may never rise.
+| Basis | What it means | offline | model unreachable |
+|---|---|---|---|
+| declared by the production | a take names this beat. The people who were there said so | 2 | 33 |
+| corroborated by the interpreter | a second reader agrees the take contains the beat | **31** | 0 |
+| confirmed by a named human | the role that owns the check said so. This outranks both | 0 | 0 |
+| insufficient evidence | no take, a model that could not tell, a timeout | 1 | 1 |
+
+```bash
+PYTHONPATH=src python -m pytest -q tests/test_corpus_counts.py
+```
+
+Read the two columns together and the 31-against-19 gap stops being a mystery. **What the
+production declared does not move.** What moves is how much of it a given reader will corroborate,
+and a stricter reader corroborates less. The model is shown the beat, the slate, the supervisor's
+note and the setup, and most takes carry no note, because a supervisor writes one where continuity
+matters and not on every take. Asked whether a slate with no note contains a particular beat, a
+careful reader says it cannot tell.
+
+Three things follow, and the gate enforces all three. `insufficient` is never a pass, so a timeout
+and a model failure both block rather than clear. A beat resting on the production's declaration
+alone is **not** counted as covered, because one assertion is not two. And no interpreter can raise
+the count above what the evidence supports: the deploy asserts that required beats stay 34 and
+covered may fall and may never rise.
 
 What this exposes is the gap already declared in [`docs/assurance.md`](docs/assurance.md), that
-there is no evaluation set for the model's judgement on its two bounded questions. It now has a
-number attached instead of only a sentence. Closing it means labelled ground truth for "does this
-take contain this beat", which this corpus does not have and one shoot day would not settle.
+there is no evaluation set for the model's judgement on its two bounded questions. It has a size
+now instead of only a sentence. Closing it means labelled ground truth for "does this take contain
+this beat", which this corpus does not have and one shoot day would not settle.
 
 ## The numbers, and the commands that produce them
 

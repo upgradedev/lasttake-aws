@@ -28,6 +28,36 @@ from .findings import CheckType, Finding, TruthState
 from .package import ScenePackage, Take
 
 
+class EvidenceBasis(str, Enum):
+    """On what a beat's outcome rests. Four different things, never conflated.
+
+    "Covered" was one word doing four jobs, and the ambiguity showed up as a
+    number nobody could explain: the same corpus read 31 of 34 through the
+    offline lexical interpreter and 19 of 34 through Bedrock. Neither was wrong.
+    They disagree about how many *declared* mappings a reader can corroborate
+    from the evidence on file, and until now the interface reported only the
+    total and called it coverage.
+
+    ``DECLARED`` is the production's own record: a take names this beat. That is
+    an assertion by the people who were there, and it is worth something, but it
+    is not the same as a second reader agreeing.
+
+    ``INTERPRETED`` is that assertion corroborated by whatever interpreter ran.
+    It is the strongest thing this system can produce on its own.
+
+    ``CONFIRMED`` is a named human with the authority saying so, and it outranks
+    both, because that is the only judgement this product does not make.
+
+    ``INSUFFICIENT`` is everything else, including a model that timed out, a
+    model that could not tell, and no take at all. None of those is a pass.
+    """
+
+    DECLARED = "declared_by_the_production"
+    INTERPRETED = "corroborated_by_the_interpreter"
+    CONFIRMED = "confirmed_by_a_named_human"
+    INSUFFICIENT = "insufficient_evidence"
+
+
 class BeatStatus(str, Enum):
     COVERED = "covered_with_evidence"
     NO_COVERAGE = "no_viable_coverage"
@@ -45,6 +75,7 @@ class BeatOutcome:
     reason: str
     evidence_take_id: str | None
     blocking_finding_ids: tuple[str, ...]
+    basis: EvidenceBasis = EvidenceBasis.INSUFFICIENT
 
     def to_dict(self) -> dict:
         return {
@@ -54,6 +85,7 @@ class BeatOutcome:
             "reason": self.reason,
             "evidence_take_id": self.evidence_take_id,
             "blocking_finding_ids": list(self.blocking_finding_ids),
+            "basis": self.basis.value,
         }
 
 
@@ -135,9 +167,18 @@ def _classify(reason: str) -> BeatStatus:
     return BeatStatus.NO_COVERAGE
 
 
-def roll_up(package: ScenePackage, findings: list[Finding]) -> list[BeatOutcome]:
-    """One outcome per required beat, in script order."""
+def roll_up(
+    package: ScenePackage,
+    findings: list[Finding],
+    decisions: list[dict] | None = None,
+) -> list[BeatOutcome]:
+    """One outcome per required beat, in script order, and what each rests on."""
     index = _Index(findings)
+    confirmed = {
+        d["finding_id"]
+        for d in (decisions or [])
+        if d.get("action") in ("confirm", "accept_exception")
+    }
     outcomes: list[BeatOutcome] = []
 
     for beat in package.required_beats:
@@ -152,6 +193,7 @@ def roll_up(package: ScenePackage, findings: list[Finding]) -> list[BeatOutcome]
                     reason="no take covers this beat",
                     evidence_take_id=None,
                     blocking_finding_ids=(coverage.finding_id,) if coverage else (),
+                    basis=EvidenceBasis.INSUFFICIENT,
                 )
             )
             continue
@@ -190,6 +232,15 @@ def roll_up(package: ScenePackage, findings: list[Finding]) -> list[BeatOutcome]
                     ),
                     evidence_take_id=None,
                     blocking_finding_ids=(coverage.finding_id,) if coverage else (),
+                    # The production declared this mapping and no second reader
+                    # could corroborate it. That is a weaker thing than nothing
+                    # being shot, and a different thing, and the difference is
+                    # the whole 31-against-19 gap between two interpreters.
+                    basis=(
+                        EvidenceBasis.DECLARED
+                        if coverage is not None
+                        else EvidenceBasis.INSUFFICIENT
+                    ),
                 )
             )
             continue
@@ -203,6 +254,11 @@ def roll_up(package: ScenePackage, findings: list[Finding]) -> list[BeatOutcome]
                     reason=f"take {clean.take_id} is usable, reconciles and is cleared",
                     evidence_take_id=clean.take_id,
                     blocking_finding_ids=(),
+                    basis=(
+                        EvidenceBasis.CONFIRMED
+                        if coverage.finding_id in confirmed
+                        else EvidenceBasis.INTERPRETED
+                    ),
                 )
             )
             continue
@@ -224,6 +280,10 @@ def roll_up(package: ScenePackage, findings: list[Finding]) -> list[BeatOutcome]
                 reason=first_reason,
                 evidence_take_id=None,
                 blocking_finding_ids=tuple(all_ids),
+                # Something was shot against this beat and something else about
+                # it is unresolved. The mapping is declared; the beat is not
+                # covered.
+                basis=EvidenceBasis.DECLARED,
             )
         )
     return outcomes
@@ -239,12 +299,21 @@ def headline(outcomes: list[BeatOutcome]) -> dict:
         + counted[BeatStatus.CONTINUITY_EXCEPTION]
         + counted[BeatStatus.MEDIA_EXCEPTION]
     )
+    by_basis = {basis: 0 for basis in EvidenceBasis}
+    for outcome in outcomes:
+        by_basis[outcome.basis] += 1
     return {
         "required_beats": len(outcomes),
         "covered_with_evidence": counted[BeatStatus.COVERED],
         "raising_exceptions": exceptions,
         "without_release_record": counted[BeatStatus.NO_RELEASE_RECORD],
         "not_assessed": counted[BeatStatus.NOT_ASSESSED],
+        # The same beats, counted by what their outcome rests on rather than by
+        # what it concluded. This is the breakdown that explains why two
+        # interpreters reading one corpus report different coverage: they agree
+        # on what the production declared and disagree on how much of it a second
+        # reader can corroborate.
+        "basis": {basis.value: by_basis[basis] for basis in EvidenceBasis},
     }
 
 

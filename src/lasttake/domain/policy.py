@@ -81,6 +81,18 @@ class HumanDecision:
     role: Role
     reason: str
     at: str = field(default_factory=utc_now_iso)
+    #: The seal of the finding as it stood when this decision was taken.
+    #:
+    #: Without it a decision binds to a finding *id*, and ids are deterministic:
+    #: `{run}:con:CR-01` is the same string before and after a rerun. So a
+    #: supervisor could accept the mug conflict as intentional, a new take could
+    #: change the evidence completely, the finding would be recomputed, and the
+    #: old acceptance would still close it. Nobody would have looked at the new
+    #: facts and nothing would say so.
+    #:
+    #: A decision is about a specific reading of specific bytes. Binding it to
+    #: the digest of that reading is what makes "approved" mean something.
+    finding_sha256: Optional[str] = None
 
     def to_dict(self) -> dict:
         return {
@@ -90,6 +102,7 @@ class HumanDecision:
             "actor": self.actor,
             "role": self.role.value,
             "reason": self.reason,
+            "finding_sha256": self.finding_sha256,
             "at": self.at,
         }
 
@@ -384,6 +397,12 @@ def _resolution(finding: Finding, decisions: list[HumanDecision]) -> Optional[bo
     for decision in decisions:
         allowed = AUTHORITY.get(finding.check_type, set())
         if decision.role not in allowed:
+            continue
+        # A decision taken about a different reading of this requirement is not
+        # a decision about this one. It is withdrawn rather than downgraded, for
+        # the same reason an unauthorised decision is: it is no evidence about
+        # the thing in front of us.
+        if decision.finding_sha256 and decision.finding_sha256 != finding.record_sha256:
             continue
         looked = True
         if decision.action is DecisionAction.REJECT_FALSE_POSITIVE:

@@ -154,7 +154,7 @@ def cmd_checkpoint(args) -> int:
     print("\n" + str(result))
 
     findings = [from_dict(f) for f in run.load_findings()]
-    outcomes = rollup.roll_up(run.package, findings)
+    outcomes = rollup.roll_up(run.package, findings, run.load_decisions())
     _banner(rollup.sentence(outcomes))
     for outcome in outcomes:
         if outcome.status is not rollup.BeatStatus.COVERED:
@@ -313,7 +313,7 @@ def _merge(run: WrapRun, fresh) -> None:
 
 def _print_headline(run: WrapRun) -> None:
     findings = [from_dict(f) for f in run.load_findings()]
-    outcomes = rollup.roll_up(run.package, findings)
+    outcomes = rollup.roll_up(run.package, findings, run.load_decisions())
     _banner(rollup.sentence(outcomes))
     for outcome in outcomes:
         if outcome.status is not rollup.BeatStatus.COVERED:

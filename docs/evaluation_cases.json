@@ -1,0 +1,30 @@
+[
+  {
+    "case": "correct: a take that covers the uncovered beat",
+    "before": "B-17 no_viable_coverage, basis insufficient_evidence",
+    "after": "B-17 covered_with_evidence, basis corroborated_by_the_interpreter",
+    "expected": "the beat becomes covered, and rests on a corroborated reading",
+    "held": true
+  },
+  {
+    "case": "incomplete: the same take with no slate",
+    "before": "the document is offered",
+    "after": "refused: missing ['slate']",
+    "expected": "refused before anything is written, naming the missing field",
+    "held": true
+  },
+  {
+    "case": "conflicting: the camera report names a different card",
+    "before": "B-17 has one take and it looks usable",
+    "after": "B-17 media_identity_exception, basis declared_by_the_production",
+    "expected": "the beat is not covered, because the only take does not reconcile",
+    "held": true
+  },
+  {
+    "case": "changed: the evidence moves under an approval already given",
+    "before": "the acceptance closes the finding: resolved=True",
+    "after": "the same id, a new reading: resolved=None",
+    "expected": "the approval stops applying, because nobody has looked at the new facts",
+    "held": true
+  }
+]
