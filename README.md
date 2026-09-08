@@ -23,7 +23,7 @@ Before you wrap the set, know whether you truly have the scene.
 - [How Strands is load-bearing](#how-strands-is-load-bearing)
 - [The rule the whole product turns on](#the-rule-the-whole-product-turns-on)
 - [What each rule is worth, measured by removing it](#what-each-rule-is-worth-measured-by-removing-it)
-- [The two interpreters disagree](#the-two-interpreters-disagree-and-the-published-number-comes-from-the-permissive-one)
+- [What "covered" rests on](#what-covered-rests-on-and-why-two-readers-count-differently)
 - [The numbers, and the commands that produce them](#the-numbers-and-the-commands-that-produce-them)
 - [The demo corpus is synthetic](#the-demo-corpus-is-synthetic)
 - [What it will not do](#what-it-will-not-do)
@@ -416,34 +416,47 @@ viable take named it, whatever the coverage check had concluded. Two places wher
 evidence was being read as a pass, in the one number a 1st AD acts on at 23:10. Both are
 fixed and both are pinned by a test.
 
-## The two interpreters disagree, and the published number comes from the permissive one
+## What "covered" rests on, and why two readers count differently
 
 `[PRIMARY]` 2026-09-08, deploy run 34195514875, which runs `lasttake checkpoint --bedrock` on the
 deployed role and prints the count.
 
-| Interpreter | Covered with evidence, of 34 |
+| Interpreter | Covered, of 34 |
 |---|---|
 | `offline-lexical/1.0.0`, which the live URL runs | **31** |
 | `bedrock:global.anthropic.claude-sonnet-5` | **19** |
 
-Twelve beats come back `coverage unknown: a take names this beat, and the check could not establish
-that it contains it`. That is not a bug in either one. The model is shown the beat, the take's slate,
-the supervisor's note and the setup description, and for most takes **there is no note**, because a
-supervisor writes one where continuity matters and not on every take. Asked whether a slate with no
-note contains a particular beat, a careful model says it cannot tell, and `unknown` is the correct
-answer to that question. The lexical interpreter matches words in the setup description and is more
-willing.
+Neither is wrong, and the difference is not a threshold to tune. "Covered" was one word doing four
+jobs, so the outcome now carries **what it rests on**, and the same run reports both:
 
-So the honest statement about the headline is this. **31 of 34 is what the offline interpreter
-establishes, it is what the live URL runs, and a stricter reader of the same evidence gets 19.** The
-gate treats both the same way: `unknown` is an exception, it blocks, and a named human triages it.
-Neither interpreter can manufacture a pass, which is the property the deploy asserts on every run:
-required beats must stay 34, covered may fall and may never rise.
+| Basis | What it means | offline | model unreachable |
+|---|---|---|---|
+| declared by the production | a take names this beat. The people who were there said so | 2 | 33 |
+| corroborated by the interpreter | a second reader agrees the take contains the beat | **31** | 0 |
+| confirmed by a named human | the role that owns the check said so. This outranks both | 0 | 0 |
+| insufficient evidence | no take, a model that could not tell, a timeout | 1 | 1 |
+
+```bash
+PYTHONPATH=src python -m pytest -q tests/test_corpus_counts.py
+```
+
+Read the two columns together and the 31-against-19 gap stops being a mystery. **What the
+production declared does not move.** What moves is how much of it a given reader will corroborate,
+and a stricter reader corroborates less. The model is shown the beat, the slate, the supervisor's
+note and the setup, and most takes carry no note, because a supervisor writes one where continuity
+matters and not on every take. Asked whether a slate with no note contains a particular beat, a
+careful reader says it cannot tell.
+
+Three things follow, and the gate enforces all three. `insufficient` is never a pass, so a timeout
+and a model failure both block rather than clear. A beat resting on the production's declaration
+alone is **not** counted as covered, because one assertion is not two. And no interpreter can raise
+the count above what the evidence supports: the deploy asserts that required beats stay 34 and
+covered may fall and may never rise.
 
 What this exposes is the gap already declared in [`docs/assurance.md`](docs/assurance.md), that
-there is no evaluation set for the model's judgement on its two bounded questions. It now has a
-number attached instead of only a sentence. Closing it means labelled ground truth for "does this
-take contain this beat", which this corpus does not have and one shoot day would not settle.
+there is no evaluation set for the model's judgement on its two bounded questions. It has a size
+now instead of only a sentence. Closing it means labelled ground truth for "does this take contain
+this beat", which this corpus does not have and one shoot day would not settle.
 
 ## The numbers, and the commands that produce them
 

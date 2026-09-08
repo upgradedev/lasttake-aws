@@ -261,7 +261,8 @@ def _page() -> dict:
 
 def _state(run: WrapRun) -> dict:
     findings = [from_dict(f) for f in run.load_findings()]
-    outcomes = rollup.roll_up(run.package, findings)
+    decisions = run.load_decisions()
+    outcomes = rollup.roll_up(run.package, findings, decisions)
     packet = run.load_packet()
     return {
         "run_id": run.run_id,
@@ -277,7 +278,7 @@ def _state(run: WrapRun) -> dict:
         ],
         # What a human already decided about a finding, so the page can say so
         # beside it rather than offering the same control twice.
-        "decisions": run.load_decisions(),
+        "decisions": decisions,
         "eligible": bool(packet and packet.get("eligible")),
         "causes": (packet or {}).get("causes", []),
         "wrap_approved": run.wrap_approved(),

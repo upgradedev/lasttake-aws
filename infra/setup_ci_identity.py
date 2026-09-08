@@ -20,12 +20,14 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
+import subprocess
 import sys
 from pathlib import Path
 
 USER = "lasttake-ci"
 POLICY = "lasttake-ci-deploy"
-KEY_FILE = Path("lasttake-ci-key.json")
+REPO = "upgradedev/lasttake-aws"
 
 
 def policy_document(account: str) -> dict:
@@ -254,26 +256,48 @@ def create(iam, account: str) -> None:
         print(f"revoked previous key {key['AccessKeyId'][:8]}...")
 
     new = iam.create_access_key(UserName=USER)["AccessKey"]
-    KEY_FILE.write_text(
-        json.dumps(
-            {
-                "AccessKeyId": new["AccessKeyId"],
-                "SecretAccessKey": new["SecretAccessKey"],
-            },
-            indent=2,
-        ),
-        encoding="utf-8",
-    )
-    print(f"\nkey written to {KEY_FILE} (git-ignored). Now run:\n")
-    print(
-        f'  gh secret set AWS_ACCESS_KEY_ID --repo upgradedev/lasttake-aws '
-        f'--body "$(python -c \'import json;print(json.load(open("{KEY_FILE}"))["AccessKeyId"])\')"'
-    )
-    print(
-        f'  gh secret set AWS_SECRET_ACCESS_KEY --repo upgradedev/lasttake-aws '
-        f'--body "$(python -c \'import json;print(json.load(open("{KEY_FILE}"))["SecretAccessKey"])\')"'
-    )
-    print(f"\nthen delete the file:\n\n  rm {KEY_FILE}\n")
+
+    # The secret goes from the API response straight into the GitHub secret over
+    # a pipe, and never touches disk.
+    #
+    # It used to be written to `lasttake-ci-key.json` for the owner to read back
+    # with two shell commands. CodeQL called that
+    # `py/clear-text-storage-sensitive-data` and it was right: git-ignored is not
+    # the same as gone, and the file sat in the working tree indefinitely. The
+    # two commands were also a trap in their own right, because `$(...)` does not
+    # expand in cmd.exe, and on 2026-08-22 that put the literal text of the
+    # command into both secrets with no error anywhere.
+    if not shutil.which("gh"):
+        raise SystemExit(
+            "The GitHub CLI is not on PATH, and this script will not write an AWS "
+            "secret access key to disk to work around that. Install gh, run "
+            "`gh auth login`, and run this again. The access key just created is "
+            f"{new['AccessKeyId']}; revoke it with `--destroy` if you stop here."
+        )
+
+    for name, value in (
+        ("AWS_ACCESS_KEY_ID", new["AccessKeyId"]),
+        ("AWS_SECRET_ACCESS_KEY", new["SecretAccessKey"]),
+    ):
+        result = subprocess.run(
+            ["gh", "secret", "set", name, "--repo", REPO, "--body-file", "-"],
+            input=value,
+            text=True,
+            capture_output=True,
+        )
+        if result.returncode != 0:
+            raise SystemExit(
+                f"could not set {name}: {result.stderr.strip()}. The access key "
+                f"{new['AccessKeyId']} exists and is not recorded anywhere; revoke "
+                "it with `--destroy` and start again."
+            )
+        print(f"set {name}")
+
+    print()
+    print(f"Done. Key id {new['AccessKeyId']} is in GitHub Actions.")
+    print("The secret access key was never written to a file.")
+    print()
+    print(f"Confirm with:  gh secret list --repo {REPO}")
 
 
 def destroy(iam, account: str) -> None:

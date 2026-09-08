@@ -165,7 +165,7 @@ def build_tools(run: WrapRun) -> list[Callable[..., Any]]:
         packet = policy.evaluate(run.run_id, run.package, findings, decisions)
         run.store_packet(packet.sealed())
 
-        outcomes = rollup.roll_up(run.package, findings)
+        outcomes = rollup.roll_up(run.package, findings, run.load_decisions())
         sentence = rollup.sentence(outcomes)
 
         if packet.eligible:

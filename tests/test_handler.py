@@ -124,12 +124,20 @@ def test_a_body_that_is_not_json_is_refused():
 def test_the_checkpoint_returns_the_count_and_stops_for_the_first_ad():
     body = post("/api/checkpoint", {"run_id": RUN})
     assert body["status"] == 200
-    assert body["counts"] == {
+    assert {k: v for k, v in body["counts"].items() if k != "basis"} == {
         "required_beats": 34,
         "covered_with_evidence": 31,
         "raising_exceptions": 2,
         "without_release_record": 1,
         "not_assessed": 0,
+    }
+    # And what each of those beats rests on, which is the thing that explains a
+    # count changing when the interpreter does.
+    assert body["counts"]["basis"] == {
+        "declared_by_the_production": 2,
+        "corroborated_by_the_interpreter": 31,
+        "confirmed_by_a_named_human": 0,
+        "insufficient_evidence": 1,
     }
     assert "31 covered with evidence" in body["headline"]
 

@@ -47,13 +47,80 @@ def test_the_shoot_day_is_the_size_it_claims_to_be(package):
 
 def test_the_headline_count(package, findings):
     head = rollup.headline(rollup.roll_up(package, findings))
-    assert head == {
+    assert {k: v for k, v in head.items() if k != "basis"} == {
         "required_beats": 34,
         "covered_with_evidence": 31,
         "raising_exceptions": 2,
         "without_release_record": 1,
         "not_assessed": 0,
     }
+
+
+def test_the_count_says_what_it_rests_on(package, findings):
+    """Four things, never one word.
+
+    "Covered" was doing four jobs and the ambiguity surfaced as a number nobody
+    could explain: this corpus reads 31 of 34 through the offline lexical
+    interpreter and 19 of 34 through Bedrock. Neither is wrong. They agree on
+    what the production declared and disagree on how much of it a second reader
+    can corroborate, and until the outcome carried a basis there was nowhere for
+    that distinction to live.
+    """
+    head = rollup.headline(rollup.roll_up(package, findings))
+    basis = head["basis"]
+    assert set(basis) == {
+        "declared_by_the_production",
+        "corroborated_by_the_interpreter",
+        "confirmed_by_a_named_human",
+        "insufficient_evidence",
+    }
+    assert sum(basis.values()) == head["required_beats"]
+
+    # Only a corroborated or confirmed beat may be counted as covered.
+    assert basis["corroborated_by_the_interpreter"] + basis["confirmed_by_a_named_human"] == (
+        head["covered_with_evidence"]
+    )
+    # B-17 has no take at all, so it rests on nothing.
+    assert basis["insufficient_evidence"] == 1
+
+
+def test_a_model_that_answers_nothing_leaves_the_declaration_standing_and_nothing_else():
+    """The failure direction, measured on the basis rather than on the total.
+
+    With no interpreter reachable, every mapping the production declared is
+    still declared, and not one of them is corroborated. Coverage falls to zero
+    and no beat quietly keeps a pass it had not earned.
+    """
+    from lasttake.ports.interpreter import BeatMatch, ContinuityOpinion
+
+    class Unreachable:
+        model_id = "unreachable/0"
+
+        def match_beat_to_take(self, **_):
+            return BeatMatch(covers=False, confidence=0.0, rationale="not reached")
+
+        def compare_continuity(self, **_):
+            return ContinuityOpinion(
+                states_agree=False,
+                possibly_intentional=True,
+                confidence=0.0,
+                rationale="not reached",
+            )
+
+    pkg = load_package(CORPUS)
+    out = (
+        coverage.run(pkg, "t", Unreachable(), policy.POLICY_VERSION)
+        + coverage.orphan_shots(pkg, "t", policy.POLICY_VERSION)
+        + continuity.run(pkg, "t", Unreachable(), policy.POLICY_VERSION)
+        + metadata.run(pkg, "t", policy.POLICY_VERSION)
+        + rights.run(pkg, "t", policy.POLICY_VERSION)
+    )
+    head = rollup.headline(rollup.roll_up(pkg, out))
+    assert head["covered_with_evidence"] == 0
+    assert head["basis"]["corroborated_by_the_interpreter"] == 0
+    assert head["basis"]["declared_by_the_production"] == 33, (
+        "the production's own record does not depend on our interpreter"
+    )
 
 
 def test_the_sentence_a_first_ad_hears(package, findings):

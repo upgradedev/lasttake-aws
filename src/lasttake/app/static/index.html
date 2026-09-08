@@ -102,6 +102,9 @@ select.pulse{border-color:#e0b44a;box-shadow:0 0 0 3px rgba(224,180,74,.25)}
   display:block;line-height:1.25}
 .t-ok b{color:var(--ok)} .t-gap b{color:var(--gap)}
 .t-warn b{color:var(--warn)} .t-legal b{color:var(--legal)}
+.basis{margin:12px 0 0;padding-top:11px;border-top:1px dashed var(--rule);font-size:12px;
+  color:var(--mute);line-height:1.65}
+.basis b{color:var(--ink);font-weight:620;font-variant-numeric:tabular-nums}
 
 h2.sec{font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:var(--mute);
   margin:22px 0 9px;font-weight:600}
@@ -299,6 +302,7 @@ pre{background:#fff;border:1px solid var(--rule);border-radius:5px;padding:10px;
         camera and sound reports, the continuity references and the rights ledger. The lined
         script beside this is already what was shot. The verdict lands on top of it.</p>
       <div class="tally" id="tally"></div>
+      <p class="basis" id="basisline"></p>
     </div>
 
     <div id="pausebox"></div>
@@ -728,6 +732,7 @@ function paintScene() {
     else if (b.required) meta.push('not on the shot plan');
     if (b.continuity_ref) meta.push('continuity ' + b.continuity_ref);
     if (!b.required) meta.push('on the shot plan, not required by the ' + s.revision + ' revision');
+    if (o && o.basis) meta.push(o.basis.replace(/_/g, ' '));
     return '<div class="beat s-' + cls + (lit.indexOf(b.beat_id) >= 0 ? ' linked' : '') +
       '" data-beat="' + esc(b.beat_id) + '" role="button" tabindex="0">' +
       '<div class="pg">p.' + esc(b.page) + '<br>l.' + esc(b.line) + '</div>' +
@@ -773,6 +778,23 @@ function paintVerdict() {
     tile(c.raising_exceptions ? 't-warn' : '', c.raising_exceptions, 'raising exceptions') +
     tile(c.without_release_record ? 't-legal' : '', c.without_release_record, 'no release record') +
     (c.not_assessed ? tile('t-gap', c.not_assessed, 'not assessed') : '');
+
+  // What those beats rest on, which is a different question from what they
+  // concluded and the only one that explains a count moving when the reader
+  // does. The production declares a take against a beat; a second reader either
+  // corroborates that or cannot; a named human outranks both. None of the four
+  // is "probably fine".
+  var b = c.basis;
+  $('basisline').innerHTML = !b ? '' :
+    '<b>' + esc(b.declared_by_the_production + b.corroborated_by_the_interpreter +
+                b.confirmed_by_a_named_human) + '</b> of these beats have a take the ' +
+    'production recorded against them. Of those, <b>' +
+    esc(b.corroborated_by_the_interpreter) + '</b> are corroborated by ' +
+    esc((STATE && STATE.interpreter) || 'the interpreter') + ', <b>' +
+    esc(b.confirmed_by_a_named_human) + '</b> confirmed by a named human, and <b>' +
+    esc(b.declared_by_the_production) + '</b> rest on the production’s record alone. ' +
+    '<b>' + esc(b.insufficient_evidence) + '</b> rest on nothing. A different reader ' +
+    'corroborates a different number; what the production declared does not move.';
 }
 
 /* ---------- the exceptions --------------------------------------------- */
