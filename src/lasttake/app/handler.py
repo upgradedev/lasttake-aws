@@ -26,7 +26,7 @@ import re
 import time
 import uuid
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 from ..adapters.aws.infrastructure import from_environment, run_store_kind
 from ..adapters.local.interpreter import OfflineInterpreter
@@ -308,6 +308,41 @@ def _last_tool_result(agent) -> str:
 # -- routes -----------------------------------------------------------------
 
 
+#: Identifiers a caller supplies that reach a finding, a message or a package.
+#: `run_id` has been validated since the first commit; these two were not, so a
+#: crafted subject came back inside a human-readable message on the page. It was
+#: escaped and it was not a clearance the product gave, but it read like one, and
+#: an identifier is an identifier.
+# 128, because a real Strands interrupt id is 83 characters and looks like
+# `v1:tool_call:offline-5-request_pickup_approval:<uuid>`. The first cap here was
+# 64 and the test suite caught it in one run, which is the argument for having
+# the identifier the product actually uses in a test rather than a plausible one.
+ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$")
+
+
+def bad_identifier(name: str, value: object) -> Optional[str]:
+    if not isinstance(value, str) or not ID_PATTERN.match(value):
+        return (
+            f"{name} must be 1 to 128 characters of letters, digits and the "
+            "separators . : _ and -, starting with a letter or a digit"
+        )
+    return None
+
+
+def resumed_with_a_bad_interrupt(exc: Exception) -> bool:
+    """True when a caller answered an approval that is not open on this run.
+
+    Strands raises for a response whose interrupt id it does not recognise, and
+    that is the caller getting it wrong, not the service failing. It was
+    returning 500, which is both a lie about whose fault it is and, before the
+    trace stopped being public, a free look at the internals.
+    """
+    text = str(exc).lower()
+    return isinstance(exc, (ValueError, KeyError)) and (
+        "interrupt" in text or "interruptresponse" in text
+    )
+
+
 def resume_required(exc: Exception) -> bool:
     """True when Strands refused a plain prompt because a run is mid-interrupt.
 
@@ -365,6 +400,9 @@ def route_checkpoint(body: dict, request_id: str) -> dict:
 
 def route_approve(body: dict, request_id: str) -> dict:
     run = build_run(body["run_id"])
+    problem = bad_identifier("interrupt_id", body.get("interrupt_id"))
+    if problem:
+        return _json(400, {"error": problem, **_state(run)}, request_id)
     agent = build_agent(run)
     decision = "y" if body.get("approve") else "n"
     result = agent(
@@ -386,6 +424,9 @@ def route_approve(body: dict, request_id: str) -> dict:
 def route_late_take(body: dict, request_id: str) -> dict:
     run = build_run(body["run_id"])
     beat = body.get("beat_id", "B-17")
+    problem = bad_identifier("beat_id", beat)
+    if problem:
+        return _json(400, {"error": problem, **_state(run)}, request_id)
     take = Take(
         take_id="T-041",
         shot_id="S-42-PICKUP",
@@ -440,6 +481,9 @@ def route_late_take(body: dict, request_id: str) -> dict:
 def route_resolve_rights(body: dict, request_id: str) -> dict:
     run = build_run(body["run_id"])
     subject = body.get("subject", "BG-07")
+    problem = bad_identifier("subject", subject)
+    if problem:
+        return _json(400, {"error": problem, **_state(run)}, request_id)
     record = RightsRecord(
         record_id="REL-007",
         subject_id=subject,
@@ -545,7 +589,10 @@ def route_evaluate(body: dict, request_id: str) -> dict:
 def route_wrap(body: dict, request_id: str) -> dict:
     run = build_run(body["run_id"])
     agent = build_agent(run, plan=())
-    if body.get("interrupt_id"):
+    if body.get("interrupt_id") is not None:
+        problem = bad_identifier("interrupt_id", body.get("interrupt_id"))
+        if problem:
+            return _json(400, {"error": problem, **_state(run)}, request_id)
         result = agent(
             [
                 {
@@ -713,6 +760,20 @@ def handler(event: dict, context: Any) -> dict:
         return route(body, request_id)
     except Exception as exc:  # noqa: BLE001 - logged in full, never returned in full
         import traceback
+
+        if resumed_with_a_bad_interrupt(exc):
+            return _json(
+                400,
+                {
+                    "error": "no such approval is open on this run",
+                    "detail": (
+                        "An interrupt id can only be answered on the run that raised "
+                        "it, and only while it is open. Fetch the run's state and use "
+                        "the id in pending_approval."
+                    ),
+                },
+                request_id,
+            )
 
         # The full trace goes to CloudWatch, where the operator can read it and
         # the public cannot. The response carries the exception type and the

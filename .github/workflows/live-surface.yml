@@ -1,0 +1,67 @@
+# Two checks that only a browser and a hostile client can make, run against the
+# deployed URL rather than the tree.
+#
+# tools/uptime_check.py already walks the API end to end. What neither it nor
+# the unit suite can see is what the page does when a person clicks it, and what
+# the service does when somebody sends it something it did not expect. A
+# fabricated evaluation modal reached the live URL and lived there for six days
+# behind a green uptime run, because it called no API at all.
+name: live surface
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 8 * * *"
+  push:
+    branches: [main]
+    paths:
+      - "src/lasttake/app/**"
+      - "web/**"
+      - "tools/dast_probe.py"
+      - ".github/workflows/live-surface.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: live-surface
+  cancel-in-progress: true
+
+env:
+  LASTTAKE_URL: https://1p6s28nyf0.execute-api.eu-west-1.amazonaws.com/
+
+jobs:
+  probe:
+    name: Active probe of the deployed API
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Fifteen hostile bodies, and what must never come back
+        run: python tools/dast_probe.py "${LASTTAKE_URL}" | tee -a "${GITHUB_STEP_SUMMARY}"
+
+  journey:
+    name: The judge journey, in a browser
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci --prefix web --ignore-scripts
+      - run: npx --prefix web playwright install --with-deps chromium
+      - name: Walk the exact path the video shows
+        working-directory: web
+        run: npx playwright test --config playwright.config.mjs
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: journey-trace
+          path: web/test-results
+          retention-days: 7
