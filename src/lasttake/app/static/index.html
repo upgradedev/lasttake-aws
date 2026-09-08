@@ -205,6 +205,13 @@ pre{background:#fff;border:1px solid var(--rule);border-radius:5px;padding:10px;
 .notyou{font-size:12.5px;color:var(--mute);background:#faf9f6;border:1px dashed var(--rule);
   border-radius:5px;padding:9px 11px}
 .rowbtn{display:flex;gap:8px;flex-wrap:wrap}
+textarea{width:100%;font-size:11.5px;line-height:1.5;padding:9px;border:1px solid var(--rule);
+  border-radius:5px;background:#faf9f5;color:var(--ink);resize:vertical;
+  font-family:ui-monospace,SFMono-Regular,Consolas,monospace}
+.shape{margin-top:9px;font-size:12px;border-radius:5px;padding:9px 11px}
+.shape.bad{background:var(--gap-bg);color:#8a1a20}
+.shape.good{background:var(--ok-bg);color:#0e5c39}
+.shape ul{margin:6px 0 0 16px;padding:0}
 .banner{margin-top:12px;font-size:12.5px;color:#3d434c;background:#fff;
   border:1px solid var(--rule);border-radius:5px;padding:9px 12px}
 .err{background:var(--gap-bg);border-color:#e8bcbc;color:#8a1a20}
@@ -311,7 +318,24 @@ pre{background:#fff;border:1px solid var(--rule);border-radius:5px;padding:10px;
     <h2 class="sec" id="exchead" style="display:none">Before you wrap</h2>
     <div class="cards" id="cards"></div>
 
-    <h2 class="sec">Shoot-day inbox</h2>
+    <h2 class="sec">Bring in your own record</h2>
+    <div class="item">
+      <p>Everything below runs against a document you supply, not a button that
+        writes one for you. Edit this, or paste a record from your own day. It is
+        validated against the same shape the corpus uses, and a refusal says which
+        fields are missing rather than failing quietly.</p>
+      <div class="rowbtn" style="margin-bottom:8px">
+        <select id="ingestKind">
+          <option value="take">a take</option>
+          <option value="rights_record">a release or licence</option>
+        </select>
+        <button id="bIngest">Ingest and re-check</button>
+      </div>
+      <textarea id="ingestDoc" rows="9" class="mono" spellcheck="false"></textarea>
+      <div id="ingestOut"></div>
+    </div>
+
+  <h2 class="sec">Shoot-day inbox</h2>
     <div id="inbox"></div>
 
     <div id="turnbox"></div>
@@ -972,6 +996,86 @@ function item(from, tag, text, label, id, disabled) {
     (disabled || BUSY ? 'disabled' : '') + '>' + esc(label) + '</button></div>';
 }
 
+/* Two documents in the shape the API accepts, filled with a plausible record so
+   a visitor has something to edit rather than a blank box and a schema. Neither
+   is sent unless somebody presses the button. */
+var INGEST_EXAMPLE = {
+  take: {
+    take_id: "T-900",
+    shot_id: "S-42-PICKUP",
+    beat_ids: ["B-17"],
+    slate: "42L/1",
+    camera_roll: "A007",
+    sound_roll: "SR07",
+    timecode_in: "23:04:00:00",
+    timecode_out: "23:04:41:00",
+    lens_mm: 50,
+    media_id: "A007R2G01",
+    preferred: true,
+    usable: true,
+    note: "Pickup on the reaction. Clean single, held.",
+    visible_people: ["DELPHINE"]
+  },
+  rights_record: {
+    record_id: "REL-900",
+    subject_id: "BG-07",
+    subject_kind: "person",
+    document_type: "background release",
+    scope: "all media",
+    territory: "worldwide",
+    status: "executed"
+  }
+};
+
+function fillIngest() {
+  var kind = $('ingestKind').value;
+  $('ingestDoc').value = JSON.stringify(INGEST_EXAMPLE[kind], null, 2);
+  $('ingestOut').innerHTML = '';
+}
+
+function ingest() {
+  var raw = $('ingestDoc').value;
+  var parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (e) {
+    $('ingestOut').innerHTML = '<div class="shape bad">That is not valid JSON. ' +
+      esc(String(e.message)) + '</div>';
+    return;
+  }
+  return call('/api/ingest', {kind: $('ingestKind').value, document: parsed})
+    .then(function (d) {
+      if (!d) return;
+      if (d.error || d.missing || d.unexpected) {
+        var html = '<div class="shape bad">' + esc(d.error || 'the document was refused');
+        if (d.missing && d.missing.length) {
+          html += '<ul><li>missing: ' + esc(d.missing.join(', ')) + '</li></ul>';
+        }
+        if (d.unexpected && d.unexpected.length) {
+          html += '<ul><li>not part of this record: ' + esc(d.unexpected.join(', ')) +
+            '</li></ul>';
+        }
+        if (d.accepted_kinds) {
+          html += '<ul><li>accepted kinds: ' + esc(d.accepted_kinds.join(', ')) + '</li></ul>';
+        }
+        $('ingestOut').innerHTML = html + '</div>';
+        return;
+      }
+      var out = '<div class="shape good">Ingested. ' +
+        esc((d.affected_checks || []).length) + ' check(s) reran: ' +
+        esc((d.affected_checks || []).join(', ')) +
+        '. That is which artifact digests moved, not a table saying so.';
+      var w = d.withdrawn_decisions || [];
+      if (w.length) {
+        out += '<ul>' + w.map(function (x) {
+          return '<li>' + esc(x.role) + '’s decision on ' + esc(x.finding_id) +
+            ' no longer applies: ' + esc(x.why) + '</li>';
+        }).join('') + '</ul>';
+      }
+      $('ingestOut').innerHTML = out + '</div>';
+    });
+}
+
 function paintInbox() {
   var started = !!(STATE && STATE.counts);
   var eligible = !!(STATE && STATE.eligible);
@@ -1178,6 +1282,9 @@ function paint() {
 /* ---------- events ----------------------------------------------------- */
 
 $('role').onchange = function (e) { ROLE = e.target.value; paint(); };
+$('ingestKind').onchange = fillIngest;
+$('bIngest').onclick = ingest;
+fillIngest();
 $('go').onclick = function () { runStep(currentStep()); };
 $('scrim').onclick = closeTake;
 document.addEventListener('keydown', function (e) {

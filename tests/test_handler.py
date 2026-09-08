@@ -541,3 +541,125 @@ def test_every_identifier_a_caller_supplies_is_checked_like_run_id():
     # And the identifiers the product itself uses still pass.
     assert post("/api/resolve-rights", {"run_id": RUN, "subject": "BG-07"})["status"] == 200
     assert post("/api/late-take", {"run_id": RUN, "beat_id": "B-17"})["status"] == 200
+
+
+# -- ingesting a document somebody supplied ---------------------------------
+
+
+A_TAKE = {
+    "take_id": "T-900",
+    "shot_id": "S-42-PICKUP",
+    "beat_ids": ["B-17"],
+    "slate": "42L/1",
+    "camera_roll": "A007",
+    "sound_roll": "SR07",
+    "timecode_in": "23:04:00:00",
+    "timecode_out": "23:04:41:00",
+    "lens_mm": 50,
+    "media_id": "A007R2G01",
+    "preferred": True,
+    "usable": True,
+    "note": "Pickup on the reaction. Clean single.",
+    "visible_people": ["DELPHINE"],
+}
+
+
+def test_a_document_that_does_not_match_the_shape_is_refused_with_the_shape():
+    post("/api/checkpoint", {"run_id": RUN})
+
+    unknown = post("/api/ingest", {"run_id": RUN, "kind": "vibes", "document": {}})
+    assert unknown["status"] == 400
+    assert "take" in unknown["accepted_kinds"] and "rights_record" in unknown["accepted_kinds"]
+
+    short = post("/api/ingest", {"run_id": RUN, "kind": "take", "document": {"take_id": "T-901"}})
+    assert short["status"] == 400
+    assert "slate" in short["missing"]
+    assert short["expected"]["required"], "a refusal has to say what would be accepted"
+
+    extra = post(
+        "/api/ingest",
+        {"run_id": RUN, "kind": "take", "document": {**A_TAKE, "budget": 4000}},
+    )
+    assert extra["status"] == 400
+    assert extra["unexpected"] == ["budget"]
+
+
+def test_an_ingested_take_reruns_only_what_reads_the_artifact_it_touched():
+    state = post("/api/checkpoint", {"run_id": RUN})
+    covered = {b["beat_id"]: b["status"] for b in state["beats"]}
+    assert covered["B-17"] == "no_viable_coverage"
+
+    after = post("/api/ingest", {"run_id": RUN, "kind": "take", "document": A_TAKE})
+    assert after["status"] == 200, after.get("error")
+    assert after["ingested"] == {"kind": "take", "amendments": 1}
+
+    # Every check reads the takes document, so a new take reruns all four. That
+    # is derived from which digests moved, not asserted from a table.
+    assert sorted(after["affected_checks"]) == ["continuity", "coverage", "metadata", "rights"]
+
+    covered = {b["beat_id"]: b["status"] for b in after["beats"]}
+    assert covered["B-17"] == "covered_with_evidence"
+
+    # And it survives the request, the way a captured take must.
+    scene = post("/api/scene", {"run_id": RUN})
+    assert any(t["take_id"] == "T-900" for b in scene["beats"] for t in b["takes"])
+    assert scene["take_count"] == 41
+
+
+def test_an_ingested_document_withdraws_the_approvals_it_invalidates():
+    """The one that matters. An approval is about a reading, not an id.
+
+    The supervisor accepts the continuity conflict. A take then arrives that
+    changes what the continuity check reads. The finding keeps its id and gets a
+    new digest, so the acceptance stops applying, and the response says which
+    ones went and why rather than carrying them silently.
+    """
+    state = post("/api/checkpoint", {"run_id": RUN})
+    conflict = next(f for f in state["exceptions"] if f["check_type"] == "continuity")
+
+    recorded = post(
+        "/api/decide",
+        {
+            "run_id": RUN,
+            "finding_id": conflict["finding_id"],
+            "action": "accept_exception",
+            "role": "script_supervisor",
+            "actor": "the supervisor on this unit",
+            "reason": "Reviewed on the floor before wrap.",
+        },
+    )
+    assert recorded["status"] == 200
+    bound = next(d for d in recorded["decisions"] if d["finding_id"] == conflict["finding_id"])
+    assert bound["finding_sha256"], "a decision has to be bound to what it was about"
+
+    after = post("/api/ingest", {"run_id": RUN, "kind": "take", "document": A_TAKE})
+    assert after["status"] == 200
+    withdrawn = [w["finding_id"] for w in after["withdrawn_decisions"]]
+    assert conflict["finding_id"] in withdrawn, (
+        "the acceptance survived a change to the evidence it was taken about"
+    )
+
+
+def test_an_ingested_release_reruns_only_the_rights_check():
+    post("/api/checkpoint", {"run_id": RUN})
+    after = post(
+        "/api/ingest",
+        {
+            "run_id": RUN,
+            "kind": "rights_record",
+            "document": {
+                "record_id": "REL-900",
+                "subject_id": "BG-07",
+                "subject_kind": "person",
+                "document_type": "background release",
+                "scope": "all media",
+                "territory": "worldwide",
+                "status": "executed",
+            },
+        },
+    )
+    assert after["status"] == 200, after.get("error")
+    assert after["affected_checks"] == ["rights"], (
+        "only the ledger moved, so only the check that reads it may rerun"
+    )
+    assert after["counts"]["without_release_record"] == 0

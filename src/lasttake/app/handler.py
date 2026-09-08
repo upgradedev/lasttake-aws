@@ -39,6 +39,7 @@ from ..checks import rights as rights_check
 from ..domain import policy, rollup
 from ..domain.events import EventType, affected_by
 from ..domain.findings import from_dict
+from ..domain.sealing import SEAL_KEY
 from ..domain.package import (
     CameraReportRow,
     RightsRecord,
@@ -46,6 +47,14 @@ from ..domain.package import (
     load_package,
     with_extra_take,
     with_rights_record,
+)
+from .ingest import (
+    apply_amendments,
+    bad_identifier,
+    load_amendments,
+    perform_ingest,
+    record_amendment,
+    shape_error,
 )
 from .scene_view import scene_view
 
@@ -103,67 +112,6 @@ def scene_package():
 
 
 _SCHEMA_READY = False
-
-
-# -- package amendments -----------------------------------------------------
-#
-# A take that was captured and a release that was signed are facts about the
-# world, and the next request has to see them. They were being applied in
-# memory and thrown away when the Lambda returned, so `POST /api/late-take`
-# reported a beat covered and the very next `POST /api/state` reported it
-# uncovered again, correctly: the take was not in the package any more, so the
-# finding that cited it was stale and the gate withdrew it. The staleness rule
-# was right. The take should have been there.
-#
-# Each amendment is written once, under its own key, and read back by probing
-# the sequence. The artifact store has no update, no delete and no list, and
-# that is the contract, not an inconvenience to work around.
-
-AMENDMENT_LIMIT = 200
-
-
-def _amendment_key(run_id: str, index: int) -> str:
-    return f"amendments/{run_id.replace(':', '_')}/{index:04d}.json"
-
-
-def load_amendments(artifacts, run_id: str) -> list[dict]:
-    out: list[dict] = []
-    for index in range(AMENDMENT_LIMIT):
-        key = _amendment_key(run_id, index)
-        if not artifacts.exists(key):
-            break
-        out.append(json.loads(artifacts.get(key).decode("utf-8")))
-    return out
-
-
-def record_amendment(artifacts, run_id: str, amendment: dict) -> None:
-    for index in range(AMENDMENT_LIMIT):
-        key = _amendment_key(run_id, index)
-        if not artifacts.exists(key):
-            artifacts.put(key, json.dumps(amendment, sort_keys=True).encode("utf-8"))
-            return
-    raise RuntimeError(f"{run_id} has {AMENDMENT_LIMIT} amendments; refusing to add more")
-
-
-def apply_amendments(package, amendments: list[dict]):
-    """Replay amendments onto the base package, in the order they arrived.
-
-    Deterministic: the same amendments produce the same package and therefore
-    the same digests, which is what lets a finding written in one request stay
-    admissible in the next.
-    """
-    for amendment in amendments:
-        if amendment["kind"] == "take":
-            package = with_extra_take(
-                package,
-                Take(**amendment["take"]),
-                CameraReportRow(**amendment["camera_report_row"]),
-            )
-        elif amendment["kind"] == "rights_record":
-            package = with_rights_record(package, RightsRecord(**amendment["record"]))
-        else:
-            raise ValueError(f"unknown amendment kind {amendment['kind']!r}")
-    return package
 
 
 def build_run(run_id: str, package=None) -> WrapRun:
@@ -307,27 +255,6 @@ def _last_tool_result(agent) -> str:
 
 
 # -- routes -----------------------------------------------------------------
-
-
-#: Identifiers a caller supplies that reach a finding, a message or a package.
-#: `run_id` has been validated since the first commit; these two were not, so a
-#: crafted subject came back inside a human-readable message on the page. It was
-#: escaped and it was not a clearance the product gave, but it read like one, and
-#: an identifier is an identifier.
-# 128, because a real Strands interrupt id is 83 characters and looks like
-# `v1:tool_call:offline-5-request_pickup_approval:<uuid>`. The first cap here was
-# 64 and the test suite caught it in one run, which is the argument for having
-# the identifier the product actually uses in a test rather than a plausible one.
-ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$")
-
-
-def bad_identifier(name: str, value: object) -> Optional[str]:
-    if not isinstance(value, str) or not ID_PATTERN.match(value):
-        return (
-            f"{name} must be 1 to 128 characters of letters, digits and the "
-            "separators . : _ and -, starting with a letter or a digit"
-        )
-    return None
 
 
 def resumed_with_a_bad_interrupt(exc: Exception) -> bool:
@@ -555,6 +482,10 @@ def route_decide(body: dict, request_id: str) -> dict:
         actor=body.get("actor", "unnamed"),
         role=role,
         reason=body.get("reason", ""),
+        # Bound to this reading of this requirement. When the evidence moves and
+        # the finding is recomputed, the digest changes and this decision stops
+        # applying, which is the point: nobody has looked at the new facts.
+        finding_sha256=finding.record_sha256,
     )
     run.record_decision(decision.to_dict())
     state = _state(run)
@@ -662,6 +593,21 @@ def route_events(body: dict, request_id: str) -> dict:
     )
 
 
+def route_ingest(body: dict, request_id: str) -> dict:
+    """Validate a supplied document, apply it, and report what moved."""
+    run = build_run(body["run_id"])
+    problem = shape_error(body.get("kind"), body.get("document"))
+    if problem:
+        return _json(400, problem, request_id)
+    try:
+        state = perform_ingest(
+            run, body["kind"], body["document"], build_run, scene_package, _state
+        )
+    except ValueError as exc:
+        return _json(400, {"error": str(exc)}, request_id)
+    return _json(200, state, request_id)
+
+
 def route_scene(body: dict, request_id: str) -> dict:
     """The lined script. No model, no findings, no judgement. See scene_view."""
     run = build_run(body["run_id"])
@@ -698,6 +644,7 @@ ROUTES = {
     "/api/wrap": route_wrap,
     "/api/turnover": route_turnover,
     "/api/events": route_events,
+    "/api/ingest": route_ingest,
     "/api/scene": route_scene,
     "/api/state": route_state,
     "/api/reset": route_reset,
