@@ -259,3 +259,37 @@ def test_the_ablation_numbers_are_the_ones_the_readme_publishes():
 
     seal = by_name["the finding seal is not verified"]
     assert "1 tampered record admitted instead of 0" in seal["delta"]
+
+
+def test_the_four_evaluation_cases_hold():
+    """Correct, incomplete, conflicting, changed. Pinned so they cannot drift.
+
+    These are our own cases scored by our own pipeline, which is a description
+    of behaviour under four kinds of input and not an evaluation of judgement
+    quality against labelled ground truth. No practising script supervisor has
+    run them. Both statements are in the tool's own output and in the README.
+    """
+    import subprocess
+    import sys
+
+    root = Path(__file__).resolve().parents[1]
+    result = subprocess.run(
+        [sys.executable, "tools/evaluation_cases.py"],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        env={**os.environ, "PYTHONPATH": str(root / "src")},
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+
+    cases = json.loads((root / "docs" / "evaluation_cases.json").read_text(encoding="utf-8"))
+    assert len(cases) == 4
+    assert all(case["held"] for case in cases), [c["case"] for c in cases if not c["held"]]
+
+    by_kind = {case["case"].split(":")[0]: case for case in cases}
+    assert set(by_kind) == {"correct", "incomplete", "conflicting", "changed"}
+    assert "corroborated_by_the_interpreter" in by_kind["correct"]["after"]
+    assert "insufficient_evidence" in by_kind["correct"]["before"]
+    assert "slate" in by_kind["incomplete"]["after"]
+    assert "covered" not in by_kind["conflicting"]["after"].replace("no_viable_coverage", "")
+    assert "resolved=None" in by_kind["changed"]["after"]

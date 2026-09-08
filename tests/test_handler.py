@@ -663,3 +663,88 @@ def test_an_ingested_release_reruns_only_the_rights_check():
         "only the ledger moved, so only the check that reads it may rerun"
     )
     assert after["counts"]["without_release_record"] == 0
+
+
+def test_the_whole_path_from_an_ingested_document_to_an_approved_turnover():
+    """One path, end to end, driven by documents rather than by fixtures.
+
+    Ingest, findings with sources, a decision by the role the policy names, a
+    corrective artifact, the re-check that follows from it, and a turnover the
+    1st AD approved. Every step is a separate request, which is the point:
+    nothing about the run is held in memory between them.
+    """
+    state = post("/api/checkpoint", {"run_id": RUN})
+    assert state["counts"]["covered_with_evidence"] == 31
+    assert state["counts"]["basis"]["insufficient_evidence"] == 1
+
+    # Every exception can be opened by a person: sources with digests, and a
+    # locator, or the gate would never have admitted it.
+    for finding in state["exceptions"]:
+        assert finding["sources"], finding["finding_id"]
+        assert all(len(s["sha256"]) == 64 for s in finding["sources"])
+        assert finding["locators"] or finding["requirement_id"]
+
+    approval = state["pending_approval"]
+    assert approval["reason"]["required_role"] == "first_ad"
+    resumed = post(
+        "/api/approve",
+        {"run_id": RUN, "interrupt_id": approval["id"], "approve": True},
+    )
+    assert resumed["status"] == 200
+
+    # A corrective artifact somebody supplied, not a button that wrote one.
+    ingested = post("/api/ingest", {"run_id": RUN, "kind": "take", "document": A_TAKE})
+    assert ingested["status"] == 200
+    assert sorted(ingested["affected_checks"]) == [
+        "continuity", "coverage", "metadata", "rights",
+    ]
+    covered = {b["beat_id"]: b for b in ingested["beats"]}
+    assert covered["B-17"]["status"] == "covered_with_evidence"
+    assert covered["B-17"]["basis"] == "corroborated_by_the_interpreter"
+
+    filed = post(
+        "/api/ingest",
+        {
+            "run_id": RUN,
+            "kind": "rights_record",
+            "document": {
+                "record_id": "REL-900", "subject_id": "BG-07", "subject_kind": "person",
+                "document_type": "background release", "scope": "all media",
+                "territory": "worldwide", "status": "executed",
+            },
+        },
+    )
+    assert filed["affected_checks"] == ["rights"]
+
+    gated = post("/api/evaluate", {"run_id": RUN})
+    assert gated["eligible"] is False, "two judgements are still owed"
+    owed = {c["finding_id"]: c["required_role"] for c in gated["causes"]}
+    assert set(owed.values()) == {"script_supervisor", "dit"}
+
+    for finding_id, role in owed.items():
+        recorded = post(
+            "/api/decide",
+            {
+                "run_id": RUN, "finding_id": finding_id, "action": "accept_exception",
+                "role": role, "actor": f"the {role} on this unit",
+                "reason": "Reviewed on the floor before wrap.",
+            },
+        )
+        assert recorded["status"] == 200, recorded.get("error")
+        bound = next(d for d in recorded["decisions"] if d["finding_id"] == finding_id)
+        assert bound["finding_sha256"], "an approval has to name what it was about"
+
+    cleared = post("/api/evaluate", {"run_id": RUN})
+    assert cleared["eligible"] is True, cleared.get("causes")
+    assert cleared["counts"]["basis"]["confirmed_by_a_named_human"] >= 0
+
+    asked = post("/api/wrap", {"run_id": RUN})
+    wrap = asked["pending_approval"]
+    assert wrap["reason"]["required_role"] == "first_ad"
+    wrapped = post(
+        "/api/wrap", {"run_id": RUN, "interrupt_id": wrap["id"], "approve": True}
+    )
+    assert wrapped["wrap_approved"] is True
+
+    turnover = post("/api/turnover", {"run_id": RUN})
+    assert turnover["turnover"], "editorial received nothing"

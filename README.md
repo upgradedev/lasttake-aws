@@ -23,6 +23,8 @@ Before you wrap the set, know whether you truly have the scene.
 - [How Strands is load-bearing](#how-strands-is-load-bearing)
 - [The rule the whole product turns on](#the-rule-the-whole-product-turns-on)
 - [What each rule is worth, measured by removing it](#what-each-rule-is-worth-measured-by-removing-it)
+- [Bring your own record](#bring-your-own-record)
+- [Four kinds of input](#four-kinds-of-input-and-what-the-pipeline-does-with-each)
 - [What "covered" rests on](#what-covered-rests-on-and-why-two-readers-count-differently)
 - [The numbers, and the commands that produce them](#the-numbers-and-the-commands-that-produce-them)
 - [The demo corpus is synthetic](#the-demo-corpus-is-synthetic)
@@ -415,6 +417,74 @@ could answer stopped blocking anything, and because a beat counted as covered wh
 viable take named it, whatever the coverage check had concluded. Two places where absent
 evidence was being read as a pass, in the one number a 1st AD acts on at 23:10. Both are
 fixed and both are pinned by a test.
+
+## Bring your own record
+
+The demo used to have two buttons that wrote a take and a release for you. They
+showed the targeted rerun honestly enough, but nobody could put their own scene
+through it, which made this a fixture with a play button. It takes a document now.
+
+```bash
+curl -s -X POST "$URL/api/ingest" -H 'content-type: application/json' -d '{
+  "run_id": "demo-yourrun0001",
+  "kind": "take",
+  "document": {
+    "take_id": "T-900", "shot_id": "S-42-PICKUP", "beat_ids": ["B-17"],
+    "slate": "42L/1", "camera_roll": "A007", "sound_roll": "SR07",
+    "timecode_in": "23:04:00:00", "timecode_out": "23:04:41:00",
+    "lens_mm": 50, "media_id": "A007R2G01",
+    "preferred": true, "usable": true,
+    "note": "Pickup on the reaction. Clean single.",
+    "visible_people": ["DELPHINE"]
+  }
+}'
+```
+
+`kind` is `take` or `rights_record`. A document that does not match the shape is refused before
+anything is written, and the refusal names the missing and the unexpected fields rather than
+failing quietly. The page carries an editable example of each, so a visitor edits a record rather
+than reading a schema.
+
+What happens next is the part worth watching. The document becomes a package amendment, the
+amended package produces new digests, and **the checks that read the artifact that moved run
+again**. A take moves the takes document, which all four checks read, so all four rerun. A release
+moves only the ledger, so only rights does. That narrowing is derived from which bytes changed and
+never from a table asserting it.
+
+### An approval does not survive the evidence it was about
+
+A human decision used to bind to a finding **id**, and ids are deterministic: `run:con:CR-01` is
+the same string before and after a rerun. So a supervisor could accept the mug conflict as
+intentional, a take could arrive that changed the continuity evidence completely, the finding
+would be recomputed under the same id, and the old acceptance would still close it. Nobody would
+have looked at the new facts and nothing would say so.
+
+A decision now carries the seal of the reading it was taken about. When the evidence moves the
+digest changes, the decision stops applying, and the ingest response lists what was withdrawn and
+why. Decisions recorded before this existed still apply; silently voiding every historical
+approval would be its own kind of dishonesty, and the absent field is what says they are weaker.
+
+## Four kinds of input, and what the pipeline does with each
+
+```bash
+PYTHONPATH=src python tools/evaluation_cases.py
+```
+
+| Input | What happens |
+|---|---|
+| **correct**, a take that covers the uncovered beat | B-17 goes from `no_viable_coverage`, basis `insufficient_evidence`, to `covered_with_evidence`, basis `corroborated_by_the_interpreter` |
+| **incomplete**, the same take with no slate | refused before anything is written, naming `slate` |
+| **conflicting**, a camera report naming a different card | `media_identity_exception`, basis `declared_by_the_production`. The only take does not reconcile, so the beat is not covered |
+| **changed**, evidence moving under an approval already given | the acceptance stops applying: `resolved=True` becomes `resolved=None` |
+
+It runs offline with no account and no credential, because the local adapters implement the same
+ports the deployed build uses. A test pins all four so they cannot drift.
+
+**These are our cases, scored by our pipeline.** That is a description of behaviour under four
+kinds of input. It is not an evaluation of judgement quality against labelled ground truth, and
+**no practising script supervisor has run any of it**. The trial that would matter is whether a
+supervisor finds the evidence available before wrap and the reconciliation work actually reduced.
+That has not happened, and nothing here should be read as though it had.
 
 ## What "covered" rests on, and why two readers count differently
 
