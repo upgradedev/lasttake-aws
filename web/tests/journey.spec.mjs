@@ -57,16 +57,25 @@ test.describe("one shoot day, on the deployed page", () => {
     await page.goto(URL, { waitUntil: "networkidle" });
     await page.locator('.card[data-req="B-17"]').waitFor({ timeout: 90_000 });
 
-    await page.locator('.card[data-req="B-17"]').click();
+    await page.locator('.card[data-req="B-17"] h3').click();
     await expect(page.locator('.beat[data-beat="B-17"]')).toHaveClass(/linked/);
 
     // The continuity conflict is filed against a reference and lights three beats.
-    await page.locator('.card[data-req="CR-01"]').click();
+    await page.locator('.card[data-req="CR-01"] h3').click();
     await expect(page.locator(".beat.linked")).toHaveCount(3);
 
     // And from a beat back to the exception that names it.
-    await page.locator('.beat[data-beat="B-09"]').click();
+    //
+    // Click the slug, which is the line of script, because that is what a person
+    // clicks. Clicking the beat element's centre is not the same thing: a beat
+    // that has takes has its centre over the take chips, so the hit test lands
+    // on a slate and opens the inspector instead. The first run of this test
+    // found exactly that, and my own hand check could not have: dispatching
+    // click() on the div from a console skips hit testing altogether and always
+    // "worked".
+    await page.locator('.beat[data-beat="B-09"] .slug').click();
     await expect(page.locator('.card[data-req="BG-07"]')).toHaveClass(/linked/);
+    await expect(page.locator("#drawer")).not.toHaveClass(/on/);
   });
 
   test("a slate opens the two records side by side", async ({ page }) => {

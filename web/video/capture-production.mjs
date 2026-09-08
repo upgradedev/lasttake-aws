@@ -103,7 +103,10 @@ await holdScene("trigger", async () => {
     pane.scrollTo({ top: 0, behavior: "smooth" });
   });
   await page.waitForTimeout(1_500);
-  await page.locator('.card[data-req="B-17"]').click();
+  // The heading, not the card's centre. A card's centre can land on the
+  // evidence disclosure, which the click handler deliberately ignores, so the
+  // link would silently not happen and the recording would show nothing.
+  await page.locator('.card[data-req="B-17"] h3').click();
   await page.waitForTimeout(1_500);
 });
 
