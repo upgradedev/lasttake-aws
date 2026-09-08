@@ -14,6 +14,7 @@ Before you wrap the set, know whether you truly have the scene.
 ## Contents
 
 - [Who this is for](#who-this-is-for)
+- [What a script supervisor already uses](#what-a-script-supervisor-already-uses-and-what-this-does-instead)
 - [The problem](#the-problem)
 - [Try it without installing anything](#try-it-without-installing-anything)
 - [Quickstart](#quickstart)
@@ -41,6 +42,36 @@ A **script supervisor** on a shoot day, with the **1st AD** as the second reader
 Not film crews, not production teams, not creators. One person, one afternoon, one
 decision: is this scene safe to wrap, and if not, what exactly is missing and who can
 fix it while the set is still standing.
+
+## What a script supervisor already uses, and what this does instead
+
+Script supervision has good software and this does not replace it. The tools below are where a
+supervisor writes things down; the gap is that nobody reconciles what was written down across the
+departments that wrote it.
+
+| Already on the cart | What it does | What it does not do |
+|---|---|---|
+| [ScriptE](https://www.scriptesystems.com/) | continuity and scheduling for script supervisors, with an image capture attachment that fires stills during a take for matching | holds the supervisor's own record. It does not read the camera report, the sound report and the rights ledger and tell you where the three disagree |
+| [Scriptation](https://scriptation.com/) | script annotation on iPad with a lining toolkit built with script supervisors, for tracking coverage | lines the script as the supervisor draws it. Coverage is what the person marked, not what the departments' records can evidence |
+| [Script Evolution](https://scriptevolution.app/en/) | a script supervisor application built for the iPad | the same shape: a faster place to record an observation |
+
+The difference is one sentence. Those are **recording** tools and this is a **reconciling** one, and
+it is the only one of the four that will refuse to conclude. A beat here is covered when a take that
+names it is usable, reconciles with the camera report, carries no unresolved continuity conflict and
+has every subject released. Absent evidence is a finding, never a pass, and
+[the ablation](#what-each-rule-is-worth-measured-by-removing-it) measures what that costs: take the
+model away and coverage falls from 31 of 34 to 0, every beat `unknown` rather than a pass.
+
+### Why this is possible now and was not five years ago
+
+The reconciliation needs the shoot day's records to be machine readable while the set is still
+standing. Camera to cloud made that true. Frame.io's C2C sends "timecode-accurate H.264 proxy files
+with matching filename metadata as well as appropriate production data" from the camera during the
+take ([Frame.io support](https://support.frame.io/en/articles/4887091-c2c-frame-io-camera-to-cloud-faqs)),
+and at Adobe MAX 2024 Canon, Nikon and Leica joined Fujifilm, Panasonic LUMIX and RED in supporting
+it ([Adobe](https://blog.adobe.com/en/publish/2024/11/12/frameios-camera-to-cloud-adds-real-time-photo-video-collaboration)).
+Before that, the camera report reached anyone who could compare it against the script the next
+morning, which is after the set is struck and after the answer stops being useful.
 
 ## The problem
 
