@@ -227,6 +227,13 @@ short of footage that is sitting on the card.
 
 ## Architecture
 
+The required diagram is a file of its own, [`docs/architecture.svg`](docs/architecture.svg), so it
+can be opened, downloaded and read without this README around it. The Mermaid sources below are the
+same system in two other cuts, the system view and the sequence from question to governed write.
+
+<img src="docs/architecture.svg" alt="LastTake architecture: a wrap checkpoint reaches an orchestrator on Lambda, four bounded checks read immutable artifacts from S3 and write sealed findings to Aurora DSQL, a deterministic gate with no model in it combines them, two material transitions suspend the run for a named human, and an approved action publishes to EventBridge and seals a versioned turnover for editorial." width="100%">
+
+
 ```mermaid
 flowchart LR
     subgraph sources["Immutable sources, content addressed"]
