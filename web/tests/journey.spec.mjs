@@ -98,8 +98,25 @@ test.describe("one shoot day, on the deployed page", () => {
     await expect(drawer).toContainText("A002R2B13");
     await expect(drawer).toContainText("report says A002R2B1X");
     await expect(drawer).toContainText("disagree on media id");
-    // The inference is attributed to whatever actually produced it.
-    await expect(drawer).toContainText("offline-lexical");
+
+    // And no model attribution, because there is no model in this answer.
+    // Metadata is arithmetic over two documents and never calls one, so a
+    // "read by" line here would be the interface inventing a provenance. This
+    // assertion was the other way round on its first run, asserting the
+    // interpreter appeared, which was my assumption about the product rather
+    // than the product.
+    await expect(drawer).not.toContainText("Read by");
+
+    // The continuity conflict is the one that does ask a model, and it names
+    // whichever interpreter actually produced the reading. On the live URL that
+    // is the offline lexical one, never Bedrock, and the page says so.
+    await page.locator("#scrim").click();
+    await page.locator('.take[data-take="T-026"]').click();
+    const conflict = page.locator("#drawer");
+    await expect(conflict).toHaveClass(/on/);
+    await expect(conflict).toContainText("Read by offline-lexical");
+    await expect(conflict).toContainText("kept apart from what was read directly");
+    await expect(conflict).toContainText("Confidence");
   });
 
   test("the policy tables decide which controls exist, not the interface", async ({ page }) => {
