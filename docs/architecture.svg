@@ -90,7 +90,8 @@
   <path d="M404 336 V386" class="ln"/>
 
   <!-- 4. findings store -->
-  <text x="34" y="410" class="hd">4 SEALED FINDINGS</text>
+  <text x="310" y="410" class="hd">4 SEALED FINDINGS</text>
+  <text x="34" y="410" class="hd">8 EDITORIAL RECEIVES</text>
   <rect x="310" y="420" width="336" height="82" class="box" fill="#fff"/>
   <text x="324" y="444" class="tb">Aurora DSQL</text>
   <text x="324" y="464" class="s">findings, decisions, packets, audit, handled events</text>
@@ -99,7 +100,7 @@
   <path d="M478 502 V546" class="ln"/>
 
   <!-- 5. the gate -->
-  <text x="34" y="570" class="hd">5 DETERMINISTIC GATE, NO MODEL</text>
+  <text x="310" y="570" class="hd">5 DETERMINISTIC GATE, NO MODEL</text>
   <rect x="310" y="580" width="336" height="96" class="box" fill="#fff" stroke="#137a4c" stroke-width="2.5"/>
   <text x="324" y="604" class="tb">Eligibility gate</text>
   <text x="324" y="624" class="s">Discards a finding whose seal fails or whose sources moved.</text>
@@ -108,7 +109,7 @@
 
   <!-- 6. the human, the hero path -->
   <path d="M646 628 H716" class="lnh"/>
-  <text x="700" y="600" class="hd" fill="#8a5a00">6 THE PAUSE</text>
+  <text x="716" y="570" class="hd" fill="#8a5a00">6 THE PAUSE, AND THE RESUME</text>
   <rect x="716" y="580" width="216" height="96" class="box" fill="#fdf3e0" stroke="#8a5a00" stroke-width="2"/>
   <text x="730" y="604" class="tb">A named human</text>
   <text x="730" y="623" class="s">1st AD approves a pickup</text>
@@ -125,15 +126,14 @@
   <!-- 7. approved action and turnover -->
   <path d="M1053 480 V420" class="ln"/>
   <rect x="820" y="360" width="326" height="60" class="box" fill="#fff"/>
-  <text x="834" y="384" class="tb">EventBridge</text>
+  <text x="834" y="384" class="tb">7 EventBridge, an approved action</text>
   <text x="834" y="404" class="s">one caller claims and publishes; a failure can be retried</text>
 
-  <path d="M820 390 H700 V420" class="ln"/>
+  <path d="M820 402 H296 V420" class="ln"/>
   <rect x="34" y="420" width="248" height="82" class="box" fill="#e8f4ed"/>
   <text x="48" y="444" class="tb">Turnover to editorial</text>
   <text x="48" y="464" class="s">versioned, sealed, naming every</text>
   <text x="48" y="481" class="s">source it was built from</text>
-  <path d="M310 461 H286" class="ln" marker-end="url(#a)" transform="translate(-4,0) rotate(180,298,461)"/>
 
   <!-- footer -->
   <text x="34" y="712" class="s">A new take changes the takes digest, so the findings that read it go stale and only those rerun. The narrowing is derived from which bytes moved, never asserted from a table.</text>
