@@ -33,7 +33,55 @@ BANNED_PHRASES = ("in today's world",)
 #: a judge-facing document.
 FORBIDDEN_CLAIMS = ("compliant", "conformity")
 
+#: Sentences this product must never print, from the boundaries in CLAUDE.md:
+#: it may not declare a scene legally cleared, safe or creatively complete, and
+#: it may never infer a pass from absent evidence.
+#:
+#: This list exists because a feature shipped to the live URL printing
+#: "CLEAR TO SHOOT. All labor, turnaround, and technical rules verified." from
+#: three hardcoded conditionals in the browser. It called no API and involved no
+#: agent, and it sat there for six days behind a green uptime check, because
+#: that check speaks to the API and never reads what the page says.
+FORBIDDEN_VERDICTS = (
+    "clear to shoot",
+    "cleared to shoot",
+    "all rules verified",
+    "rules verified",
+    "no issues found",
+    "safe to wrap",
+    "legally cleared",
+)
+
 EM_DASH = "—"
+
+
+#: The same words appear legitimately when the document is saying the product
+#: does *not* do this, or asking the question a supervisor asks. "is this scene
+#: safe to wrap" is the job; "safe to wrap" as an assertion is the failure. The
+#: rule is about assertions, so a line that disclaims or asks is not one.
+#: Written as a plain tuple and matched with `in`, never as a regular
+#: expression. This file already carries one trap about a `\b` that became a
+#: literal backspace when it passed through a shell, and writing this rule
+#: reproduced it: the pattern compiled, matched nothing, and the gate went
+#: quietly green. A check that cannot fail is worse than no check.
+DISCLAIMERS = (
+    "never", "not", "cannot", "refus", "withhold", "forbid", "is this",
+    "whether", "would be",
+)
+
+
+def _disclaimed(line: str, text: str, index: int) -> bool:
+    """True when the line is disclaiming the clearance rather than giving it.
+
+    "is this scene safe to wrap" is the question a supervisor asks and the
+    job this product does. "safe to wrap" as an assertion is the failure.
+    The rule is about assertions, so a line that asks or denies is not one.
+    """
+    lines = text.splitlines()
+    window = [line.lower()]
+    if index >= 2:
+        window.append(lines[index - 2].lower())
+    return any(word in candidate for candidate in window for word in DISCLAIMERS)
 
 
 def targets() -> list[pathlib.Path]:
@@ -65,6 +113,12 @@ def problems_in(path: pathlib.Path) -> list[str]:
         for word in FORBIDDEN_CLAIMS:
             if re.search(rf"\b{word}\b", line, re.I):
                 found.append(f"{path}:{index}: forbidden claim {word!r}")
+        for verdict in FORBIDDEN_VERDICTS:
+            if verdict in line.lower() and not _disclaimed(line, text, index):
+                found.append(
+                    f"{path}:{index}: {verdict!r} is a clearance this product may "
+                    "never give. Absent evidence is a finding, never a pass"
+                )
     return found
 
 

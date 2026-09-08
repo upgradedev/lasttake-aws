@@ -75,7 +75,25 @@ def check(base: str) -> list[str]:
         raise CheckFailed(f"GET / returned {status}, not 200")
     if not isinstance(body, str) or "know whether you truly have the scene" not in body:
         raise CheckFailed("GET / did not serve the demo page")
-    lines.append("- the page loads and carries the promise")
+    # And what the page must never say. This check speaks to the API for
+    # eleven steps and used to read the page exactly once, for one sentence.
+    # In that blind spot a browser-only feature shipped that printed
+    # "CLEAR TO SHOOT. All labor, turnaround, and technical rules verified."
+    # from three hardcoded conditionals, and sat on the live URL for six days
+    # behind a green run of this file.
+    for forbidden in (
+        "CLEAR TO SHOOT",
+        "rules verified",
+        "Multi-Agent Evaluation",
+        "safe to wrap.",
+    ):
+        if forbidden.lower() in body.lower():
+            raise CheckFailed(
+                f"the page prints {forbidden!r}. This product does not clear a scene "
+                "and does not infer a pass from absent evidence, and the page it "
+                "serves must not either"
+            )
+    lines.append("- the page loads, carries the promise, and gives no clearance")
 
     # 2. What the deployment says about itself.
     status, health = _request(base + "healthz")
