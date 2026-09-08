@@ -132,9 +132,33 @@ def bad_identifier(name: str, value: object) -> Optional[str]:
     return None
 
 
-def shape_error(kind: str, document: object) -> Optional[dict]:
+#: What each field must actually be. A dataclass constructor accepts anything,
+#: so `lens_mm: "fifty"` and `beat_ids: "B-17"` both landed in a scene package
+#: and were read by four checks. A string is iterable, so a take whose beat_ids
+#: is `"B-17"` covers the beats "B", "-", "1" and "7".
+FIELD_TYPES = {
+    "take_id": str, "shot_id": str, "slate": str, "camera_roll": str,
+    "sound_roll": str, "timecode_in": str, "timecode_out": str, "media_id": str,
+    "note": str, "captured_at": str, "lens_mm": int,
+    "preferred": bool, "usable": bool,
+    "beat_ids": list, "visible_people": list, "visible_assets": list,
+    "record_id": str, "subject_id": str, "subject_kind": str,
+    "document_type": str, "scope": str, "territory": str, "status": str,
+}
+
+#: Free text a person writes reaches a model prompt and a page. Bounded, because
+#: an unbounded one is a bill and a denial of service at the same time.
+MAX_TEXT = 2_000
+
+#: A rights record is a document that exists or does not. This is not the place
+#: to invent statuses: the check compares against these and anything else would
+#: silently read as "not executed", which is a refusal for the wrong reason.
+RIGHTS_STATUSES = {"executed", "pending", "expired", "withdrawn"}
+
+
+def shape_error(kind: object, document: object) -> Optional[dict]:
     """Say what is wrong with a supplied document, in the shape it should be."""
-    if kind not in INGEST_SHAPES:
+    if not isinstance(kind, str) or kind not in INGEST_SHAPES:
         return {
             "error": f"unknown kind {kind!r}",
             "accepted_kinds": sorted(INGEST_SHAPES),
@@ -160,6 +184,50 @@ def shape_error(kind: str, document: object) -> Optional[dict]:
             problem = bad_identifier(field, document[field])
             if problem:
                 return {"error": problem}
+
+    for field, value in document.items():
+        expected = FIELD_TYPES.get(field)
+        if expected is None:
+            continue
+        # bool is a subclass of int in Python, so an explicit check keeps
+        # `lens_mm: true` from being read as a 50mm lens.
+        if expected is int and isinstance(value, bool):
+            return {"error": f"{field} must be a whole number, not a boolean"}
+        if not isinstance(value, expected):
+            return {
+                "error": f"{field} must be {expected.__name__}, not "
+                f"{type(value).__name__}"
+            }
+        if expected is str and len(value) > MAX_TEXT:
+            return {"error": f"{field} is longer than {MAX_TEXT} characters"}
+        if expected is list:
+            if not all(isinstance(item, str) for item in value):
+                return {"error": f"{field} must be a list of strings"}
+            for item in value:
+                problem = bad_identifier(f"an entry in {field}", item)
+                if problem:
+                    return {"error": problem}
+
+    if "status" in document and document["status"] not in RIGHTS_STATUSES:
+        return {
+            "error": f"status must be one of {sorted(RIGHTS_STATUSES)}",
+            "given": document["status"],
+        }
+
+    row = document.get("camera_report_row")
+    if row is not None:
+        if not isinstance(row, dict):
+            return {"error": "camera_report_row must be a JSON object"}
+        # A camera report row is the camera department's record of *this* take.
+        # Accepting one that names a different take is a way to write a report
+        # row about somebody else's footage, and the media identity check reads
+        # exactly that. It would launder an existing conflict.
+        if row.get("take_id") != document.get("take_id"):
+            return {
+                "error": "camera_report_row.take_id must be this take's own id",
+                "given": row.get("take_id"),
+                "expected": document.get("take_id"),
+            }
     return None
 
 
@@ -172,6 +240,24 @@ def perform_ingest(run, kind, document, rebuild, base_package, state_of) -> dict
     module stays out of the HTTP layer's import graph. `state_of` shapes the
     response, which is the one thing here that is genuinely the caller's.
     """
+    # An identifier already in the package cannot be reused. `with_extra_take`
+    # appends, so a second T-001 would sit beside the real one: two takes with
+    # one id, an ambiguous camera report lookup, and a beat covered by whichever
+    # the iteration reached first. A correction replaces a document; it does not
+    # arrive as a duplicate with the same name.
+    existing = (
+        {t.take_id for t in run.package.takes}
+        if kind == "take"
+        else {r.record_id for r in run.package.rights_records}
+    )
+    supplied = document.get("take_id" if kind == "take" else "record_id")
+    if supplied in existing:
+        raise ValueError(
+            f"{supplied} is already in this scene package. Two records with one "
+            "identifier cannot both be true, and this one would not replace the "
+            "other, it would sit beside it."
+        )
+
     before = {
         f["finding_id"]: f.get(SEAL_KEY) for f in run.load_findings()
     }

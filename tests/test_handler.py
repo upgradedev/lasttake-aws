@@ -748,3 +748,96 @@ def test_the_whole_path_from_an_ingested_document_to_an_approved_turnover():
 
     turnover = post("/api/turnover", {"run_id": RUN})
     assert turnover["turnover"], "editorial received nothing"
+
+
+# -- what the active probe found on /api/ingest -----------------------------
+
+
+def test_the_ingest_endpoint_refuses_what_the_probe_threw_at_it():
+    """Every case here came back 200 or 500 from the live URL on the first run.
+
+    /api/ingest is the largest input surface this product has: an arbitrary JSON
+    document that becomes part of a scene package four checks then read, with one
+    field reaching a model prompt. A dataclass constructor accepts anything, so
+    "anything" is what it was accepting.
+    """
+    post("/api/checkpoint", {"run_id": RUN})
+
+    def ingest(document, kind="take"):
+        return post("/api/ingest", {"run_id": RUN, "kind": kind, "document": document})
+
+    # A kind that is not a string was an unhandled 500.
+    assert post("/api/ingest", {"run_id": RUN, "kind": ["take"], "document": {}})["status"] == 400
+
+    wrong_types = [
+        ({**A_TAKE, "lens_mm": "fifty"}, "lens_mm must be int"),
+        ({**A_TAKE, "lens_mm": True}, "must be a whole number, not a boolean"),
+        ({**A_TAKE, "beat_ids": "B-17"}, "beat_ids must be list"),
+        ({**A_TAKE, "beat_ids": [1, 2]}, "must be a list of strings"),
+        ({**A_TAKE, "preferred": "yes"}, "preferred must be bool"),
+        ({**A_TAKE, "note": "n" * 5000}, "longer than"),
+    ]
+    for document, expected in wrong_types:
+        refused = ingest(document)
+        assert refused["status"] == 400, f"accepted {expected}"
+        assert expected in refused["error"], refused["error"]
+
+    # A string is iterable, so a take whose beat_ids is "B-17" would have covered
+    # the beats "B", "-", "1" and "7".
+    assert ingest({**A_TAKE, "beat_ids": "B-17"})["status"] == 400
+
+
+def test_a_camera_report_row_cannot_be_about_a_different_take():
+    """The one that would launder an existing finding.
+
+    T-013's media identity conflict is planted in the corpus. Supplying a new
+    take whose camera_report_row claims to be T-013's, with the matching media
+    id, writes a second report row for somebody else's footage and the metadata
+    check reads exactly that.
+    """
+    post("/api/checkpoint", {"run_id": RUN})
+    refused = post(
+        "/api/ingest",
+        {
+            "run_id": RUN,
+            "kind": "take",
+            "document": {
+                **A_TAKE,
+                "camera_report_row": {
+                    "take_id": "T-013", "media_id": "A002R2B13",
+                    "lens_mm": 50, "camera_roll": "A002",
+                },
+            },
+        },
+    )
+    assert refused["status"] == 400
+    assert "must be this take's own id" in refused["error"]
+    assert refused["given"] == "T-013" and refused["expected"] == "T-900"
+
+
+def test_an_identifier_already_in_the_package_cannot_be_reused():
+    post("/api/checkpoint", {"run_id": RUN})
+    shadow = post(
+        "/api/ingest",
+        {"run_id": RUN, "kind": "take", "document": {**A_TAKE, "take_id": "T-001"}},
+    )
+    assert shadow["status"] == 400
+    assert "already in this scene package" in shadow["error"]
+
+
+def test_a_rights_status_has_to_be_one_the_check_knows():
+    post("/api/checkpoint", {"run_id": RUN})
+    invented = post(
+        "/api/ingest",
+        {
+            "run_id": RUN,
+            "kind": "rights_record",
+            "document": {
+                "record_id": "REL-990", "subject_id": "BG-07", "subject_kind": "person",
+                "document_type": "background release", "scope": "all media",
+                "territory": "worldwide", "status": "executed but not really",
+            },
+        },
+    )
+    assert invented["status"] == 400
+    assert "status must be one of" in invented["error"]
