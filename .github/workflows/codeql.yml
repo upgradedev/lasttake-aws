@@ -8,11 +8,18 @@ name: codeql
 # and a product whose whole claim is "absent evidence is a finding" should not
 # run the quieter ruleset on itself.
 #
-# Why the upload is conditional. Code scanning needs GitHub Advanced Security on
-# a private repository. This one is private until the owner flips it before the
-# deadline, so every run since 2026-09-04 has ended in a red X reading
-# "Resource not accessible by integration", which is the upload being refused
-# and not one line of our code being wrong.
+# Two separate things broke when this repository was made private, and they
+# looked like one.
+#
+# The first is a permission. The action reads its own workflow run through the
+# API, which needs `actions: read` on a private repository and nothing on a
+# public one. Without it the step fails with "Resource not accessible by
+# integration" *after* the analysis has finished and the SARIF has been written,
+# which reads like an analysis failure and is not one.
+#
+# The second is an entitlement. Uploading results to the Security tab needs
+# GitHub Advanced Security on a private repository, and that cannot be granted
+# from here.
 #
 # The analysis still runs either way. What changes is where the result goes: to
 # the Security tab when the account allows it, and to a build artifact plus a
@@ -32,6 +39,13 @@ on:
 permissions:
   contents: read
   security-events: write
+  # Needed on a private repository and not on a public one, which is why this
+  # job went red the day the repository was made private and not before. The
+  # action reads its own workflow run through the API, and without this the call
+  # returns "Resource not accessible by integration" and the step fails after
+  # the analysis has already succeeded. The SARIF was being produced correctly
+  # the whole time.
+  actions: read
 
 jobs:
   analyse:
