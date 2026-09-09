@@ -64,6 +64,8 @@ describe('current-scene projections',()=>{
       expect(selectEvidence(scene,state,selection).invalid).toBe(true);
       expect(selectEvidence(scene,state,selection).finding).toBeUndefined();
     }
+    const duplicate={...state,exceptions:[finding,{...finding,record_sha256:'different'}]};
+    expect(selectEvidence(scene,duplicate,{finding:finding.finding_id}).invalid).toBe(true);
   });
   it('marks stale decisions as needing fresh review and keeps current decisions visible',()=>{
     const d:Decision={decision_id:'d1',finding_id:finding.finding_id,action:'accept_exception',actor:'Sue',role:'script_supervisor',reason:'intent',finding_sha256:'old',at:'date'};

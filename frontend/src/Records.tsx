@@ -7,7 +7,12 @@ const filters={takes:'Supplied takes',script:'Script beats',findings:'Retained f
 export function Records({scene,state,selection}:{scene:Scene;state:RunState;selection:Selection}) {
   const kind=Object.hasOwn(filters,selection.filter ?? '')?selection.filter as keyof typeof filters:'takes';
   const search=selection.q ?? '';
-  const setSearch=(q:string)=>location.replace(link('records',state.run_id,selection.beat ?? undefined,{...selection,filter:kind,q}));
+  const setSearch=(q:string)=>{
+    // replaceState is synchronous; location.replace schedules hash navigation after
+    // the controlled input has already restored its previous value during typing.
+    history.replaceState(history.state,'',link('records',state.run_id,selection.beat ?? undefined,{...selection,filter:kind,q}));
+    window.dispatchEvent(new HashChangeEvent('hashchange'));
+  };
   const allFindings=exceptions(state);
   const takes=uniqueBy(scene.beats.flatMap(b=>b.takes),t=>t.take_id);
   const entries=kind==='takes'?takes.map(t=>({id:t.take_id,label:'Slate '+t.slate,detail:t.media_id})):kind==='script'?uniqueBy(scene.beats,b=>b.beat_id).map(b=>({id:b.beat_id,label:b.slug,detail:'Page '+b.page+', line '+b.line})):kind==='releases'?uniqueBy(scene.subjects,s=>s.subject_id).map(s=>({id:s.subject_id,label:s.subject_id,detail:s.released?'Executed status supplied':'No executed status supplied'})):allFindings.map(f=>({id:f.finding_id,label:words(f.check_type)+' · '+(f.requirement_id ?? 'Shot plan advisory'),detail:reviewLabel(f,state)}));

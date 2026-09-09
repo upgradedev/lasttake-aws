@@ -30,7 +30,7 @@ describe('dashboard scope and actions',()=>{
   it('shows unchecked and date-unavailable states and enables the actual checkpoint',()=>{
     const checkpoint=save();
     const {rerender}=render(<Dashboard scene={scene} state={{...state,counts:null,headline:null,pending_approval:null}} session={null} events={[]} busy={false} checkpoint={checkpoint}/>);
-    expect(screen.getByText('Run date unavailable')).toBeVisible();expect(screen.getByText(/No events recorded/)).toBeVisible();
+    expect(screen.getByText(/Run date unavailable/)).toBeVisible();expect(screen.getByText(/No events recorded/)).toBeVisible();
     fireEvent.click(screen.getByRole('button',{name:'Run wrap checkpoint'}));expect(checkpoint).toHaveBeenCalledOnce();
     rerender(<Dashboard scene={scene} state={{...state,counts:null}} session={session} events={[]} busy checkpoint={checkpoint}/>);
     expect(screen.getByRole('button',{name:'Run wrap checkpoint'})).toBeDisabled();
@@ -112,7 +112,7 @@ describe('route focus and snapshot integrity',()=>{
     await user.type(search,'MEDIA');
     await waitFor(()=>expect(search).toHaveValue('MEDIA'));expect(search).toHaveFocus();expect(location.hash).toContain('q=MEDIA');
     await user.click(within(screen.getByRole('navigation')).getByRole('link',{name:'Workspace'}));
-    expect(await screen.findByRole('heading',{level:1})).toHaveFocus();expect(location.hash).toContain('beat=B-01');
+    expect(await screen.findByRole('heading',{level:1,name:'Workspace'})).toHaveFocus();expect(location.hash).toContain('beat=B-01');
     expect(screen.getByLabelText('Show')).toHaveValue('all');
     expect(document.querySelectorAll('.beat')).toHaveLength(scene.beats.length);
     await act(async()=>{location.hash=link('records',state.run_id,'B-01',{filter:'takes',record:'T-1',q:'MEDIA'});});

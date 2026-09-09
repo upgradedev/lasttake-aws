@@ -2,7 +2,7 @@ import {aboutBeat,decisionFor,link} from './model';
 import type {Beat,EventRow,Finding,RunState,Scene,Selection} from './types';
 
 // Identity deduplication prevents a repeated transport row from inflating a count.
-// It does not choose between competing evidence versions or assess source bytes.
+// This is a projection of the server response, not verification of source bytes.
 export function uniqueBy<T>(rows:T[],id:(row:T)=>string):T[] {
   return [...new Map(rows.map(row=>[id(row),row])).values()];
 }
@@ -30,7 +30,8 @@ export function selectEvidence(scene:Scene,state:RunState,selection:Selection) {
   const all=exceptions(state);
   const beat=scene.beats.find(b=>b.beat_id===selection.beat);
   const requested=all.find(f=>f.finding_id===selection.finding);
-  const invalid=Boolean((selection.beat && !beat)||(selection.finding && !requested)||(beat && requested && !aboutBeat(requested,beat)));
+  const conflicting=requested && state.exceptions.some(f=>f.finding_id===requested.finding_id && f.record_sha256!==requested.record_sha256);
+  const invalid=Boolean(conflicting || (selection.beat && !beat)||(selection.finding && !requested)||(beat && requested && !aboutBeat(requested,beat)));
   const filtered=all.filter(f=>(!beat || aboutBeat(f,beat)) && (selection.filter!=='missing-releases'||f.check_type==='rights'));
   const finding=invalid?undefined:requested ?? filtered[0];
   return {beat,finding,findings:filtered,invalid,related:finding?beatsFor(scene,finding):[]};

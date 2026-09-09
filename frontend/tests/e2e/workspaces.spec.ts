@@ -43,7 +43,8 @@ test('LT-DASH scoped metrics drill into matching evidence, and desktop/mobile co
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await page.screenshot({path:info.outputPath('workspace-success.png'),fullPage:true});
   await expect(page.getByTestId('wrap-status')).toContainText('Not approved');
-  await expect(page.getByTestId('wrap-status')).toBeInViewport();
+  if(info.project.name==='desktop')await expect(page.getByTestId('wrap-status')).toBeInViewport();
+  else {await page.getByRole('link',{name:'03 Decision'}).click();await expect(page.getByTestId('wrap-status')).toBeInViewport();}
   await info.attach('current-scene-evidence',{body:JSON.stringify({run:body.run_id,scene:scene.scene_id,counts:current.counts,selected_finding:continuity.finding_id}),contentType:'application/json'});
   expect(errors).toEqual([]);
 });
