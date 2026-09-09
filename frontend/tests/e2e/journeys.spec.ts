@@ -96,8 +96,18 @@ test('LT03 saved Strands approval resumes, retry acts once, then approved turnov
   await page.getByLabel('Demo role').selectOption('first_ad');
   await page.getByRole('button',{name:'Review wrap readiness'}).click();
   await page.getByRole('button',{name:'Request wrap approval'}).click();
+  await expect(page.getByText('Wrap decision saved by the server',{exact:true})).toHaveCount(0);
+  await page.getByText('Current package fingerprint · SHA-256',{exact:true}).click();
+  const waiting=await (await page.request.post('/api/state',{data:body})).json();
+  await expect(page.locator('.approval-proof code')).toHaveText(waiting.package_revision_digest);
+  expect(waiting.package_revision_digest).toMatch(/^[a-f0-9]{64}$/);
   await page.getByRole('button',{name:'Approve wrap'}).click();
   await expect(page.getByText(/1st AD wrap decision is on record/)).toBeVisible();
+  await expect(page.getByText('Wrap decision saved by the server',{exact:true})).toBeVisible();
+  await page.emulateMedia({reducedMotion:'reduce'});
+  await expect(page.locator('.approval-check')).toHaveCSS('animation-name','none');
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await page.screenshot({path:info.outputPath('wrap-command-center.png'),fullPage:true});
   await navigate(page,'Turnovers & history');
   await page.getByRole('button',{name:'Publish approved turnover'}).click();
   await expect(page.getByRole('button',{name:'Download turnover'})).toBeVisible();

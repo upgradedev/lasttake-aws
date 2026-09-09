@@ -2,7 +2,7 @@ import {useState} from 'react';
 import {aboutBeat,link,roles,words} from './model';
 import type {Finding,RunState,Scene,Take} from './types';
 export function Evidence({finding,scene}:{finding:Finding;scene:Scene}) {
-  return <div className="evidence">
+  return <div className="evidence" data-check={finding.check_type}>
     <p className="eyebrow">{words(finding.check_type)} · {words(finding.truth_state)}</p>
     <h3>{finding.requirement_id ? scene.locations[finding.requirement_id] ?? finding.requirement_id : 'Shot plan advisory'}</h3>
     <p>{finding.observation}</p>
@@ -27,7 +27,7 @@ export function SceneView({scene,state,selected}:{scene:Scene;state:RunState;sel
   const outcomes=new Map((state.counts ? state.beats : []).map(b=>[b.beat_id,b]));
   const shown=scene.beats.filter(b=>(filter==='all'||state.exceptions.some(f=>aboutBeat(f,b))) && `${b.slug} ${b.beat_id}`.toLowerCase().includes(search.toLowerCase()));
   return <><div className="toolbar"><label className="grow">Find a beat<input type="search" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search script or beat identifier"/></label><label>Show<select value={filter} onChange={e=>setFilter(e.target.value)}><option value="all">All script beats</option><option value="exceptions">Beats with exceptions</option></select></label></div>
-  <div className="scene-layout"><section className="script" aria-label="Lined script"><div className="script-title"><p className="eyebrow">The Last Ferry · scene 42</p><h2>{scene.scene_heading}</h2><p>{scene.revision} · {scene.take_count} supplied takes</p></div>
+  <div className="scene-layout"><section className="script" aria-label="Lined script"><div className="script-title"><div className="slate-index" aria-hidden="true">SC / 042</div><div><p className="eyebrow">The Last Ferry · scene 42</p><h2>{scene.scene_heading}</h2><p>{scene.revision} · {scene.take_count} supplied takes</p></div></div>
     {shown.length===0 && <p className="empty">No beats match this filter. Try another search or show all beats.</p>}
     {shown.map(b=>{const outcome=outcomes.get(b.beat_id); return <article key={b.beat_id} id={`beat-${b.beat_id}`} className={`beat ${selected===b.beat_id?'selected':''}`}>
       <a className="beat-link" href={link('scene',state.run_id,b.beat_id)} aria-current={selected===b.beat_id?'location':undefined}><span className="page-line">{b.page}:{b.line}</span><span><span className="beat-slug">{b.slug}</span><span className={`badge ${outcome?.status==='covered_with_evidence'?'verified':''}`}>{outcome?words(outcome.status):'Not assessed'}</span></span></a>
