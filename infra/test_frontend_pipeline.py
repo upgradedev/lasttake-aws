@@ -1,11 +1,18 @@
 """CI-only structural regression checks for main -> deploy -> live UAT."""
 import copy
+import importlib.util
+import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
 
 import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
+spec = importlib.util.spec_from_file_location("ci_browser", ROOT / ".github/scripts/install-playwright-chromium.py")
+browser = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(browser)
 
 
 def read_workflow(name):
@@ -58,6 +65,18 @@ def validate(deploy, uat):
 
 
 class MainAcceptanceContract(unittest.TestCase):
+    def test_shared_browser_preparation_preserves_install_and_journey_contracts(self):
+        invocation = "python ../.github/scripts/install-playwright-chromium.py"
+        for name, job in (("frontend-ci.yml", "verify"), ("aws-uat.yml", "acceptance")):
+            steps = read_workflow(name)["jobs"][job]["steps"]
+            preparation = next(step for step in steps if invocation in step.get("run", ""))
+            self.assertEqual(preparation["working-directory"], "frontend")
+            self.assertNotIn("continue-on-error", preparation)
+        self.assertEqual(browser.COMMAND, ["npx", "playwright", "install", "--with-deps", "chromium"])
+        config = (ROOT / "frontend/playwright.config.ts").read_text()
+        for value in ("timeout:90000", "retries:0", "workers:1", "maxFailures:1"):
+            self.assertIn(value, config)
+
     def test_browser_reporting_cannot_silently_narrow_history_scan(self):
         workflow = read_workflow("frontend-ci.yml")
         steps = workflow["jobs"]["verify"]["steps"]
@@ -119,6 +138,108 @@ class MainAcceptanceContract(unittest.TestCase):
                     step["if"] = "success()"
             with self.subTest(broken=broken), self.assertRaises(AssertionError):
                 validate(self.deploy, uat)
+
+
+class BrowserPreparationContract(unittest.TestCase):
+    LIST = b"# managed Chrome source\ndeb [arch=amd64 signed-by=/usr/share/keyrings/google.gpg] https://dl.google.com/linux/chrome-stable/deb/ stable main\n"
+    SOURCES = b"Types: deb\nURIs: https://dl.google.com/linux/chrome-stable/deb/\nSuites: stable\nComponents: main\nSigned-By: /usr/share/keyrings/google.gpg\n"
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+        self.sources = self.root / "sources.list.d"
+        self.sources.mkdir()
+        self.ubuntu = self.sources / "ubuntu.sources"
+        self.ubuntu.write_bytes(b"Types: deb\nURIs: http://archive.ubuntu.com/ubuntu\nSuites: noble\nComponents: main\n")
+        self.original_ubuntu = browser.snapshot(self.ubuntu)
+
+    def execute(self, child, move=None):
+        result = browser.install(self.sources, self.root, run=child,
+                                 move=move or (lambda source, target: source.rename(target)))
+        self.assertEqual(browser.snapshot(self.ubuntu), self.original_ubuntu)
+        self.assertEqual(sorted(path.name for path in self.root.iterdir()), ["sources.list.d"])
+        return result
+
+    def test_absent_or_comment_only_chrome_source_is_noop(self):
+        for comments in (None, b"# no enabled Chrome repository\n"):
+            with self.subTest(comments=comments):
+                if comments:
+                    (self.sources / "google-chrome.list").write_bytes(comments)
+                calls = []
+                def child(command, **kwargs):
+                    calls.append((command, kwargs))
+                    return SimpleNamespace(returncode=0)
+                def unexpected_move(*args):
+                    self.fail("no source may move")
+                self.assertEqual(self.execute(child, unexpected_move), 0)
+                self.assertEqual(calls, [(["npx", "playwright", "install", "--with-deps", "chromium"], {"check": False})])
+
+    def test_chrome_only_formats_restore_original_bytes_and_metadata_after_success_or_failure(self):
+        for name, data in (("google-chrome.list", self.LIST), ("google-chrome.sources", self.SOURCES)):
+            for returncode in (0, 100):
+                with self.subTest(name=name, returncode=returncode):
+                    source = self.sources / name
+                    source.write_bytes(data)
+                    source.chmod(0o640)
+                    before = browser.snapshot(source)
+                    def child(command, **kwargs):
+                        self.assertFalse(source.exists())
+                        self.assertEqual(browser.snapshot(self.ubuntu), self.original_ubuntu)
+                        self.assertEqual(command, ["npx", "playwright", "install", "--with-deps", "chromium"])
+                        return SimpleNamespace(returncode=returncode)
+                    self.assertEqual(self.execute(child), returncode)
+                    self.assertEqual(browser.snapshot(source), before)
+                    source.unlink()
+
+    def test_all_sources_restore_when_child_cannot_launch(self):
+        originals = {}
+        for name, data in (("google-chrome.list", self.LIST), ("google-chrome.sources", self.SOURCES)):
+            source = self.sources / name
+            source.write_bytes(data)
+            originals[source] = browser.snapshot(source)
+        def child(*args, **kwargs):
+            self.assertTrue(all(not source.exists() for source in originals))
+            raise FileNotFoundError("installer unavailable")
+        with self.assertRaisesRegex(FileNotFoundError, "installer unavailable"):
+            self.execute(child)
+        for source, original in originals.items():
+            self.assertEqual(browser.snapshot(source), original)
+        self.assertEqual(browser.snapshot(self.ubuntu), self.original_ubuntu)
+
+    def test_mixed_sources_refused_before_any_move_or_install(self):
+        for name, data in (("google-chrome.list", self.LIST + b"deb https://example.invalid/ubuntu noble main\n"),
+                           ("google-chrome.sources", self.SOURCES.replace(b"/deb/", b"/deb/ https://example.invalid/ubuntu"))):
+            with self.subTest(name=name):
+                source = self.sources / name
+                source.write_bytes(data)
+                before = browser.snapshot(source)
+                def unexpected(*args, **kwargs):
+                    self.fail("mixed sources must fail before mutation or install")
+                with self.assertRaisesRegex(ValueError, "mixed or unrelated"):
+                    self.execute(unexpected, unexpected)
+                self.assertEqual(browser.snapshot(source), before)
+                self.assertEqual(browser.snapshot(self.ubuntu), self.original_ubuntu)
+                source.unlink()
+
+    def test_partial_move_failure_restores_previously_moved_source(self):
+        for name, data in (("google-chrome.list", self.LIST), ("google-chrome.sources", self.SOURCES)):
+            (self.sources / name).write_bytes(data)
+        def move(source, target):
+            if source == self.sources / "google-chrome.sources":
+                raise PermissionError("move refused")
+            source.rename(target)
+        with self.assertRaisesRegex(PermissionError, "move refused"):
+            self.execute(lambda *args, **kwargs: self.fail("installer must not run"), move)
+        self.assertEqual((self.sources / "google-chrome.list").read_bytes(), self.LIST)
+        self.assertEqual((self.sources / "google-chrome.sources").read_bytes(), self.SOURCES)
+
+    def test_symlink_and_non_ci_execution_refused(self):
+        (self.sources / "google-chrome.list").symlink_to(self.ubuntu)
+        with self.assertRaisesRegex(ValueError, "non-regular"):
+            self.execute(lambda *args, **kwargs: self.fail("installer must not run"))
+        with patch.dict(browser.os.environ, {}, clear=True), self.assertRaisesRegex(RuntimeError, "Linux CI"):
+            browser.main()
 
 
 if __name__ == "__main__":
