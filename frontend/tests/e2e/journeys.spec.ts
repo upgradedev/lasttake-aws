@@ -98,9 +98,8 @@ test('LT03 saved Strands approval resumes, retry acts once, then approved turnov
   await page.getByRole('button',{name:'Request wrap approval'}).click();
   await expect(page.getByText('Wrap decision saved by the server',{exact:true})).toHaveCount(0);
   await page.getByText('Current package fingerprint · SHA-256',{exact:true}).click();
-  const waiting=await (await page.request.post('/api/state',{data:body})).json();
-  await expect(page.locator('.approval-proof code')).toHaveText(waiting.package_revision_digest);
-  expect(waiting.package_revision_digest).toMatch(/^[a-f0-9]{64}$/);
+  const reviewedFingerprint=await page.locator('.approval-proof code').textContent();
+  expect(reviewedFingerprint).toMatch(/^[a-f0-9]{64}$/);
   await page.getByRole('button',{name:'Approve wrap'}).click();
   await expect(page.getByText(/1st AD wrap decision is on record/)).toBeVisible();
   await expect(page.getByText('Wrap decision saved by the server',{exact:true})).toBeVisible();
@@ -122,9 +121,8 @@ test('LT03 saved Strands approval resumes, retry acts once, then approved turnov
   const download=await downloadPromise;await download.saveAs(info.outputPath('wrap-receipt.json'));
   const receipt=await (await page.request.post('/api/receipt',{data:{...body,kind:'wrap'}})).json();
   expect(receipt.receipt.approved_by.role).toBe('first_ad');expect(receipt.receipt.record_sha256).toHaveLength(64);
+  expect(receipt.receipt.package_revision_digest).toBe(reviewedFingerprint);
   expect(receipt.receipt.still_open_count).toBeGreaterThan(0);
-  const forged=await page.request.post('/api/receipt',{data:{...body,subject:{caller_assertion:'unchecked'}}});expect(forged.status()).toBe(400);
-  const denied=await page.request.post('/api/state',{data:{run_id:body.run_id}});expect(denied.status()).toBe(403);
   const timeline=page.getByRole('region',{name:'Recorded events'});
   await expect(timeline.getByRole('listitem')).toHaveCount(20);
   await expect(timeline.getByRole('status')).toContainText('Events 1–20 of');
@@ -136,6 +134,15 @@ test('LT03 saved Strands approval resumes, retry acts once, then approved turnov
   await page.screenshot({path:info.outputPath('approved-turnover.png'),fullPage:true});
 });
 
+test('LT04 rejects caller-invented receipt claims and missing session authority',async({page})=>{
+  await fresh(page);
+  const body=await contract(page);
+  const forged=await page.request.post('/api/receipt',{data:{...body,subject:{caller_assertion:'unchecked'}}});
+  expect(forged.status()).toBe(400);
+  const denied=await page.request.post('/api/state',{data:{run_id:body.run_id}});
+  expect(denied.status()).toBe(403);
+});
+
 test('navigation keeps session-owned history and blocked browser storage remains usable',async({page},info)=>{
   await page.addInitScript(()=>{Storage.prototype.getItem=()=>{throw new DOMException('Blocked');};Storage.prototype.setItem=()=>{throw new DOMException('Blocked');};});
   await page.goto('/');
@@ -143,6 +150,8 @@ test('navigation keeps session-owned history and blocked browser storage remains
   await page.getByRole('button',{name:'Start this fictional shoot day'}).click();
   await expect(page.getByRole('button',{name:'Run wrap checkpoint'})).toBeVisible();
   await navigate(page,'Overview');await expect(page.getByText('Current saved run')).toBeVisible();
+  // A shadow token must not also name an opaque Tailwind shadow-color token.
+  await expect(page.locator('.summary.panel')).toHaveCSS('box-shadow',/rgba\(23, 38, 53, 0\.0?8\)/);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await page.screenshot({path:info.outputPath('overview.png'),fullPage:true});
 });

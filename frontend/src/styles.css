@@ -159,7 +159,7 @@
   .workspace {background:radial-gradient(ellipse at 75% 0,#dee6ec 0,transparent 45%),#f0f3f5}
   .page-heading .eyebrow {font-size:.75rem}
   .page-heading p:not(.eyebrow) {font-size:1rem;color:#526674}
-  .panel {@apply shadow-frame; border-color:#d1dbe2}
+  .panel {@apply shadow-slate-depth; border-color:#d1dbe2}
   .panel>p {font-size:1rem}
   .summary {border-top:3px solid #526779}
   .stats>div {border-top:2px solid #526779;box-shadow:0 5px 20px #18283607}
