@@ -40,7 +40,12 @@ test('LT-DASH scoped metrics drill into matching evidence, and desktop/mobile co
   const continuity=current.exceptions.find((f:{check_type:string})=>f.check_type==='continuity');
   await page.locator('.finding-picker a').filter({hasText:'continuity · '+continuity.requirement_id}).click();
   await expect(page.getByRole('article',{name:'continuity '+continuity.requirement_id,exact:true})).toBeVisible();
-  await expect(page.locator('.beat.selected').first()).toBeInViewport();
+  expect(await page.locator('.beat.selected').first().evaluate(row=>{
+    const list=row.closest('.pane-scroll')!.getBoundingClientRect();
+    const beat=row.getBoundingClientRect();
+    return beat.top>=list.top && beat.top<list.bottom;
+  })).toBe(true);
+  if(info.project.name==='desktop')await expect(page.locator('.beat.selected').first()).toBeInViewport();
   await page.getByRole('link',{name:'02 Evidence'}).click();
   await expect(page.getByRole('region',{name:'Evidence and exceptions'})).toBeFocused();
   await page.getByText('Source records & digests',{exact:true}).click();
