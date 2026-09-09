@@ -241,7 +241,7 @@ def _state(run: WrapRun) -> dict:
         "interpreter": run.interpreter.model_id,
         "run_state_store": run_store_kind(),
         "pending_approval": workspace.pending_for(run),
-        "turnover": json.loads(run.artifacts.get(turnover_key)) if run.artifacts.exists(turnover_key) else None,
+        **({"turnover": json.loads(run.artifacts.get(turnover_key))} if run.artifacts.exists(turnover_key) else {}),
         "package_revision_digest": run.package.revision_digest(),
     }
 
@@ -593,50 +593,7 @@ def route_turnover(body: dict, request_id: str) -> dict:
 
 
 def route_receipt(body: dict, request_id: str) -> dict:
-    """The portable half of LT-03.
-
-    A short sealed document a person can copy out of the page and paste into a
-    production email. It has to survive that trip: away from this interface
-    nobody can ask which run it was, so the run, the scene, the package digest,
-    the policy version and every still-open item travel inside the packet.
-
-    It is not gated on eligibility. A receipt about a scene that is *not* ready
-    is the more useful of the two, because that is the one somebody has to act
-    on in the morning.
-    """
-    run = build_run(body["run_id"])
-    kind = body.get("kind", "pickup")
-    if kind not in ("pickup", "wrap"):
-        return _json(
-            400,
-            {"error": "a receipt is about a pickup or a wrap",
-             "accepted_kinds": ["pickup", "wrap"]},
-            request_id,
-        )
-
-    findings = [from_dict(f) for f in run.load_findings()]
-    if not findings:
-        return _json(
-            409,
-            {"error": "nothing has been checked on this run yet, so there is "
-                      "nothing to give a receipt for"},
-            request_id,
-        )
-    decisions = [policy.decision_from_dict(d) for d in run.load_decisions()]
-
-    approved_by = run.wrap_approver() if run.wrap_approved() else None
-    manifest = receipt.build(
-        kind=kind,
-        run_id=run.run_id,
-        package=run.package,
-        findings=findings,
-        decisions=decisions,
-        policy_version=policy.POLICY_VERSION,
-        approved_by=approved_by if kind == "wrap" else None,
-        approved_role=policy.Role.FIRST_AD.value if approved_by else None,
-        subject=workspace.receipt_subject(body, run.package),
-    )
-    return _json(200, {"run_id": run.run_id, "receipt": manifest}, request_id)
+    return workspace.receipt_response(body, request_id, build_run, _json)
 
 
 def route_events(body: dict, request_id: str) -> dict:
