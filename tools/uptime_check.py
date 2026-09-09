@@ -28,12 +28,26 @@ TIMEOUT = 60
 #: The numbers the README, the video and the Devpost description all state. If
 #: the deployed pipeline stops producing them, every one of those surfaces is
 #: making a claim that is no longer true, which is the failure this catches.
+#: The five numbers every judge-facing surface states. Compared field by field,
+#: never as a whole dict: adding `basis` to the payload turned an unchanged count
+#: into a red check for eighteen hours, because dict equality treats a new key as
+#: a changed number. An assertion about five values should fail when one of the
+#: five moves and at no other time.
 EXPECTED_COUNTS = {
     "required_beats": 34,
     "covered_with_evidence": 31,
     "raising_exceptions": 2,
     "without_release_record": 1,
     "not_assessed": 0,
+}
+
+#: What those beats rest on. Not one of the five, and pinned separately so the
+#: breakdown cannot drift unwatched either.
+EXPECTED_BASIS = {
+    "declared_by_the_production": 2,
+    "corroborated_by_the_interpreter": 31,
+    "confirmed_by_a_named_human": 0,
+    "insufficient_evidence": 1,
 }
 
 
@@ -132,10 +146,37 @@ def check(base: str) -> list[str]:
     status, state = _request(base + "api/checkpoint", {"run_id": run_id})
     if status != 200 or not isinstance(state, dict):
         raise CheckFailed(f"checkpoint returned {status}: {state}")
-    counts = state.get("counts")
-    if counts != EXPECTED_COUNTS:
-        raise CheckFailed(f"the count changed. expected {EXPECTED_COUNTS}, got {counts}")
+    counts = state.get("counts") or {}
+    moved = {
+        name: (want, counts.get(name))
+        for name, want in EXPECTED_COUNTS.items()
+        if counts.get(name) != want
+    }
+    if moved:
+        raise CheckFailed(f"the count changed: {moved}")
+
+    basis = counts.get("basis")
+    if basis is None:
+        raise CheckFailed(
+            "the count no longer says what it rests on. `basis` is what separates a "
+            "mapping the production declared from one a reader corroborated, and "
+            "without it `covered` is one word doing four jobs again"
+        )
+    shifted = {
+        name: (want, basis.get(name))
+        for name, want in EXPECTED_BASIS.items()
+        if basis.get(name) != want
+    }
+    if shifted:
+        raise CheckFailed(f"what the count rests on changed: {shifted}")
+
     lines.append(f"- `{state['headline']}`")
+    lines.append(
+        "- of those beats, "
+        f"{basis['corroborated_by_the_interpreter']} corroborated by the interpreter, "
+        f"{basis['declared_by_the_production']} resting on the production's record alone, "
+        f"{basis['insufficient_evidence']} on nothing"
+    )
 
     # 5. The product's whole point: it stops and waits for a named human.
     pending = state.get("pending_approval")
