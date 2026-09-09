@@ -90,7 +90,7 @@ await holdScene("live", async () => {
   await page.reload();
   await page.getByRole("button", { name: "Decline pickup" }).waitFor({ timeout: 30_000 });
   await page.getByRole("button", { name: "Decline pickup" }).click();
-  await page.getByText(/did not approve the pickup/).waitFor();
+  await page.getByText(/did not approve a pickup/).waitFor();
 });
 await holdScene("sponsor", async () => {
   await page.getByText("Run details & execution labels").click();

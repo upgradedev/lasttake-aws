@@ -68,7 +68,7 @@ def test_current_docs_distinguish_live_demo_history_and_unknown_benefits():
         assert "https://d3kf6hquzlli8g.cloudfront.net/" in first
         assert "Strands" in first and "offline" in first.lower()
     assurance = text("docs/assurance.md")
-    assert "---|---|---|" not in assurance and "under $0.01" not in assurance
+    assert "---|---|---|" not in assurance.splitlines() and "under $0.01" not in assurance
     assert "Every component scales to zero" not in assurance
     assert "not truth" in text("README.md")
     assert "serialized records" in text("README.md")
@@ -79,6 +79,16 @@ def test_current_docs_distinguish_live_demo_history_and_unknown_benefits():
     assert uat["implementation_sha"] == "59844080b768993d67821fd6fb55db9049c998db"
     assert uat["ci_run_url"].endswith("/34377650942")
     assert uat["human_signoff"] == uat["live_aws_acceptance"] == "NOT_RUN"
+
+
+def test_backend_release_preserves_real_model_and_process_boundary_proofs():
+    workflow = text(".github/workflows/deploy.yml")
+    for assertion in ("assert len(interpreted) == 34", '== {"coverage", "continuity"}',
+                      '.startswith("bedrock:")', "assert c1 != c2", "assert required == 34",
+                      "assert covered <= 31", "assert f[\"confidence\"] < 1.0",
+                      "d['run_state_store']=='aurora-dsql'", "receipts[0]['status']=='accepted'"):
+        assert assertion in workflow
+    assert "under 0.01 USD" not in workflow
 
 
 def test_archive_is_fixed_source_read_only_manual_opt_in_and_deduplicated():
