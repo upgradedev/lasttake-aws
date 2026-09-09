@@ -100,6 +100,7 @@ describe('source inspector and scene mapping',()=>{
     const user=userEvent.setup();
     render(<SceneView scene={scene} state={state} selected="B-01" selection={{filter:'covered'}} act={save()}/>);
     await user.click(screen.getByRole('link',{name:'02 Evidence'}));expect(document.getElementById('evidence-pane')).toHaveFocus();expect(location.hash).toContain('beat=B-01');
+    expect(document.getElementById('evidence-pane')!.scrollIntoView).toHaveBeenCalledWith({block:'start'});
     await user.selectOptions(screen.getByLabelText('Show'),'missing-releases');
     expect(location.hash).toContain('filter=missing-releases');
   });
