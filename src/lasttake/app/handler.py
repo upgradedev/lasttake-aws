@@ -57,6 +57,7 @@ from .ingest import (
     shape_error,
 )
 from .scene_view import scene_view
+from . import workspace
 
 #: Minted when this container boots. Two requests that report different values
 #: were served by different processes. Two that report the same value were
@@ -211,7 +212,8 @@ def _state(run: WrapRun) -> dict:
     findings = [from_dict(f) for f in run.load_findings()]
     decisions = run.load_decisions()
     outcomes = rollup.roll_up(run.package, findings, decisions)
-    packet = run.load_packet()
+    packet = workspace.current_eligibility(run).to_dict() if findings else None
+    turnover_key = f"turnover/{run.run_id.replace(':', '_')}.json"
     return {
         "run_id": run.run_id,
         "scene_id": run.package.scene_id,
@@ -226,7 +228,7 @@ def _state(run: WrapRun) -> dict:
         # interface would keep showing an approval the gate has already stopped
         # honouring, which is the exact confusion this rule exists to remove.
         "exceptions": [
-            {**f.to_dict(), "record_sha256": f.record_sha256}
+            {**f.to_dict(), "record_sha256": f.record_sha256, "next_action": receipt.next_action(f)}
             for f in sorted(findings, key=lambda f: f.finding_id)
             if f.truth_state.is_exception
         ],
@@ -238,6 +240,9 @@ def _state(run: WrapRun) -> dict:
         "wrap_approved": run.wrap_approved(),
         "interpreter": run.interpreter.model_id,
         "run_state_store": run_store_kind(),
+        "pending_approval": workspace.pending_for(run),
+        "turnover": json.loads(run.artifacts.get(turnover_key)) if run.artifacts.exists(turnover_key) else None,
+        "package_revision_digest": run.package.revision_digest(),
     }
 
 
@@ -323,6 +328,7 @@ def route_checkpoint(body: dict, request_id: str) -> dict:
         state = _state(run)
 
     state["pending_approval"] = pending
+    workspace.remember_pending(run, pending)
     state["message"] = (
         "The run has stopped and is waiting for the 1st AD. This process is now "
         "finished. Approve whenever you like, even tomorrow."
@@ -352,6 +358,7 @@ def route_approve(body: dict, request_id: str) -> dict:
     state = _state(run)
     state["message"] = _last_tool_result(agent) or "Resumed."
     state["pending_approval"] = _pending_interrupt(result)
+    workspace.remember_pending(run, state["pending_approval"])
     return _json(200, state, request_id)
 
 
@@ -465,6 +472,8 @@ def route_decide(body: dict, request_id: str) -> dict:
         return _json(404, {"error": f"no finding {finding_id} on this run"}, request_id)
 
     finding = from_dict(raw)
+    if body.get("finding_sha256") and body["finding_sha256"] != finding.record_sha256:
+        return _json(409, {"error": "This finding changed since you reviewed it. Refresh and review the current evidence.", **_state(run)}, request_id)
     action = policy.DecisionAction(body["action"])
     role = policy.Role(body["role"])
     if not policy.authority_check(finding.check_type, action, role):
@@ -544,6 +553,7 @@ def route_wrap(body: dict, request_id: str) -> dict:
         state = _state(run)
         state["message"] = _last_tool_result(agent) or "Resumed."
         state["pending_approval"] = _pending_interrupt(result)
+        workspace.remember_pending(run, state["pending_approval"])
         return _json(200, state, request_id)
 
     try:
@@ -556,6 +566,7 @@ def route_wrap(body: dict, request_id: str) -> dict:
         return _json(409, state, request_id)
     state = _state(run)
     state["pending_approval"] = _pending_interrupt(result)
+    workspace.remember_pending(run, state["pending_approval"])
     state["message"] = _last_tool_result(agent) or "Asked the 1st AD."
     return _json(200, state, request_id)
 
@@ -564,6 +575,11 @@ def route_turnover(body: dict, request_id: str) -> dict:
     run = build_run(body["run_id"])
     from ..agents.tools import build_tools
 
+    key = f"turnover/{run.run_id.replace(':', '_')}.json"
+    if run.artifacts.exists(key):
+        state = _state(run)
+        state["message"] = "The original sealed turnover is already saved. Returned without republishing."
+        return _json(200, state, request_id)
     publish = build_tools(run)[-1]
     message = str(publish())
     state = _state(run)
@@ -618,7 +634,7 @@ def route_receipt(body: dict, request_id: str) -> dict:
         policy_version=policy.POLICY_VERSION,
         approved_by=approved_by if kind == "wrap" else None,
         approved_role=policy.Role.FIRST_AD.value if approved_by else None,
-        subject=body.get("subject") if isinstance(body.get("subject"), dict) else None,
+        subject=workspace.receipt_subject(body, run.package),
     )
     return _json(200, {"run_id": run.run_id, "receipt": manifest}, request_id)
 
@@ -680,9 +696,12 @@ def route_reset(body: dict, request_id: str) -> dict:
     one stays exactly as it was, and the audit trail of a demo that somebody
     else is halfway through is not disturbed.
     """
+    run_id = f"demo-{uuid.uuid4().hex[:12]}"
+    if body.get("session_id"):
+        workspace.register_run(body["session_id"], run_id, from_environment)
     return _json(
         200,
-        {"run_id": f"demo-{uuid.uuid4().hex[:12]}", "message": "New run. Nothing was deleted."},
+        {"run_id": run_id, "message": "New run. Nothing was deleted."},
         request_id,
     )
 
@@ -735,9 +754,13 @@ def handler(event: dict, context: Any) -> dict:
                 {"error": "this deployment stores run state in S3, which cannot answer a cross-run query"},
                 request_id,
             )
-        return _json(200, {"blocked": runs.blocked_scenes()}, request_id)
+        visible = [row for row in runs.blocked_scenes()
+                   if not _artifacts.exists(f"owners/{row['run_id']}.json")]
+        return _json(200, {"blocked": visible}, request_id)
 
     route = ROUTES.get(path)
+    if path == "/api/session":
+        route = lambda body, request_id: _json(200, workspace.session(body, build_run, from_environment), request_id)
     if route is None:
         return _json(404, {"error": f"no route {method} {path}"}, request_id)
 
@@ -749,7 +772,10 @@ def handler(event: dict, context: Any) -> dict:
     except ValueError:
         return _json(400, {"error": "body must be JSON"}, request_id)
 
-    if path != "/api/reset":
+    if not isinstance(body, dict):
+        return _json(400, {"error": "body must be a JSON object"}, request_id)
+
+    if path not in ("/api/reset", "/api/session"):
         run_id = str(body.get("run_id", ""))
         if not RUN_ID_PATTERN.match(run_id):
             return _json(
@@ -759,6 +785,11 @@ def handler(event: dict, context: Any) -> dict:
             )
 
     try:
+        if path not in ("/api/reset", "/api/session"):
+            owned = workspace.authorize(body, from_environment)
+            problem = workspace.guard_action(path, body, build_run(body["run_id"]), owned)
+            if problem:
+                return _json(problem[0], {"error": problem[1]}, request_id)
         return route(body, request_id)
     except Exception as exc:  # noqa: BLE001 - logged in full, never returned in full
         import traceback
@@ -776,6 +807,11 @@ def handler(event: dict, context: Any) -> dict:
                 },
                 request_id,
             )
+
+        if isinstance(exc, PermissionError):
+            return _json(403, {"error": str(exc)}, request_id)
+        if isinstance(exc, ValueError):
+            return _json(400, {"error": str(exc)}, request_id)
 
         # The full trace goes to CloudWatch, where the operator can read it and
         # the public cannot. The response carries the exception type and the

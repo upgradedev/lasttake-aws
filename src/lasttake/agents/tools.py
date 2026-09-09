@@ -286,7 +286,8 @@ def build_tools(run: WrapRun) -> list[Callable[..., Any]]:
             {"scene_id": run.package.scene_id, "approved_by_role": policy.Role.FIRST_AD.value},
             idempotent=True,
         )
-        run.audit("wrap.approved", {"receipt": receipt.reference})
+        run.audit("wrap.approved", {"receipt": receipt.reference,
+                                    "package_revision_digest": run.package.revision_digest()})
         return (
             f"Wrap approved by the 1st AD. Receipt {receipt.reference}. "
             "Publish the turnover now."
@@ -307,6 +308,8 @@ def build_tools(run: WrapRun) -> list[Callable[..., Any]]:
         findings = [from_dict(f) for f in run.load_findings()]
         decisions = [policy.decision_from_dict(d) for d in run.load_decisions()]
         eligibility = policy.evaluate(run.run_id, run.package, findings, decisions)
+        if not eligibility.eligible:
+            return "Refusing: current evidence is not eligible. Review the changed findings first."
         turnover = generate_turnover(
             run_id=run.run_id,
             package=run.package,
