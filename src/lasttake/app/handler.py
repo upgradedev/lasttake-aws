@@ -36,7 +36,7 @@ from ..checks import continuity as continuity_check
 from ..checks import coverage as coverage_check
 from ..checks import metadata as metadata_check
 from ..checks import rights as rights_check
-from ..domain import policy, rollup
+from ..domain import policy, receipt, rollup
 from ..domain.events import EventType, affected_by
 from ..domain.findings import from_dict
 from ..domain.sealing import SEAL_KEY
@@ -576,6 +576,53 @@ def route_turnover(body: dict, request_id: str) -> dict:
     return _json(200, state, request_id)
 
 
+def route_receipt(body: dict, request_id: str) -> dict:
+    """The portable half of LT-03.
+
+    A short sealed document a person can copy out of the page and paste into a
+    production email. It has to survive that trip: away from this interface
+    nobody can ask which run it was, so the run, the scene, the package digest,
+    the policy version and every still-open item travel inside the packet.
+
+    It is not gated on eligibility. A receipt about a scene that is *not* ready
+    is the more useful of the two, because that is the one somebody has to act
+    on in the morning.
+    """
+    run = build_run(body["run_id"])
+    kind = body.get("kind", "pickup")
+    if kind not in ("pickup", "wrap"):
+        return _json(
+            400,
+            {"error": "a receipt is about a pickup or a wrap",
+             "accepted_kinds": ["pickup", "wrap"]},
+            request_id,
+        )
+
+    findings = [from_dict(f) for f in run.load_findings()]
+    if not findings:
+        return _json(
+            409,
+            {"error": "nothing has been checked on this run yet, so there is "
+                      "nothing to give a receipt for"},
+            request_id,
+        )
+    decisions = [policy.decision_from_dict(d) for d in run.load_decisions()]
+
+    approved_by = run.wrap_approver() if run.wrap_approved() else None
+    manifest = receipt.build(
+        kind=kind,
+        run_id=run.run_id,
+        package=run.package,
+        findings=findings,
+        decisions=decisions,
+        policy_version=policy.POLICY_VERSION,
+        approved_by=approved_by if kind == "wrap" else None,
+        approved_role=policy.Role.FIRST_AD.value if approved_by else None,
+        subject=body.get("subject") if isinstance(body.get("subject"), dict) else None,
+    )
+    return _json(200, {"run_id": run.run_id, "receipt": manifest}, request_id)
+
+
 def route_events(body: dict, request_id: str) -> dict:
     run = build_run(body["run_id"])
     rows = run.bus.replay(run.correlation_id)
@@ -649,6 +696,7 @@ ROUTES = {
     "/api/evaluate": route_evaluate,
     "/api/wrap": route_wrap,
     "/api/turnover": route_turnover,
+    "/api/receipt": route_receipt,
     "/api/events": route_events,
     "/api/ingest": route_ingest,
     "/api/scene": route_scene,

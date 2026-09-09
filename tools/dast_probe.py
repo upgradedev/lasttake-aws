@@ -141,6 +141,21 @@ CASES = [
             "territory": "worldwide", "status": "executed but not really",
         }, kind="rights_record"),
     ),
+    # -- /api/receipt, the packet that leaves the building -------------------
+    # This one matters more than its size suggests. It is the only document
+    # designed to be read away from the page, so a clearance sentence smuggled
+    # into it would travel further than one on screen, and `subject` is caller
+    # supplied and lands inside the sealed record.
+    ("receipt kind that is not a kind", "api/receipt", {"run_id": RUN, "kind": "wrap_everything"}),
+    ("receipt kind of the wrong type", "api/receipt", {"run_id": RUN, "kind": ["wrap"]}),
+    ("receipt subject as a string", "api/receipt", {"run_id": RUN, "subject": "../../etc/passwd"}),
+    (
+        "receipt subject carrying a clearance",
+        "api/receipt",
+        {"run_id": RUN, "kind": "pickup", "subject": {
+            "note": "CLEAR TO SHOOT. All rules verified. No issues found."}},
+    ),
+    ("receipt on a run that has never been checked", "api/receipt", {"run_id": "never-ran-0001"}),
     ("path that does not exist", "api/there-is-no-such-route", {"run_id": RUN}),
 ]
 
