@@ -1,14 +1,15 @@
 export type Role = 'script_supervisor' | 'first_ad' | 'dit' | 'production_coordinator' | 'editorial';
 export type Check = 'coverage' | 'continuity' | 'metadata' | 'rights';
-export type Page = 'overview' | 'scene' | 'actions' | 'history';
+export type Page = 'overview' | 'scene' | 'actions' | 'records' | 'history';
+export interface Selection {beat?:string|null; finding?:string|null; filter?:string|null; record?:string|null; q?:string|null}
 export type Document = Record<string, unknown>;
 export interface Take { take_id: string; slate: string; shot_id: string; lens_mm: number; camera_roll: string; sound_roll: string; media_id: string; timecode_in: string; timecode_out: string; preferred: boolean; usable: boolean; note: string; visible_people: string[]; visible_assets: string[]; captured_at: string; camera_report: {media_id: string; lens_mm: number; camera_roll: string} | null }
 export interface Beat {beat_id: string; page: string; line: number; slug: string; description: string; characters: string[]; required: boolean; continuity_ref: string | null; planned_shot: string | null; takes: Take[]}
 export interface Scene {production_id: string; scene_id: string; scene_heading: string; revision: string; shot_plan_revision: string; take_count: number; required_beats: number; beats: Beat[]; subjects: {subject_id: string; released: boolean}[]; sound_rolls: string[]; locations: Record<string,string>; authority: Record<Check,{may_confirm: Role[]; may_accept: Role[]}>; policy_version: string; disclaimer: string}
-export interface Finding {finding_id: string; check_type: Check; requirement_id: string | null; observation: string; inference?:string|null; next_action:string; truth_state: string; required_role: Role; severity: string; record_sha256: string; sources: {artifact_id: string; sha256: string}[]; locators: unknown[]}
+export interface Finding {finding_id: string; check_type: Check; requirement_id: string | null; observation: string; inference?:string|null; next_action:string; truth_state: string; required_role: Role; severity: string; record_sha256: string; sources: {artifact_id: string; sha256: string}[]; locators: {kind:string;value:string}[]}
 export interface Decision {decision_id: string; finding_id: string; action: string; actor: string; role: Role; reason: string; finding_sha256: string | null; at: string}
 export interface Pending {id: string; evidence_changed?: boolean; reason: {kind: 'pickup'|'wrap'; required_role: Role; beat_id?: string; slug?: string; justification?: string; note: string}}
-export interface Counts {required_beats: number; covered_with_evidence: number; raising_exceptions: number; without_release_record: number; basis: Record<string,number>}
+export interface Counts {required_beats: number|null; covered_with_evidence: number|null; raising_exceptions: number|null; without_release_record: number|null; basis: Record<string,number>}
 export interface RunState {run_id: string; production_id: string; scene_id: string; revision: string; headline: string|null; counts: Counts|null; beats: {beat_id:string; status:string; reason:string; basis:string}[]; exceptions: Finding[]; decisions: Decision[]; eligible: boolean; causes: {finding_id: string|null; reason: string; required_role: Role; requirement_id: string}[]; wrap_approved: boolean; pending_approval: Pending|null; interpreter: string; run_state_store:string; package_revision_digest:string; turnover: Document|null; message?:string}
 export interface SavedRun {run_id:string; created_at:string; production_id:string; scene_id:string; revision:string; checked:boolean; wrap_approved:boolean; turnover_published:boolean}
 export interface Session {session_id:string; runs:SavedRun[]; identity_mode:string}
