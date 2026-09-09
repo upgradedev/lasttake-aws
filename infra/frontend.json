@@ -1,0 +1,7 @@
+{
+  "product": "lasttake",
+  "repository": "upgradedev/lasttake-aws",
+  "stack": "lasttake-frontend",
+  "region": "eu-west-1",
+  "api_domain": "1p6s28nyf0.execute-api.eu-west-1.amazonaws.com"
+}

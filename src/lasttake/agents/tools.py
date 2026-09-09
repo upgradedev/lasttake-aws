@@ -150,19 +150,7 @@ def build_tools(run: WrapRun) -> list[Callable[..., Any]]:
         arithmetic over evidence, not a decision, and it cannot approve a wrap.
         """
         findings = [from_dict(f) for f in run.load_findings()]
-        decisions = [
-            policy.HumanDecision(
-                decision_id=d["decision_id"],
-                finding_id=d["finding_id"],
-                action=policy.DecisionAction(d["action"]),
-                actor=d["actor"],
-                role=policy.Role(d["role"]),
-                reason=d["reason"],
-                finding_sha256=d.get("finding_sha256"),
-                at=d["at"],
-            )
-            for d in run.load_decisions()
-        ]
+        decisions = [policy.decision_from_dict(d) for d in run.load_decisions()]
         packet = policy.evaluate(run.run_id, run.package, findings, decisions)
         run.store_packet(packet.sealed())
 
@@ -298,7 +286,8 @@ def build_tools(run: WrapRun) -> list[Callable[..., Any]]:
             {"scene_id": run.package.scene_id, "approved_by_role": policy.Role.FIRST_AD.value},
             idempotent=True,
         )
-        run.audit("wrap.approved", {"receipt": receipt.reference})
+        run.audit("wrap.approved", {"receipt": receipt.reference,
+                                    "package_revision_digest": run.package.revision_digest()})
         return (
             f"Wrap approved by the 1st AD. Receipt {receipt.reference}. "
             "Publish the turnover now."
@@ -317,20 +306,10 @@ def build_tools(run: WrapRun) -> list[Callable[..., Any]]:
             )
 
         findings = [from_dict(f) for f in run.load_findings()]
-        decisions = [
-            policy.HumanDecision(
-                decision_id=d["decision_id"],
-                finding_id=d["finding_id"],
-                action=policy.DecisionAction(d["action"]),
-                actor=d["actor"],
-                role=policy.Role(d["role"]),
-                reason=d["reason"],
-                finding_sha256=d.get("finding_sha256"),
-                at=d["at"],
-            )
-            for d in run.load_decisions()
-        ]
+        decisions = [policy.decision_from_dict(d) for d in run.load_decisions()]
         eligibility = policy.evaluate(run.run_id, run.package, findings, decisions)
+        if not eligibility.eligible:
+            return "Refusing: current evidence is not eligible. Review the changed findings first."
         turnover = generate_turnover(
             run_id=run.run_id,
             package=run.package,

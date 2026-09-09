@@ -140,6 +140,28 @@ h2.sec{font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:var(--
   border-radius:4px;padding:7px 9px}
 .withheld{margin-top:9px;font-size:12px;background:var(--legal-bg);color:#40297d;
   border-radius:4px;padding:7px 9px}
+.withdrawn{margin-top:9px;font-size:12px;background:var(--warn-bg);color:#7a4f00;
+  border-radius:4px;padding:7px 9px}
+/* The role-scoped summary. It sits above the cards on purpose: a supervisor
+   walking to the camera truck reads the first thing on the screen, not the
+   eighth. */
+.mine{border:1px solid var(--rule);background:#fff;border-radius:6px;
+  padding:14px 16px;margin:0 0 14px}
+.mine h3{margin:0 0 4px;font-size:15px}
+.mine .lede{margin:0 0 11px;font-size:12.5px;color:var(--mute)}
+.mine ol{margin:0;padding-left:18px}
+.mine li{margin-bottom:10px;font-size:13px;line-height:1.5}
+.mine .act{font-weight:620}
+.mine .from{font-size:11.5px;color:var(--mute);display:block;margin-top:2px}
+.mine .others{margin:11px 0 0;font-size:12px;color:var(--mute);
+  border-top:1px dashed var(--rule);padding-top:9px}
+.mine .rowbtn{margin-top:11px}
+.mine button{font-size:12px;padding:6px 10px}
+.mine .quiet{font-size:13px;margin:0}
+.receipt{margin-top:11px;font-size:12px;background:var(--legal-bg);color:#40297d;
+  border-radius:4px;padding:8px 10px}
+.receipt pre{max-height:220px;overflow:auto;background:#fff;color:var(--ink);
+  padding:8px;border-radius:4px;font-size:11px;margin:7px 0 0}
 details.ev{margin-top:9px;border-top:1px dashed var(--rule);padding-top:8px}
 details.ev summary{cursor:pointer;font-size:12px;color:var(--mute);list-style:none}
 details.ev summary::-webkit-details-marker{display:none}
@@ -316,6 +338,7 @@ textarea{width:100%;font-size:11.5px;line-height:1.5;padding:9px;border:1px soli
     <div id="banner"></div>
 
     <h2 class="sec" id="exchead" style="display:none">Before you wrap</h2>
+    <div id="mine"></div>
     <div class="cards" id="cards"></div>
 
     <h2 class="sec">Bring in your own record</h2>
@@ -487,7 +510,9 @@ var WALK = [
   {
     id: 's3', label: 'A late take arrives', sub: 'targeted rerun',
     role: null,
-    run: function () { return call('/api/late-take', {beat_id: 'B-17'}); },
+    run: function () {
+      return call('/api/late-take', {beat_id: 'B-17'}).then(refreshScene);
+    },
     done: function () { return beatStatus('B-17') === 'covered_with_evidence'; },
     hint: 'The takes digest moved, so the checks that read the takes reran.'
   },
@@ -495,9 +520,9 @@ var WALK = [
     id: 's4', label: 'The signed release is filed', sub: 'one check reruns',
     role: 'production_coordinator',
     run: function () {
-      return call('/api/resolve-rights', {subject: 'BG-07'}).then(function () {
-        return call('/api/evaluate');
-      });
+      return call('/api/resolve-rights', {subject: 'BG-07'})
+        .then(refreshScene)
+        .then(function () { return call('/api/evaluate'); });
     },
     done: function () {
       return !!(STATE && STATE.counts && STATE.counts.without_release_record === 0);
@@ -605,7 +630,20 @@ function runStep(index) {
 
 /* ---------- the wire --------------------------------------------------- */
 
-function call(path, extra) {
+/* `refusalIsAnAnswer` exists because of a defect the browser test found on the
+   deployed build. A form that refuses a document has to say so *at the form*,
+   naming the field, and it has to keep what the person typed. This function was
+   swallowing every non-200: it put the one-line error in the banner at the top
+   of the page and handed the caller null, so the ingest form's own output area
+   stayed empty and the structured detail the API had already computed, which
+   field is missing and which is not part of the record, was thrown away by the
+   page that asked for it.
+
+   A refusal is not a failure to answer. It is the answer, and for a form it is
+   the only one that matters, so a caller may ask for the body instead of a
+   banner. Nothing about the run state is touched on that path: a refused
+   document must not move anything. */
+function call(path, extra, refusalIsAnAnswer) {
   if (BUSY) return Promise.resolve(null);
   BUSY = true;
   paint();
@@ -617,6 +655,7 @@ function call(path, extra) {
     body: JSON.stringify(payload)
   }).then(function (r) {
     return r.json().then(function (d) {
+      if (!r.ok && refusalIsAnAnswer) { d.refused = true; return d; }
       if (!r.ok) { banner(d.error || ('HTTP ' + r.status), true); return null; }
       if (d.counts !== undefined) STATE = d;
       if (d.pending_approval !== undefined) PENDING = d.pending_approval;
@@ -823,17 +862,50 @@ function paintVerdict() {
 
 /* ---------- the exceptions --------------------------------------------- */
 
+/* The decision that still applies to this reading of this finding.
+ *
+ * Matching on finding_id alone would keep showing an approval after the evidence
+ * moved, because ids are deterministic and survive a rerun. The gate already
+ * ignores such a decision; the page has to as well, or a supervisor reads
+ * "accepted" beside a finding nobody has looked at since it changed. */
 function decidedBy(f) {
   var list = (STATE && STATE.decisions) || [];
   for (var i = 0; i < list.length; i++) {
-    if (list[i].finding_id === f.finding_id) return list[i];
+    var d = list[i];
+    if (d.finding_id !== f.finding_id) continue;
+    if (d.finding_sha256 && f.record_sha256 && d.finding_sha256 !== f.record_sha256) {
+      continue;  // taken about a different reading
+    }
+    return d;
+  }
+  return null;
+}
+
+/* And a decision that used to apply, so the page can say so rather than simply
+   losing it. Silence after an approval disappears is its own confusion. */
+function withdrawnFor(f) {
+  var list = (STATE && STATE.decisions) || [];
+  for (var i = 0; i < list.length; i++) {
+    var d = list[i];
+    if (d.finding_id !== f.finding_id) continue;
+    if (d.finding_sha256 && f.record_sha256 && d.finding_sha256 !== f.record_sha256) {
+      return d;
+    }
   }
   return null;
 }
 
 function decided(f) {
   var d = decidedBy(f);
-  if (!d) return '';
+  if (!d) {
+    var gone = withdrawnFor(f);
+    if (!gone) return '';
+    return '<div class="withdrawn">' + esc(gone.actor) + ' (' + esc(gone.role) +
+      ') recorded ' + esc(String(gone.action).replace(/_/g, ' ')) + ' at ' +
+      esc(String(gone.at).replace('T', ' ').slice(0, 19)) + ', and that no longer ' +
+      'applies: the evidence has been read again since. Somebody has to look at ' +
+      'what it says now.</div>';
+  }
   return '<div class="decided">' + esc(d.actor) + ' (' + esc(d.role) + ') recorded ' +
     esc(String(d.action).replace(/_/g, ' ')) + ' at ' +
     esc(String(d.at).replace('T', ' ').slice(0, 19)) +
@@ -860,6 +932,139 @@ function decideFinding(findingId, action) {
     // leaving the page showing an eligibility that is one decision out of date.
     if (d) return call('/api/evaluate');
     return d;
+  });
+}
+
+/* ---------- what is yours, right now ----------------------------------- */
+
+/* LT-03. A script supervisor with forty minutes of daylight left should not have
+   to read eight cards to find the two that are theirs, and a 1st AD standing at
+   the truck should not have to read an agent trace at all.
+
+   So this answers three questions and nothing else: what do I do, who owns it,
+   and where did it come from. Ownership is read from the authority table the
+   gate enforces, the same source paintCards uses, so if the policy ever moves a
+   check to another role this follows without being edited. A hardcoded
+   role-to-check map here would be a second opinion about authority, and the
+   whole product rests on there being only one. */
+/* paintMine rewrites the whole panel, so the receipt is held here rather than in
+   the DOM. Otherwise the packet a person had just copied would disappear the
+   next time anything on the page repainted, which on a shoot day is constantly. */
+var RECEIPT_HTML = '';
+
+function ownsIt(f) {
+  var auth = (SCENE && SCENE.authority && SCENE.authority[f.check_type]) || {};
+  return (auth.may_confirm || []).indexOf(ROLE) >= 0;
+}
+
+function sourceOf(f) {
+  var where_of = (SCENE && SCENE.locations) || {};
+  return (f.requirement_id && where_of[f.requirement_id]) ||
+    (f.locators || []).map(function (l) {
+      return l.kind.replace(/_/g, ' ') + ' ' + l.value;
+    }).join(' · ') ||
+    (f.sources || []).map(function (s) { return s.artifact_id; }).join(' · ') ||
+    f.finding_id;
+}
+
+function paintMine() {
+  var all = ((STATE && STATE.exceptions) || []).slice().sort(function (a, b) {
+    var d = (COST_ORDER[a.check_type] === undefined ? 9 : COST_ORDER[a.check_type]) -
+            (COST_ORDER[b.check_type] === undefined ? 9 : COST_ORDER[b.check_type]);
+    return d !== 0 ? d : (a.finding_id < b.finding_id ? -1 : 1);
+  });
+  if (!all.length) { $('mine').innerHTML = ''; return; }
+
+  var open = all.filter(function (f) { return !decidedBy(f); });
+  var mine = open.filter(ownsIt);
+  var theirs = open.filter(function (f) { return !ownsIt(f); });
+
+  var head = '<div class="mine"><h3>Standing in as ' + esc(ROLE_NAME[ROLE]) +
+    '</h3><p class="lede">What is yours before the set is struck, in the order the ' +
+    'cost falls. Every line names the action, the role that owns it and the record ' +
+    'it was read from.</p>';
+
+  var body;
+  if (mine.length) {
+    body = '<ol>' + mine.map(function (f) {
+      return '<li><span class="act">' + esc(kindOf(f).now) + '</span>' +
+        '<span class="from">' + esc(ROLE_NAME[f.required_role] || f.required_role) +
+        ' · read from ' + esc(sourceOf(f)) + '</span></li>';
+    }).join('') + '</ol>';
+  } else {
+    /* Deliberately not "no issues found". The page must never print a sentence
+       that reads as a clearance, and the live probes forbid that one by name.
+       Nothing here is yours is a fact about the authority table; it says
+       nothing at all about whether the scene is ready. */
+    body = '<p class="quiet">Nothing on this scene is yours to decide right now. ' +
+      (theirs.length
+        ? 'That is not the same as nothing being open: ' + theirs.length +
+          ' item(s) below belong to another role.'
+        : 'The open items have all been decided.') + '</p>';
+  }
+
+  var others = '';
+  if (theirs.length) {
+    var by = {};
+    theirs.forEach(function (f) {
+      var r = ROLE_NAME[f.required_role] || f.required_role;
+      by[r] = (by[r] || 0) + 1;
+    });
+    others = '<p class="others">Waiting on somebody else: ' +
+      Object.keys(by).sort().map(function (r) {
+        return esc(by[r] + ' with ' + r);
+      }).join(', ') + '. The policy does not offer those to you.</p>';
+  }
+
+  $('mine').innerHTML = head + body + others +
+    '<div class="rowbtn"><button id="bReceipt">Copy a receipt I can send</button></div>' +
+    '<div id="receiptOut">' + RECEIPT_HTML + '</div></div>';
+  bind('bReceipt', takeReceipt);
+}
+
+/* The packet is going to be pasted into an email and read by somebody who never
+   saw this page, so it has to carry its own context. The server builds and seals
+   it; the page only moves it to the clipboard, and shows it either way, because
+   clipboard permission is not something a judge should have to grant to see the
+   thing exists. */
+function takeReceipt() {
+  /* `#receiptOut` is re-created by every paintMine, so the node is looked up
+     again after the request rather than captured before it. Holding the old
+     reference across the await writes into a node that is no longer in the
+     document, and the packet the person asked for silently never appears. */
+  RECEIPT_HTML = '<div class="receipt">Asking the server for a sealed receipt…</div>';
+  $('receiptOut').innerHTML = RECEIPT_HTML;
+  return fetch('/api/receipt', {
+    method: 'POST',
+    headers: {'content-type': 'application/json'},
+    body: JSON.stringify({run_id: RUN, kind: 'pickup'})
+  }).then(function (r) {
+    return r.json().then(function (d) { return {ok: r.ok, d: d}; });
+  }).then(function (res) {
+    if (!res.ok || !res.d.receipt) {
+      RECEIPT_HTML = '<div class="receipt">' +
+        esc((res.d && res.d.error) || 'the receipt could not be built') + '</div>';
+      $('receiptOut').innerHTML = RECEIPT_HTML;
+      return;
+    }
+    var text = JSON.stringify(res.d.receipt, null, 2);
+    var copied = false;
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text);
+        copied = true;
+      }
+    } catch (e) { copied = false; }
+    RECEIPT_HTML = '<div class="receipt" id="receiptBox">' +
+      (copied ? 'Copied to the clipboard. ' : 'Select and copy it from here. ') +
+      'It carries run <span class="mono">' + esc(res.d.receipt.run_id) +
+      '</span>, policy ' + esc(res.d.receipt.policy_version) + ', schema ' +
+      esc(res.d.receipt.schema) + ' and ' + esc(res.d.receipt.still_open_count) +
+      ' still-open item(s), so it still means something a week from now on a ' +
+      'phone. An accepted exception travels in that list too: somebody signed ' +
+      'for it, which does not make it fixed.' +
+      '<pre id="receiptText">' + esc(text) + '</pre></div>';
+    $('receiptOut').innerHTML = RECEIPT_HTML;
   });
 }
 
@@ -981,7 +1186,7 @@ function decide(yes) {
   var isWrap = (PENDING.reason || {}).kind === 'wrap';
   return call(isWrap ? '/api/wrap' : '/api/approve',
     {interrupt_id: PENDING.id, approve: yes}).then(function (d) {
-    if (d && !isWrap && yes) PICKUP_APPROVED = true;
+    if (d && !isWrap && yes) { PICKUP_APPROVED = true; remember({pickup_approved: true}); }
     if (d && isWrap && yes) return call('/api/turnover').then(showTurnover);
     paint();
     return d;
@@ -1034,6 +1239,11 @@ function fillIngest() {
 }
 
 function ingest() {
+  if (BUSY) {
+    $('ingestOut').innerHTML = '<div class="shape bad">The page is still finishing ' +
+      'the last request. Nothing was sent. Try again in a moment.</div>';
+    return;
+  }
   var raw = $('ingestDoc').value;
   var parsed;
   try {
@@ -1043,10 +1253,10 @@ function ingest() {
       esc(String(e.message)) + '</div>';
     return;
   }
-  return call('/api/ingest', {kind: $('ingestKind').value, document: parsed})
+  return call('/api/ingest', {kind: $('ingestKind').value, document: parsed}, true)
     .then(function (d) {
       if (!d) return;
-      if (d.error || d.missing || d.unexpected) {
+      if (d.refused || d.error || d.missing || d.unexpected) {
         var html = '<div class="shape bad">' + esc(d.error || 'the document was refused');
         if (d.missing && d.missing.length) {
           html += '<ul><li>missing: ' + esc(d.missing.join(', ')) + '</li></ul>';
@@ -1072,7 +1282,14 @@ function ingest() {
             ' no longer applies: ' + esc(x.why) + '</li>';
         }).join('') + '</ul>';
       }
-      $('ingestOut').innerHTML = out + '</div>';
+      // The script is refreshed *before* the confirmation is written, so the
+      // message and the take appear together. Writing "Ingested" first means
+      // telling somebody their document is on the record while the record on
+      // screen does not have it yet, and a reader who counts what is in front of
+      // them at that moment gets the old number.
+      return refreshScene().then(function () {
+        $('ingestOut').innerHTML = out + '</div>';
+      });
     });
 }
 
@@ -1104,8 +1321,12 @@ function paintInbox() {
         : 'Available once the 1st AD has approved the wrap.',
       'Publish the turnover', 'iTurn', !wrapped)
   ].join('');
-  bind('iLate', function () { call('/api/late-take', {beat_id: 'B-17'}); });
-  bind('iRights', function () { call('/api/resolve-rights', {subject: 'BG-07'}); });
+  bind('iLate', function () {
+    call('/api/late-take', {beat_id: 'B-17'}).then(refreshScene);
+  });
+  bind('iRights', function () {
+    call('/api/resolve-rights', {subject: 'BG-07'}).then(refreshScene);
+  });
   bind('iEval', function () { call('/api/evaluate'); });
   bind('iWrap', function () { call('/api/wrap'); });
   bind('iTurn', function () { call('/api/turnover').then(showTurnover); });
@@ -1270,9 +1491,31 @@ function closeTake() {
 
 /* ---------- paint ------------------------------------------------------ */
 
+/* The controls that are not rebuilt on every paint still have to tell the truth
+   about whether the page is working.
+
+   The browser test found this the hard way. Accepting an exception posts to
+   /api/decide and then chains /api/evaluate, and a person who pressed "Ingest
+   and re-check" during that second request got *nothing*: `call` sees BUSY,
+   returns null, and the click vanishes with no message and no visible reason.
+   The inbox buttons were already disabled while busy because they are re-rendered
+   each paint; these are static markup, so nobody had told them. A control that
+   looks pressable and silently does nothing is worse than one that is greyed
+   out, because the person's next move is to press it again. */
+function paintBusy() {
+  /* Not 'go': paintWalk already owns that button's disabled state and has a
+     second reason to keep it disabled, so two owners here would fight. */
+  ['bIngest', 'bReset'].forEach(function (id) {
+    var el = $(id);
+    if (el) el.disabled = BUSY;
+  });
+}
+
 function paint() {
+  paintBusy();
   paintScene();
   paintVerdict();
+  paintMine();
   paintCards();
   paintPause();
   paintInbox();
@@ -1341,20 +1584,32 @@ $('bEvents').onclick = function () {
 };
 
 $('bReset').onclick = function () {
-  fetch('/api/reset', {
-    method: 'POST', headers: {'content-type': 'application/json'}, body: '{}'
-  }).then(function (r) { return r.json(); }).then(function (d) {
-    RUN = d.run_id;
-    STATE = null; PENDING = null; LINKED = null; PICKUP_APPROVED = false;
-    $('turnbox').innerHTML = ''; $('events').innerHTML = ''; $('tally').innerHTML = '';
-    $('vhead').className = 'skel';
-    $('vhead').textContent = 'Reconciling the scene…';
-    $('verdict').className = 'verdict';
-    ROLE = 'script_supervisor';
-    $('role').value = ROLE;
-    return start();
-  });
+  STATE = null; PENDING = null; LINKED = null; PICKUP_APPROVED = false;
+  $('turnbox').innerHTML = ''; $('events').innerHTML = ''; $('tally').innerHTML = '';
+  $('vhead').className = 'skel';
+  $('vhead').textContent = 'Reconciling the scene…';
+  $('verdict').className = 'verdict';
+  ROLE = 'script_supervisor';
+  $('role').value = ROLE;
+  banner('', false);
+  forget();
+  return freshRun();
 };
+
+/* The lined script is drawn from SCENE, which was loaded once and then never
+   again. So a take somebody supplied changed the beat's status, because that
+   comes from the findings, and never appeared on the script, because the takes
+   come from here. The person saw the beat go green with nothing behind it and
+   had to reload to see their own document.
+
+   Anything that amends the scene package has to refresh this. That is the ingest
+   form and the two inbox actions that file a record. */
+function refreshScene() {
+  return call('/api/scene').then(function (d) {
+    if (d) { SCENE = d; paint(); }
+    return d;
+  });
+}
 
 function start() {
   return call('/api/scene').then(function (d) {
@@ -1367,12 +1622,103 @@ function start() {
   });
 }
 
-fetch('/api/reset', {
-  method: 'POST', headers: {'content-type': 'application/json'}, body: '{}'
-}).then(function (r) { return r.json(); }).then(function (d) {
-  RUN = d.run_id;
-  start();
-});
+/* Coming back to the run you left, and only your own.
+ *
+ * Every page load used to mint a new run id, so a reload threw away whatever you
+ * had ingested and re-ran the checkpoint against the untouched corpus. That made
+ * the one thing this product is for, watching a supplied document change the
+ * findings, unobservable the moment anybody pressed refresh.
+ *
+ * The run id lives in localStorage, which is per browser and per origin. It is
+ * never shared between visitors and never read from the server's idea of "the
+ * last run", because two judges opening the same URL must not land in each
+ * other's shoot day. Storage can throw outright in a private window, so every
+ * read and write is guarded and a failure just means a fresh run.
+ */
+var RUN_KEY = 'lasttake.run';
+
+function remembered() {
+  try {
+    var raw = window.localStorage.getItem(RUN_KEY);
+    if (!raw) return null;
+    var saved = JSON.parse(raw);
+    if (!saved || !/^[a-z0-9-]{8,64}$/.test(saved.run_id || '')) return null;
+    return saved;
+  } catch (e) {
+    return null;
+  }
+}
+
+function remember(patch) {
+  try {
+    var saved = remembered() || {};
+    for (var k in patch) saved[k] = patch[k];
+    saved.run_id = RUN;
+    window.localStorage.setItem(RUN_KEY, JSON.stringify(saved));
+  } catch (e) {
+    // A browser that refuses storage still works; it just cannot resume.
+  }
+}
+
+function forget() {
+  try { window.localStorage.removeItem(RUN_KEY); } catch (e) { /* nothing to do */ }
+}
+
+function freshRun() {
+  return fetch('/api/reset', {
+    method: 'POST', headers: {'content-type': 'application/json'}, body: '{}'
+  }).then(function (r) { return r.json(); }).then(function (d) {
+    RUN = d.run_id;
+    PICKUP_APPROVED = false;
+    remember({});
+    return start();
+  });
+}
+
+function boot() {
+  var saved = remembered();
+  if (!saved) return freshRun();
+
+  // Ask the server whether that run still holds anything. A run id in storage
+  // is a claim; findings on the server are the evidence for it.
+  RUN = saved.run_id;
+  return fetch('/api/state', {
+    method: 'POST',
+    headers: {'content-type': 'application/json'},
+    body: JSON.stringify({run_id: RUN})
+  }).then(function (r) {
+    return r.ok ? r.json() : null;
+  }).then(function (d) {
+    if (!d || !d.counts) {
+      forget();
+      return freshRun();
+    }
+    STATE = d;
+    PENDING = d.pending_approval || null;
+    PICKUP_APPROVED = !!saved.pickup_approved;
+    served(d.served_by);
+    return call('/api/scene').then(function (scene) {
+      SCENE = scene;
+      paint();
+      loadBlocked();
+      if (d.wrap_approved) {
+        call('/api/turnover').then(showTurnover);
+      }
+      banner(
+        'Resumed run ' + RUN + '. This is the same shoot day you left, read back ' +
+        'from the record. Nothing was recomputed and nothing you ingested was ' +
+        'discarded. Use "Fresh shoot day" below to start a different one.',
+        false
+      );
+      return d;
+    });
+  }).catch(function () {
+    forget();
+    return freshRun();
+  });
+}
+
+boot();
 </script>
 </body>
 </html>

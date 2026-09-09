@@ -423,3 +423,24 @@ def authority_check(check_type: CheckType, action: DecisionAction, role: Role) -
     if action is DecisionAction.ACCEPT_EXCEPTION:
         return role in MAY_ACCEPT_EXCEPTION.get(check_type, set())
     return True
+
+
+def decision_from_dict(data: dict) -> HumanDecision:
+    """Rebuild a stored decision. One reader, used everywhere one is loaded.
+
+    ``finding_sha256`` is read with ``.get`` on purpose. A decision recorded
+    before the binding existed carries no digest, and dropping those would
+    silently discard human judgements that were validly taken. Such a decision
+    is treated as applying; ``_resolution`` handles the ones that do carry a
+    digest and no longer match.
+    """
+    return HumanDecision(
+        decision_id=data["decision_id"],
+        finding_id=data["finding_id"],
+        action=DecisionAction(data["action"]),
+        actor=data["actor"],
+        role=Role(data["role"]),
+        reason=data["reason"],
+        finding_sha256=data.get("finding_sha256"),
+        at=data["at"],
+    )

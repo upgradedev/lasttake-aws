@@ -1,0 +1,146 @@
+{
+  "schema": "lasttake/build-stories/v1",
+  "status": "DRAFT, NOT PUBLISHED",
+  "what_this_is": [
+    "Three builder.aws build-story drafts for LastTake, prepared from decisions that",
+    "actually shipped and numbers that were actually measured. Nothing here is",
+    "published: publishing is an outward-facing action and belongs to the owner.",
+    "Public links go in published_url when that happens, and until then the field",
+    "stays null rather than holding a URL nobody has visited."
+  ],
+  "rules_these_drafts_were_written_under": [
+    "Every number carries the command that produced it. A number with no command",
+    "does not go in a story.",
+    "No invented experiment, no copied text from another entry, and no claim of",
+    "superiority over anything we did not measure.",
+    "The corpus is synthetic and each story says so, because a reader who assumes",
+    "a real production was served has been misled by omission.",
+    "A story describes what was built and what it cost to get right. It does not",
+    "score the product."
+  ],
+  "stories": [
+    {
+      "id": "BS-01",
+      "working_title": "The bug that only appears when you delete the model",
+      "published_url": null,
+      "the_decision_it_is_about": [
+        "Running the whole pipeline with the interpreter removed, as an ablation,",
+        "to see how much of the result the model is actually responsible for."
+      ],
+      "what_happened": [
+        "The covered count went up when the model was removed: 31 became 32. A",
+        "check that fails open looks like a check that passes, and it looks most",
+        "like one exactly when the thing it depends on is missing.",
+        "Two fail-opens came out of it. Continuity was blocking only on CONFLICTING",
+        "rather than on any exception state, and a beat was being counted covered",
+        "without its coverage finding being VERIFIED. Both are one-line changes and",
+        "neither was visible in a passing test suite.",
+        "The general shape: absent evidence has to be a finding. An ablation is the",
+        "cheapest way to find the places where it silently became a pass."
+      ],
+      "evidence": {
+        "command": "PYTHONPATH=src python tools/ablation.py",
+        "artifact": "docs/ablation.json",
+        "code": [
+          "src/lasttake/domain/rollup.py",
+          "tools/ablation.py"
+        ]
+      },
+      "aws_content": [
+        "The ablation runs against the local adapters that implement the same ports",
+        "as the deployed Lambda, so it needs no account to reproduce."
+      ],
+      "synthetic_notice": "Every figure is over a synthetic scene package. No real production data."
+    },
+    {
+      "id": "BS-02",
+      "working_title": "An approval should expire when the evidence moves",
+      "published_url": null,
+      "the_decision_it_is_about": [
+        "Binding a human decision to the SHA-256 of the finding it was taken about,",
+        "rather than to the finding's id."
+      ],
+      "what_happened": [
+        "Finding ids are deterministic, so `<run>:con:CR-01` is the same string",
+        "before and after a rerun. A supervisor could accept a continuity conflict",
+        "as intentional, a new take could change the evidence completely, the",
+        "finding would be recomputed, and the old acceptance would still close it.",
+        "Nobody would have looked at the new facts and nothing would have said so.",
+        "The fix is small: HumanDecision carries finding_sha256, and the gate skips",
+        "a decision whose bound digest no longer matches. The interface consequence",
+        "is larger. The page cannot simply drop the approval, because an approval",
+        "that vanishes is its own confusion, so it says which decision no longer",
+        "applies and why, and puts the control back.",
+        "Building this on Strands surfaced a related property worth stating: on",
+        "resume a tool body replays from its first line, so any external effect has",
+        "to sit after the interrupt behind an idempotency key or it fires twice."
+      ],
+      "evidence": {
+        "commands": [
+          "PYTHONPATH=src python -m pytest tests/test_gate.py -q",
+          "npx playwright test web/tests/intake.spec.mjs --config web/playwright.config.mjs"
+        ],
+        "code": [
+          "src/lasttake/domain/policy.py",
+          "src/lasttake/domain/findings.py",
+          "web/tests/intake.spec.mjs"
+        ]
+      },
+      "aws_content": [
+        "Every HTTP request is a separate Lambda invocation and the run is rebuilt",
+        "from S3 each time, so the pause between a checkpoint and an approval",
+        "genuinely crosses a process boundary rather than holding a stack frame.",
+        "Strands S3SessionManager persists the session; Aurora DSQL holds run state."
+      ],
+      "synthetic_notice": "The scene, the people and the records are invented."
+    },
+    {
+      "id": "BS-03",
+      "working_title": "Three defects a browser test found that a green suite did not",
+      "published_url": null,
+      "the_decision_it_is_about": [
+        "Treating browser to API to persistent state to visible result as the unit",
+        "of done, and running it against the deployed URL rather than a local build."
+      ],
+      "what_happened": [
+        "A beat click in the test landed on a take pill, because a scripted click",
+        "skips hit testing and a real cursor does not. That was a real overlap.",
+        "A page-level refusal never reached the form. The API returned the missing",
+        "field name; the browser layer treated every non-200 as a failure to answer",
+        "and put a one-line error in a banner at the top of the page instead. The",
+        "form's own output stayed empty and the field names were discarded by the",
+        "code that had asked for them.",
+        "A click during a background request vanished entirely. Accepting an",
+        "exception posts one request and chains a second, and a button pressed",
+        "during the second was swallowed with no message, because the guard",
+        "returned early and the button was static markup that no repaint had told.",
+        "None of the three was reachable from unit tests, and all three were on the",
+        "deployed build with a green suite behind them."
+      ],
+      "evidence": {
+        "commands": [
+          "npx playwright test --config web/playwright.config.mjs",
+          "python tools/dast_probe.py <base-url>"
+        ],
+        "artifact": "the live-surface workflow run, which stores the Playwright trace",
+        "code": [
+          "src/lasttake/app/static/index.html",
+          "web/tests/intake.spec.mjs",
+          "web/tests/handover.spec.mjs"
+        ]
+      },
+      "aws_content": [
+        "The suite runs in CI against the API Gateway URL after each deploy, so the",
+        "thing under test is the artifact a judge opens rather than a local copy."
+      ],
+      "synthetic_notice": "The journey walks a fictional shoot day; the page says so on its face."
+    }
+  ],
+  "before_any_of_these_is_published": [
+    "The repository has to be public, because a story linking into a private repo",
+    "is a dead link.",
+    "Every command quoted has to be re-run at the commit the story links to, and",
+    "any number that has moved has to move in the text.",
+    "The owner publishes. Nothing here goes out from this session."
+  ]
+}

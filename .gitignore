@@ -24,3 +24,9 @@ cdk.out/
 build/
 lasttake-ci-key.json
 .lasttake/
+
+# React verification outputs
+frontend/coverage/
+frontend/test-results/
+frontend/playwright-report/
+frontend/.lasttake-ui/

@@ -1,0 +1,99 @@
+name: frontend-ci
+on:
+  push:
+    branches: [main, "codex/**"]
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      AWS_EC2_METADATA_DISABLED: 'true'
+      AWS_DEFAULT_REGION: eu-west-1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Pin npm resolver in CI
+        run: npm install --global npm@11.19.1
+      - name: Resolve a lock only when absent
+        working-directory: frontend
+        run: |
+          if [ ! -f package-lock.json ]; then
+            npm install --package-lock-only --ignore-scripts
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: frontend-lock-${{ github.sha }}
+          path: frontend/package-lock.json
+      - name: Install locked frontend and Python dependencies in CI
+        run: |
+          npm ci --prefix frontend
+          python -m pip install -e '.[dev]'
+      - name: Build React static application
+        id: build
+        working-directory: frontend
+        run: npm run build
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        with:
+          name: frontend-dist-${{ github.sha }}
+          path: frontend/dist/
+      - name: Capture full audit and enforce zero runtime vulnerabilities
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        working-directory: frontend
+        run: |
+          mkdir -p test-results/audit
+          npm audit --json > test-results/audit/full.json || true
+          npm audit --omit=dev --audit-level=low --json > test-results/audit/runtime.json || true
+          node scripts/check-audit.mjs test-results/audit/full.json test-results/audit/runtime.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: frontend-audit-${{ github.sha }}
+          path: frontend/test-results/audit/
+          if-no-files-found: error
+      - name: Python regression suite
+        if: ${{ !cancelled() }}
+        run: python -m pytest --cov --cov-fail-under=85 --cov-report=xml:frontend/test-results/python-coverage.xml --junitxml=frontend/test-results/python.xml
+      - name: Unit and component coverage
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        working-directory: frontend
+        run: npm test
+      - name: Functional contracts
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        working-directory: frontend
+        run: npm run test:functional
+      - name: Browser runtime in CI only
+        id: browser
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+      - name: Real Python API and desktop/mobile user journeys
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.browser.outcome == 'success' }}
+        working-directory: frontend
+        run: npm run test:e2e
+      - name: Secret and prose regressions
+        if: ${{ !cancelled() }}
+        run: |
+          python tools/secret_scan.py
+          python tools/prose_gate.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: frontend-evidence-${{ github.sha }}
+          path: |
+            frontend/test-results/
+            frontend/coverage/
+            frontend/playwright-report/
+            frontend/UAT.testbook.json
+            frontend/UAT.testbook.html
+          retention-days: 14

@@ -13,6 +13,40 @@ Before you wrap the set, know whether you truly have the scene.
 
 ## Contents
 
+### React workspace usage
+
+AWS frontend release target: [LastTake React workspace](https://d3kf6hquzlli8g.cloudfront.net/).
+Status: pending release and parent deployment verification. This is not a claim
+that the React build is live at that URL; the green CI checkpoint verifies the
+built application against the real offline Python HTTP handler.
+
+The React, TypeScript and Tailwind application is in `frontend/`. It builds to
+`frontend/dist/` with hashed `/assets/` files and uses same-origin `/api/*` JSON
+requests. Hash routes open Overview, Scene workspace, My actions and Turnovers &
+history. The static UAT testbook is included as `UAT.testbook.html` and
+`UAT.testbook.json`; human signoff remains `NOT_RUN` until a person completes it.
+
+Create a fictional shoot-day run, start a checkpoint, inspect the script and
+source records, then select the demo role responsible for each decision. Take
+and release forms save records through the Python backend. The optional guided
+demo supplies labelled fictional examples. The API reports the offline lexical
+interpreter; real Strands interrupts govern pickup and wrap approvals.
+
+The browser stores only a session handle and role preference. Saved runs belong
+to that session; role selection is a synthetic demonstration, not staff login.
+With browser storage blocked the tab remains usable, but a reload may start a
+separate session. Requests time out after 35 seconds and never automatically
+retry writes. Refresh saved state before retrying a write with an uncertain result.
+
+Dependencies are installed in GitHub Actions. `frontend-ci.yml` generates a lock
+only when absent, uploads it, builds the app, measures unit coverage, runs the
+Python regressions and exercises desktop/mobile browsers against the real Python
+HTTP handler with local durable adapters. It supports `workflow_call` for release
+integration. A build artifact from a failed verification is for diagnosis only.
+The HTTP test entrypoint is `python -m lasttake.app.local_server --state-dir
+.lasttake-ui`; Vite's test proxy targets `127.0.0.1:8765`. No model credentials
+are needed. Frontend deployment is a separate AWS integration step.
+
 - [Who this is for](#who-this-is-for)
 - [What a script supervisor already uses](#what-a-script-supervisor-already-uses-and-what-this-does-instead)
 - [The problem](#the-problem)
@@ -464,6 +498,26 @@ digest changes, the decision stops applying, and the ingest response lists what 
 why. Decisions recorded before this existed still apply; silently voiding every historical
 approval would be its own kind of dishonesty, and the absent field is what says they are weaker.
 
+### What each chair is actually holding, and what leaves the building
+
+Above the exception cards the page answers the three questions a script supervisor has on
+the floor and a 1st AD has at the truck: what do I do, who owns it, and where did it come
+from. One line per item, in the order the cost falls, with no finding ids and no agent
+trace. Which items are yours is read from the same authority table the deterministic gate
+enforces, so moving a check to a different role moves the summary without anyone editing
+it.
+
+Beside it is a sealed receipt a person can copy into a production email. It is the packet
+designed to be read away from this page, so it carries its own context: the run, the scene,
+the script revision, the package digest, the policy version, its own SHA-256, and every
+still-open item with its responsible role, next action and source digests.
+
+An accepted exception travels in that list. Somebody signed for it, which does not make it
+fixed, and a receipt that quietly dropped it is how an approved problem reaches the edit as
+a surprise. The packet also states what it does **not** say: it is not a statement that the
+scene is creatively complete, cleared in law, or safe to wrap, and absent evidence in it is
+a gap rather than a pass.
+
 ## Four kinds of input, and what the pipeline does with each
 
 ```bash
@@ -546,6 +600,34 @@ them fails if the corpus or the rule drifts.
 Of 34 required beats, 31 covered with evidence, 2 raising exceptions with named
 sources, 1 with no release record and routed to production.
 ```
+
+### Measured against a baseline written before the run
+
+`tools/measure.py` is the protocol rather than a results file. The baseline, the fixtures
+and every expected outcome are literals at the top of it, written from the product's rules
+before anything ran, and a case that disagrees with its expectation is reported as a
+failure rather than quietly becoming the new expectation.
+
+```bash
+PYTHONPATH=src python tools/measure.py
+```
+
+Five cases, one for each way a scene package arrives: ordinary, missing evidence, changed
+input, refusal, retry and recovery. Three more were written after the behaviour was fixed
+and kept separate; that is weaker than a set somebody else wrote and it is labelled weaker.
+
+Three fields are deliberately empty. **Human active time, interruptions and corrections are
+not measured, because no human was observed doing any of this.** Timing the model and
+calling the result human time saved would be a fabricated benchmark, and a zero in those
+fields would read as "needed no help". Bedrock inference cost is not measured either: it
+needs per-call token counts this harness does not collect, so the field says so instead of
+guessing. Model time, wall time and human time are three different things and only two of
+them exist here.
+
+One expectation was wrong on its first run and the correction is published in
+`docs/measurement.json` rather than absorbed: rights findings were declared as 6 and
+observed as 7, and the corpus is five people plus two visible assets, so the product was
+right and the expectation never was.
 
 ## The demo corpus is synthetic
 
@@ -724,6 +806,14 @@ src/lasttake/
   cli.py       the commands a judge runs.
 corpus/        one fictional shoot day, and the generator that produces it.
 tests/         including the gate's own proofs that it can fail.
+web/tests/     nineteen browser tests against the deployed URL. The journey a judge
+               walks, the intake a person supplies, and the handover two roles read.
+tools/         the gates and the harnesses. measure.py holds the declared baseline,
+               dast_probe.py throws hostile bodies at the live API, prose_gate.py and
+               secret_scan.py run in CI.
+docs/          architecture.svg, the assurance tables, and the JSON each harness
+               writes: measurement.json, ablation.json, evaluation_cases.json, and
+               build_stories.json, which holds three unpublished drafts.
 ```
 
 ## Pre-existing components

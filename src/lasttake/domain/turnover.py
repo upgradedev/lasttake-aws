@@ -18,9 +18,21 @@ from typing import Optional
 from .findings import Finding, TruthState
 from .package import ScenePackage
 from .policy import EligibilityPacket, HumanDecision
+from . import rollup
 from .sealing import seal, utc_now_iso, verify_seal
 
-TURNOVER_SCHEMA = "lasttake/turnover/v1"
+TURNOVER_SCHEMA = "lasttake/turnover/v2"
+
+#: The packet travels. Somebody will open it away from the page that made it,
+#: possibly after the deadline, possibly without the context of what this corpus
+#: is, so it says on its own face that the shoot day in it is invented. A packet
+#: that could be mistaken for a record of a real production is a worse artifact
+#: than no packet.
+SYNTHETIC_NOTICE = (
+    "THE LAST FERRY is a fictional production. Every person, place, identifier "
+    "and record in this packet is invented for demonstration. No real production "
+    "data and no real footage was read to produce it."
+)
 
 #: Stated on the face of every packet. The system reconciles records; it does
 #: not render a legal opinion, and a reader must not infer one from a
@@ -112,8 +124,59 @@ def generate(
         for f in sorted(findings, key=lambda f: f.finding_id)
         if f.truth_state is not TruthState.VERIFIED
     ]
+    outcomes = rollup.roll_up(package, findings, [d.to_dict() for d in decisions])
+    # What each required beat rests on, carried into the packet rather than
+    # collapsed into one word. An assistant editor opening this at 08:00 needs
+    # the difference between a beat the production declared and a beat a reader
+    # corroborated, because the second is evidence and the first is an assertion
+    # by people who are no longer on the set.
+    basis = {
+        "summary": rollup.headline(outcomes)["basis"],
+        "legend": {
+            "declared_by_the_production": (
+                "a take names this beat. The people who were there said so, and "
+                "nothing has independently agreed"
+            ),
+            "corroborated_by_the_interpreter": (
+                "a second reader agreed the take contains the beat. The interpreter "
+                "that read it is named on each finding"
+            ),
+            "confirmed_by_a_named_human": (
+                "the role the policy names looked at it and said so. This outranks "
+                "both readings"
+            ),
+            "insufficient_evidence": (
+                "no take, or a reader that could not tell. Never a pass"
+            ),
+        },
+        "per_beat": [
+            {
+                "beat_id": o.beat_id,
+                "slug": o.slug,
+                "status": o.status.value,
+                "basis": o.basis.value,
+                "evidence_take_id": o.evidence_take_id,
+            }
+            for o in outcomes
+        ],
+    }
+    unresolved = [
+        {
+            "finding_id": f.finding_id,
+            "check_type": f.check_type.value,
+            "truth_state": f.truth_state.value,
+            "requirement_id": f.requirement_id,
+            "required_role": f.required_role.value,
+            "still_open": not any(d.finding_id == f.finding_id for d in decisions),
+        }
+        for f in sorted(findings, key=lambda f: f.finding_id)
+        if f.truth_state is not TruthState.VERIFIED
+    ]
     manifest = {
         "schema": TURNOVER_SCHEMA,
+        "synthetic_corpus_notice": SYNTHETIC_NOTICE,
+        "evidence_basis": basis,
+        "unresolved_at_handover": unresolved,
         "run_id": run_id,
         "production_id": package.production_id,
         "scene_id": package.scene_id,
