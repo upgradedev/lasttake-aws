@@ -11,7 +11,7 @@ import json
 import re
 import secrets
 
-from ..domain import policy
+from ..domain import policy, receipt
 from ..domain.findings import from_dict
 
 
@@ -103,6 +103,28 @@ def current_eligibility(run):
     return policy.evaluate(run.run_id, run.package,
                            [from_dict(f) for f in run.load_findings()],
                            [policy.decision_from_dict(d) for d in run.load_decisions()])
+
+
+def receipt_response(body, request_id, build_run, json_response):
+    """Build a portable record without importing unchecked subject assertions."""
+    run = build_run(body["run_id"])
+    kind = body.get("kind", "pickup")
+    if kind not in ("pickup", "wrap"):
+        return json_response(400, {"error": "a receipt is about a pickup or a wrap",
+                                   "accepted_kinds": ["pickup", "wrap"]}, request_id)
+    findings = [from_dict(f) for f in run.load_findings()]
+    if not findings:
+        return json_response(409, {"error": "nothing has been checked on this run yet, so there is nothing to give a receipt for"}, request_id)
+    approved_by = run.wrap_approver() if run.wrap_approved() else None
+    manifest = receipt.build(
+        kind=kind, run_id=run.run_id, package=run.package, findings=findings,
+        decisions=[policy.decision_from_dict(d) for d in run.load_decisions()],
+        policy_version=policy.POLICY_VERSION,
+        approved_by=approved_by if kind == "wrap" else None,
+        approved_role=policy.Role.FIRST_AD.value if approved_by else None,
+        subject=receipt_subject(body, run.package),
+    )
+    return json_response(200, {"run_id": run.run_id, "receipt": manifest}, request_id)
 
 
 def guard_action(path, body, run, owned):
