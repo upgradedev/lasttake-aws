@@ -298,7 +298,7 @@
       "automation_mapping": [
         "tests/e2e/reliability.spec.ts: LT-RELIABLE-INTAKE"
       ],
-      "observed_result_evidence": "NOT_RUN: new reliability scope awaits exact-commit CI.",
+      "observed_result_evidence": "AUTOMATION_PASS for implementation 59844080b768993d67821fd6fb55db9049c998db in https://github.com/upgradedev/lasttake-aws/actions/runs/34377650942. Python/unit controls cover explicit rejection, unknown outcomes, concurrency and fresh-process recovery; desktop/mobile real HTTP covers intake refusal/correction and wrap review. No real AWS fault injection or human signoff.",
       "human_signoff": "NOT_RUN"
     },
     {
@@ -317,7 +317,7 @@
       "automation_mapping": [
         "tests/e2e/reliability.spec.ts: LT-RELIABLE-WRAP"
       ],
-      "observed_result_evidence": "NOT_RUN: new reliability scope awaits exact-commit CI.",
+      "observed_result_evidence": "AUTOMATION_PASS for implementation 59844080b768993d67821fd6fb55db9049c998db in https://github.com/upgradedev/lasttake-aws/actions/runs/34377650942. Python/unit controls cover explicit rejection, unknown outcomes, concurrency and fresh-process recovery; desktop/mobile real HTTP covers intake refusal/correction and wrap review. No real AWS fault injection or human signoff.",
       "human_signoff": "NOT_RUN"
     },
     {
@@ -336,7 +336,7 @@
       "automation_mapping": [
         "tests/reliability.test.tsx; ../tests/test_reliable_workflows.py"
       ],
-      "observed_result_evidence": "NOT_RUN: new reliability scope awaits exact-commit CI.",
+      "observed_result_evidence": "AUTOMATION_PASS for implementation 59844080b768993d67821fd6fb55db9049c998db in https://github.com/upgradedev/lasttake-aws/actions/runs/34377650942. Python/unit controls cover explicit rejection, unknown outcomes, concurrency and fresh-process recovery; desktop/mobile real HTTP covers intake refusal/correction and wrap review. No real AWS fault injection or human signoff.",
       "human_signoff": "NOT_RUN"
     }
   ],
@@ -383,8 +383,13 @@
     "human_signoff": "NOT_RUN"
   },
   "current_reliability_revision": {
-    "status": "NOT_RUN",
-    "scope": "Five reliability boundaries, editable API examples, bus receipt recovery and portable evidence; CI and later AWS release acceptance required.",
+    "status": "AUTOMATION_PASS",
+    "scope": "CI_REAL_HTTP_ONLY",
+    "implementation_sha": "59844080b768993d67821fd6fb55db9049c998db",
+    "ci_run_url": "https://github.com/upgradedev/lasttake-aws/actions/runs/34377650942",
+    "evidence_artifact": "frontend-evidence-59844080b768993d67821fd6fb55db9049c998db",
+    "screenshots_artifact": "ui-screenshots-59844080b768993d67821fd6fb55db9049c998db",
+    "observed_result_evidence": "Passed Python, component, functional and desktop/mobile real-HTTP reliability cases at the implementation SHA above. The later documentation, video preflight and history-scan fix do not claim to validate themselves; final candidate CI artifacts remain authoritative.",
     "human_signoff": "NOT_RUN",
     "live_aws_acceptance": "NOT_RUN"
   }

@@ -2,7 +2,7 @@
 """Compose the CI browser capture, measured narration, and captions.
 
 Copied from upgradedev/archon-datahub, master a1feb16, file video/build-video.py.
-The pristine copy is kept at ../../upstream/archon-datahub/build-video.py, so `diff`
+The pristine copy is kept at video/upstream/archon-datahub/build-video.py, so `diff`
 shows every change the kit made. Those changes are:
 
   1. OUTPUT.mkdir(exist_ok=True). The original refused to compose twice into the same
@@ -15,7 +15,7 @@ shows every change the kit made. Those changes are:
      than the trim lead plus the narration produced a short video with the last beats of
      speech missing, and it passed.
 
-Everything else is unchanged.
+That describes the historical kit adaptation. LastTake now uses product-specific environment and receipt names; recording remains NOT_CONFIGURED until owner verification.
 """
 
 from __future__ import annotations
@@ -27,7 +27,7 @@ import pathlib
 import subprocess
 
 
-ROOT = pathlib.Path(os.environ["ARCHON_VIDEO_ROOT"])
+ROOT = pathlib.Path(os.environ["LASTTAKE_VIDEO_ROOT"])
 NARRATION = ROOT / "narration"
 CAPTURE = ROOT / "capture" / "production.webm"
 OUTPUT = ROOT / "output"
@@ -98,7 +98,7 @@ def main() -> None:
         f"{''.join(labels)}amix=inputs={len(labels)}:duration=longest:normalize=0,"
         f"loudnorm=I=-16:LRA=7:TP=-1.5,atrim=0:{total}[a]"
     )
-    final = OUTPUT / "archon-datahub-demo.mp4"
+    final = OUTPUT / "lasttake-demo.mp4"
     args.extend(
         [
             "-filter_complex",
@@ -144,8 +144,8 @@ def main() -> None:
     captions_out.write_bytes((NARRATION / "captions.en.srt").read_bytes())
     digest = hashlib.sha256(final.read_bytes()).hexdigest()
     receipt = {
-        "schemaVersion": "archon.submission-video-receipt/v1",
-        "releaseSha": os.environ["ARCHON_RELEASE_SHA"],
+        "schemaVersion": "lasttake.submission-video-receipt/v1",
+        "releaseSha": os.environ["LASTTAKE_RELEASE_SHA"],
         "durationSeconds": round(duration, 3),
         "width": 1920,
         "height": 1080,
@@ -154,8 +154,8 @@ def main() -> None:
         "bytes": final.stat().st_size,
     }
     for field, name in (
-        ("hostedRunId", "ARCHON_HOSTED_RUN_ID"),
-        ("governedRunId", "ARCHON_GOVERNED_RUN_ID"),
+        ("hostedRunId", "LASTTAKE_HOSTED_RUN_ID"),
+        ("governedRunId", "LASTTAKE_GOVERNED_RUN_ID"),
     ):
         value = os.environ.get(name, "").strip()
         if value:

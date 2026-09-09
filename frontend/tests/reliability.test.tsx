@@ -64,3 +64,10 @@ it('portable human-readable summary can be downloaded without manufacturing new 
   fireEvent.click(download);expect(click).toHaveBeenCalledOnce();
   expect(screen.getByText('Saved sources. Human time unknown. Hash is not truth.')).toBeVisible();
 });
+
+it("saved turnover warns when only its review authority changes",()=>{
+  const current={...state,turnover:{package_revision_digest:state.package_revision_digest},turnover_current:false};
+  render(<History state={current} session={session} events={[]} role="first_ad" busy={false} act={vi.fn()} handle={async work=>{await work();return true;}}/>);
+  expect(screen.getByText(/approval\/review is no longer current/)).toBeVisible();
+  expect(screen.getByRole("button",{name:"Download turnover"})).toBeEnabled();
+});

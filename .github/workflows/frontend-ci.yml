@@ -140,6 +140,12 @@ jobs:
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         working-directory: frontend
         run: npm run test:functional
+      - name: Claim evidence and media-source syntax without provider calls
+        if: ${{ !cancelled() }}
+        run: |
+          mkdir -p frontend/test-results/claims
+          PYTHONPATH=src python tools/ablation.py > frontend/test-results/claims/ablation.txt
+          node --check web/video/capture-production.mjs
       - name: Browser runtime in CI only
         id: browser
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}

@@ -340,7 +340,7 @@ def test_rejected_turnover_retries_in_fresh_process_but_changed_review_cannot_re
     key = next(d["idempotency_key"] for d in saved["delivery_outcomes"] if d["event_type"] == "turnover.generated")
     recovered = fresh_process_request(tmp_path, "/api/retry-delivery", {**body, "idempotency_key": key})
     assert recovered["status"] == 200 and recovered["delivery"]["accepted"]
-    assert recovered["turnover"] == manifest
+    assert recovered["turnover"] == manifest and recovered["turnover_current"]
     finding = next(f for f in run.load_findings() if f["check_type"] == "continuity" and f["requirement_id"])
     assert post("/api/decide", {**body, "role": "script_supervisor", "finding_id": finding["finding_id"],
         "finding_sha256": finding["record_sha256"], "action": "accept_exception", "actor": "Another review", "reason": "New intent."})["status"] == 200
@@ -349,4 +349,5 @@ def test_rejected_turnover_retries_in_fresh_process_but_changed_review_cannot_re
     from lasttake.agents.tools import build_tools
     assert "historical" in str(build_tools(run)[-1]())
     assert post("/api/retry-delivery", {**body, "idempotency_key": key})["status"] == 409
-    assert post("/api/turnover", body)["turnover"] == manifest
+    historical = post("/api/turnover", body)
+    assert historical["turnover"] == manifest and not historical["turnover_current"]

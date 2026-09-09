@@ -2,7 +2,7 @@
 """Generate short, measured TTS scenes and aligned captions in CI.
 
 Copied from upgradedev/archon-datahub, master a1feb16, file video/generate-narration.py.
-The pristine copy is kept at ../../upstream/archon-datahub/generate-narration.py, so
+The pristine copy is kept at video/upstream/archon-datahub/generate-narration.py, so
 `diff` shows every change the kit made. Those changes are:
 
   1. Per-scene caching. A scene is re-synthesized only when its speech text or its
@@ -15,8 +15,7 @@ The pristine copy is kept at ../../upstream/archon-datahub/generate-narration.py
   4. A fail-closed check that no scene still contains an unfilled <PLACEHOLDER>, so
      the template cannot be narrated verbatim into a shipped video.
 
-Everything else, including the measured per-beat timing that makes this pipeline
-worth copying, is unchanged.
+That describes the historical kit adaptation. LastTake now uses product-specific environment and receipt names. Its workflow fails before synthesis until the owner configures narration and verifies the current capture.
 """
 
 from __future__ import annotations
@@ -33,7 +32,7 @@ import urllib.error
 import urllib.request
 
 
-ROOT = pathlib.Path(os.environ["ARCHON_VIDEO_ROOT"])
+ROOT = pathlib.Path(os.environ["LASTTAKE_VIDEO_ROOT"])
 SPEC = pathlib.Path(__file__).with_name("narration.json")
 OUT = ROOT / "narration"
 TAIL_SECONDS = 0.65
@@ -236,8 +235,10 @@ def synthesize_google(text: str, spec: dict[str, object], token: str) -> bytes:
 
 def main() -> None:
     spec = json.loads(SPEC.read_text(encoding="utf-8"))
+    if spec.get("recording_status") != "READY_OWNER_VERIFIED":
+        raise SystemExit("NOT_CONFIGURED: owner must verify release, credentials, capture and timing before synthesis.")
     segments = spec.get("segments")
-    if spec.get("schemaVersion") != "archon.submission-video/v1" or not isinstance(segments, list):
+    if spec.get("schemaVersion") != "lasttake.submission-video/v1" or not isinstance(segments, list):
         raise SystemExit("narration contract is invalid")
     provider = str(spec.get("provider", "google"))
     if provider not in ("google", "elevenlabs"):
@@ -312,7 +313,7 @@ def main() -> None:
     (OUT / "timing.json").write_text(
         json.dumps(
             {
-                "schemaVersion": "archon.submission-video-timing/v1",
+                "schemaVersion": "lasttake.submission-video-timing/v1",
                 "totalSeconds": round(offset, 3),
                 "scenes": timing,
             },

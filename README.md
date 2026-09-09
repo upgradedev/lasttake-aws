@@ -4,10 +4,11 @@
 [![licence: MIT](https://img.shields.io/badge/licence-MIT-blue.svg)](LICENSE)
 [![python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/)
 
-**It checks every required beat against the takes actually captured before the crew is
-released, so a missing shot costs minutes, not a pickup day.**
+For a script supervisor and the 1st AD reviewing a fictional shoot day. LastTake reconciles supplied records before a human wrap decision.
 
-Before you wrap the set, know whether you truly have the scene.
+[Open the AWS workspace](https://d3kf6hquzlli8g.cloudfront.net/). Create a run, start a checkpoint, review sources, then answer the saved request as the 1st AD. In **Open guided demo → Add take or release**, try the editable valid take, refused date and corrected date documents. Each save calls the real Python API.
+
+The live browser uses an offline planner and lexical interpreter with real Strands tool calls, S3 session resume and role-gated decisions. It does not analyze footage/audio, send emails, make payments or establish legal sufficiency. Demo role selection is not authenticated staff identity. History exports sources, current decisions, revisions, recorded model identifiers, failure/recovery status and limits. Hashes identify bytes, not truth.
 
 ---
 
@@ -21,7 +22,7 @@ passed all 8 desktop/mobile journeys on 2026-09-09 against CloudFront, Lambda, S
 This is automated synthetic acceptance, not a practising supervisor's signoff.
 The tested frontend was `1f10d39c8b2b22474f64b1c057851eb2057665e7`; current release identity is
 at `/release.json`, and backend identity at `/healthz`. That earlier run does not validate
-the new dashboard and cockpit. Current acceptance comes from the exact-commit CI artifacts
+the new dashboard and cockpit. The reliability scope and its new UAT cases start as NOT_RUN. Current acceptance comes from the exact-commit CI artifacts
 and, after parent-approved release, the exact-SHA live acceptance workflow.
 
 The React, TypeScript and Tailwind application is in `frontend/`. It builds to
@@ -39,9 +40,11 @@ offline checks -> AWS frontend deployment -> live desktop/mobile Playwright test
 The release lock stays held through acceptance; queued releases do not interrupt a running test.
 The reusable `aws-uat.yml` checks the exact frontend SHA before and after the journeys and fails
 on browser errors or a changed release. Focused `test.only` tests are refused. Each run retains
-HTML/JUnit reports, traces, screenshots, failure video and the testbook for 14 days, with a
+HTML/JUnit reports, traces, screenshots, failure video and the testbook for 90 days, with a
 result summary in GitHub Actions. Failure makes the pipeline red; it does not undo a merge
 or automatically roll back the deployed frontend. Backend deployment remains a separate process.
+The previous accepted run 34359050749/artifact 10107569851 was preserved as inert source bytes in archive artifact 10113819181 by [CI run 34375838628](https://github.com/upgradedev/lasttake-aws/actions/runs/34375838628). Its SHA-256 manifest records the original IDs and bytes; the immutable archive expires 2026-12-08. Archival is now manual opt-in and skips an existing archive. Ordinary verification does not repeat it.
+
 Manual reruns remain available. Automated results never set human UAT signoff to PASS.
 
 Create a fictional shoot-day run, start a checkpoint, inspect the script and
@@ -92,7 +95,7 @@ The HTTP test entrypoint is `python -m lasttake.app.local_server --state-dir
 are needed. Frontend deployment is a separate AWS integration step.
 
 - [Who this is for](#who-this-is-for)
-- [What a script supervisor already uses](#what-a-script-supervisor-already-uses-and-what-this-does-instead)
+- [Own workflow requirements](#own-workflow-requirements)
 - [The problem](#the-problem)
 - [Try it without installing anything](#try-it-without-installing-anything)
 - [Quickstart](#quickstart)
@@ -124,35 +127,9 @@ Not film crews, not production teams, not creators. One person, one afternoon, o
 decision: is this scene safe to wrap, and if not, what exactly is missing and who can
 fix it while the set is still standing.
 
-## What a script supervisor already uses, and what this does instead
+## Own workflow requirements
 
-Script supervision has good software and this does not replace it. The tools below are where a
-supervisor writes things down; the gap is that nobody reconciles what was written down across the
-departments that wrote it.
-
-| Already on the cart | What it does | What it does not do |
-|---|---|---|
-| [ScriptE](https://www.scriptesystems.com/) | continuity and scheduling for script supervisors, with an image capture attachment that fires stills during a take for matching | holds the supervisor's own record. It does not read the camera report, the sound report and the rights ledger and tell you where the three disagree |
-| [Scriptation](https://scriptation.com/) | script annotation on iPad with a lining toolkit built with script supervisors, for tracking coverage | lines the script as the supervisor draws it. Coverage is what the person marked, not what the departments' records can evidence |
-| [Script Evolution](https://scriptevolution.app/en/) | a script supervisor application built for the iPad | the same shape: a faster place to record an observation |
-
-The difference is one sentence. Those are **recording** tools and this is a **reconciling** one, and
-it is the only one of the four that will refuse to conclude. A beat here is covered when a take that
-names it is usable, reconciles with the camera report, carries no unresolved continuity conflict and
-has every subject released. Absent evidence is a finding, never a pass, and
-[the ablation](#what-each-rule-is-worth-measured-by-removing-it) measures what that costs: take the
-model away and coverage falls from 31 of 34 to 0, every beat `unknown` rather than a pass.
-
-### Why this is possible now and was not five years ago
-
-The reconciliation needs the shoot day's records to be machine readable while the set is still
-standing. Camera to cloud made that true. Frame.io's C2C sends "timecode-accurate H.264 proxy files
-with matching filename metadata as well as appropriate production data" from the camera during the
-take ([Frame.io support](https://support.frame.io/en/articles/4887091-c2c-frame-io-camera-to-cloud-faqs)),
-and at Adobe MAX 2024 Canon, Nikon and Leica joined Fujifilm, Panasonic LUMIX and RED in supporting
-it ([Adobe](https://blog.adobe.com/en/publish/2024/11/12/frameios-camera-to-cloud-adds-real-time-photo-video-collaboration)).
-Before that, the camera report reached anyone who could compare it against the script the next
-morning, which is after the set is struck and after the answer stops being useful.
+A supplied take must not manufacture its own camera report. Every current required check must have admissible evidence. Current authorized decisions are selected consistently by the UI, deterministic gate and receipt. A wrap approval binds the exact package and review digest shown to the 1st AD. The latest pending or declined wrap review supersedes earlier authority while preserving its historical receipt.
 
 ## The problem
 
@@ -161,56 +138,19 @@ sits in seven places owned by five departments: the current script revision, the
 plan, the captured takes, the supervisor's notes, the camera and sound reports, the
 continuity references, and the rights ledger. Nobody holds all of it at once.
 
-The cost is asymmetric, and everyone in the trade knows it. While the set is standing, a
-missing shot is fifteen minutes. Once cast, location, set and equipment are released, the
-same missing fact is a pickup day, a compromised edit, a clearance escalation, or a
-reshoot.
+The task is to make missing or conflicting records visible while a human can still review them. No observed time saving, avoided pickup cost or production benefit is claimed.
 
 ## Try it without installing anything
 
-**https://1p6s28nyf0.execute-api.eu-west-1.amazonaws.com/**
+[LastTake on AWS](https://d3kf6hquzlli8g.cloudfront.net/). No account or install is required for the fictional demo.
 
-No account, no install, no credential. The page opens on the scene as a script supervisor
-holds it: the lined script, thirty-four required beats down the left, and beside each one
-the takes that were actually shot against it. The checkpoint fires on arrival, so within a
-few seconds the verdict lands in the right pane and the exceptions appear with the page and
-line they sit on, what each costs to fix now against what it costs after wrap, and which
-role can act.
+1. Create a new shoot-day run and press **Run wrap checkpoint**. Workspace shows the script, takes and current exceptions.
+2. Inspect sources and select **1st AD** to answer the saved pickup request. Reloading restores the real Strands interrupt. A pickup request does not approve wrap.
+3. Open the guided demo and **Add take or release**. **Try valid take** fills editable fields. **Try refused date** supplies an impossible expiry date and must return HTTP 400 with no amendment. **Try corrected date** reuses that identifier with a valid date; edit before submitting. A missing independent camera report remains missing.
+4. Review the current continuity and metadata exceptions under their responsible roles. Review wrap readiness, request wrap approval, and answer the exact saved review as the 1st AD.
+5. Open History to inspect delivery status, save a turnover when authorized, and prepare JSON or human-readable evidence. A bus-accepted receipt is not proof of downstream completion. Pending or unknown outcomes require reconciliation; only definite rejection offers an explicit retry.
 
-The two panes scroll independently and are linked in both directions. Click an exception and
-the script scrolls to the lines it is about and flashes them; click a beat and its exceptions
-light up. Click any slate and an inspector puts the two records of that take side by side, the
-sidecar and the camera report, with the field the departments disagree on marked.
-
-**If you have two minutes, use the bar across the top.** It runs one shoot day in six moves:
-the checkpoint, the 1st AD's overnight pause, a late take, the signed release, the two
-judgements that are nobody else's to make, and the turnover. It changes role for you where the
-next move belongs to somebody else, and it stops at every point a human has to decide rather
-than deciding for them.
-
-The fifth move is the one worth watching. Supplying the missing take and the missing release
-leaves the scene at 33 of 34, because two conflicts remain and neither of them is evidence.
-What counts as intentional continuity is the supervisor's call and the authoritative technical
-record is the DIT's, so the gate refuses, names both findings, and names who owes each
-judgement. The walk reads that list rather than keeping its own, and hands you whichever chair
-is needed next.
-
-Then the run **stops**, because a pickup needs the 1st AD and you are signed in as the
-supervisor. Change the role in the slate to stand in for them. Close the tab first if you
-like, and come back tomorrow: the run continues from the same point, in a process that no
-longer exists.
-
-**The role in the slate is worth two minutes on its own.** It changes what you can do, not
-what you read. As the supervisor you can confirm or reject the coverage and continuity
-findings; the metadata one offers you nothing, because it is the DIT's. Switch to production
-and the missing release becomes yours, with confirm and reject and **no** accept, because
-`MAY_ACCEPT_EXCEPTION[RIGHTS]` is empty and the page reads that table rather than deciding
-for itself. Try it as any role: the server refuses a decision taken by the wrong one and says
-why.
-
-Every response tells you which Lambda invocation and which container served it, so the
-process boundary is something you watch happen rather than something this page asserts.
-Every visitor gets their own run id, so two judges never collide.
+Policy 1.1 requires a fresh checkpoint for older findings. The page names that reason and retains old history. Decline any old pending request before running a fresh checkpoint; an unbound historical response cannot approve new evidence.
 
 ## Quickstart
 
@@ -224,7 +164,7 @@ cd lasttake-aws
 python -m pip install -e ".[dev]"
 ```
 
-Time to first result: about twenty seconds after the install.
+The commands below document the offline CLI. Repository validation for this change runs only in GitHub Actions.
 
 **Step 1. A wrap checkpoint fires.** No button is pressed; an event arrives.
 
@@ -232,7 +172,7 @@ Time to first result: about twenty seconds after the install.
 lasttake checkpoint
 ```
 
-Expected: the five checks run, the count prints, and the run **stops** with a pickup
+Expected: the four checks and deterministic gate run, the count prints, and the run **stops** with a pickup
 request waiting for the 1st AD. The process then exits.
 
 ```
@@ -252,7 +192,7 @@ lasttake approve --yes
 ```
 
 Expected: a new process picks the run up from exactly where it stopped, the tool that was
-waiting finishes, and the pickup is routed with a receipt.
+waiting finishes, and the bus response is reported with its receipt. This does not establish a downstream action.
 
 **Step 3. A late take arrives, and only the affected checks rerun.**
 
@@ -397,7 +337,7 @@ The agent returns `stop_reason` of `interrupt`. A session manager writes the pau
 storage. A **different process**, hours later, calls the agent with an `interruptResponse`
 and the run continues from the same point.
 
-**Proven on the deployed architecture, not only offline.** On a Lambda, `/tmp` does not
+**Historical cross-process evidence; not acceptance of the current patch.** On a Lambda, `/tmp` does not
 survive the gap between 23:10 and 06:40, so the sessions live on `S3SessionManager`. The
 deploy pipeline fires the checkpoint in one HTTP request, then **retires every warm
 container** with a configuration change, then approves in a second request, and asserts the
@@ -418,6 +358,8 @@ Pickup approved for B-17 by the 1st AD and routed to the assistant director's bo
 container that stopped the run:  5783cd7e
 container that resumed it:       0310464e
 ```
+
+The transcript above is retained as historical output. Its old “routed to the board” wording did not prove downstream delivery. Current tools report bus acceptance explicitly.
 
 The assertion is `c1 != c2`, so a run where Lambda happened to reuse a container fails the
 pipeline rather than quietly passing on a weaker claim.
@@ -471,30 +413,11 @@ to this system.
 
 ## What each rule is worth, measured by removing it
 
-Every other number here is a count of our own fixture. A count is not an argument until
-something can be compared against it, so the same corpus runs through the same pipeline
-three times, each time with one load-bearing rule removed. The removed rule is the only
-thing that differs, so the delta is attributable to it.
+These are synthetic protocol probes, not measurements of human work or model correctness. Run `PYTHONPATH=src python tools/ablation.py` on CI; it prints a new result without overwriting historical records.
 
-```bash
-PYTHONPATH=src python tools/ablation.py
-```
+The seal probe edits a record and compares rejection with an explicitly resealed input. The staleness probe carries old findings, then measures actual gate admission: restamping a package revision does not update its cited source digests. **Carried stale records are not admitted stale records.** The model-outage probe checks the direction of failure under unavailable interpretation.
 
-| Rule removed | With it | Without it |
-|---|---|---|
-| the finding seal is verified before anything reads the record | the edited record is discarded and the reason named | all 85 records are admitted, the edited one among them, and the beat it names reads as covered |
-| staleness is derived from the digests a finding cites, not asserted from a table | every finding that read the takes document before the pickup is discarded | **50 stale findings** are carried forward and re-stamped, and the gate cannot tell |
-| the model is reachable | **31 of 34** beats are covered with evidence | **0 of 34**, and every one of them is `unknown` rather than a pass |
-
-The third row is the one to read twice. A model outage takes this product to refusing,
-never to agreeing, and that is a measurement rather than a description of an intention.
-
-Both of the first two ablations found a real defect the first time they ran. With the model
-removed the covered count went **up**, from 31 to 32, because a continuity question nobody
-could answer stopped blocking anything, and because a beat counted as covered whenever a
-viable take named it, whatever the coverage check had concluded. Two places where absent
-evidence was being read as a pass, in the one number a 1st AD acts on at 23:10. Both are
-fixed and both are pinned by a test.
+`docs/ablation.json` preserves earlier output and an appended correction. Its earlier stale-admission wording was not supported by an actual gate evaluation. New tests require the actual counter and retain stale-source refusal.
 
 ## Bring your own record
 
@@ -539,8 +462,7 @@ have looked at the new facts and nothing would say so.
 
 A decision now carries the seal of the reading it was taken about. When the evidence moves the
 digest changes, the decision stops applying, and the ingest response lists what was withdrawn and
-why. Decisions recorded before this existed still apply; silently voiding every historical
-approval would be its own kind of dishonesty, and the absent field is what says they are weaker.
+why. Legacy decisions without a finding digest remain in history but no longer authorize a current finding. The UI marks them as requiring another review; neither the API nor CLI creates new unbound decisions.
 
 ### What each chair is actually holding, and what leaves the building
 
@@ -594,7 +516,7 @@ deployed role and prints the count.
 | `offline-lexical/1.0.0`, which the live URL runs | **31** |
 | `bedrock:global.anthropic.claude-sonnet-5` | **19** |
 
-Neither is wrong, and the difference is not a threshold to tune. "Covered" was one word doing four
+Neither count establishes correctness without labelled ground truth. "Covered" was one word doing four
 jobs, so the outcome now carries **what it rests on**, and the same run reports both:
 
 | Basis | What it means | offline | model unreachable |
@@ -628,7 +550,7 @@ this beat", which this corpus does not have and one shoot day would not settle.
 
 ## The numbers, and the commands that produce them
 
-Every number below comes out of the pipeline, not out of a document. The test that asserts
+The table below is the offline synthetic baseline, not a Bedrock invariant or a claim about a production. The test that asserts
 them fails if the corpus or the rule drifts.
 
 | Claim | Value | Command |
@@ -699,9 +621,7 @@ every turnover packet, not buried here.
 
 ## Running against Amazon Bedrock
 
-The offline path uses a lexical stand-in for the two bounded interpretations. It reports
-its own identity as `offline-lexical/1.0.0` on every finding it touches, so a reader of a
-turnover packet can always tell which interpreter produced an inference.
+The offline path uses a lexical stand-in for two bounded interpretations. New finding records serialize `model_id` when an interpretation is present. Older records without that field remain unknown; current configuration and `agent_version` are not retroactive model provenance.
 
 To use a real model, ask your own account what it can invoke rather than trusting a string
 in a source file:
@@ -726,20 +646,15 @@ lasttake checkpoint --bedrock
 
 **What this is checked against.** The deploy pipeline runs a full checkpoint through
 `BedrockInterpreter` on every deploy, so `BedrockModel` plus `agent.structured_output` is
-exercised rather than described. The last run produced **34 findings carrying a real model
+exercised rather than described. The historical deployment observation cited above produced **34 findings carrying a real model
 inference**, for example on the mug conflict:
 
 > Established state calls for a half-full mug with handle to camera left. First take matches
 > this exactly. Second take describes the mug as empty with handle turned to camera right.
 
-Two assertions run alongside it, and both are the architecture rather than housekeeping.
-Every model-touched finding must report confidence below 1.0, because an interpretation is
-not a fact. And **the count must not move** when the interpreter changes: the same
-`34 / 31 / 2 / 1` comes out with Bedrock as with the offline stand-in. If swapping the model
-moved the number, the model would be deciding something it is not allowed to decide.
+The deployment checks that required beats remain 34 and that bounded model interpretation does not raise covered beats above the offline baseline. It also requires real model-touched coverage and continuity findings and confidence below 1.0. It does **not** require Bedrock to reproduce the offline 31 covered beats: the dated observation above was 19 of 34. Model identifiers in exported findings come only from their serialized records.
 
-The hosted demo runs the offline interpreter and reports `offline-lexical/1.0.0` on every
-finding it touches, so nothing on that page claims to be a model that it is not.
+The hosted HTTP demo remains offline by default.
 
 Untrusted input is handled as untrusted. Script pages, supervisor notes and camera reports
 are production documents, and a production document can contain any text at all, including
@@ -803,15 +718,7 @@ TLS. The identity GitHub deploys with is separate again, scoped to `lasttake-*` 
 and is created by `infra/setup_ci_identity.py` so that nobody's personal credentials are
 ever copied into CI.
 
-**Cost when nobody is looking.** Lambda bills per request, so no requests means no charge.
-An HTTP API has no hourly charge and the first million requests per month are free. S3 holds
-a few hundred kilobytes per run. EventBridge is one dollar per million custom events. Aurora
-DSQL bills for compute only while a query is running and scales to zero when idle. Nothing
-in this stack has an hourly rate, so an idle month rounds to under a cent, dominated by
-stored bytes.
-
-Those are the published pricing shapes, not a measured bill. The first real invoice is the
-number worth quoting, and it does not exist yet.
+**Costs and timing.** No measured invoice, human-active time or savings are claimed. AWS charges and quotas depend on the account and request pattern; CI timings are validation timings, not time saved for a crew. The receipt exposes measured publication elapsed time without treating it as human time.
 
 **Tearing it down.** `gh workflow run deploy.yml -f action=teardown` deletes the stack. The
 data bucket is retained on purpose, because it holds the audit trail, and a teardown that
@@ -862,7 +769,7 @@ docs/          architecture.svg, the assurance tables, and the JSON each harness
 
 ## Pre-existing components
 
-Required disclosure. Everything else in this repository was written for this submission.
+Required disclosure. The historical component disclosures below are retained. The optional video tooling also retains its source-kit provenance in its file headers; none of its original upstream records was removed. Current video source is NOT_CONFIGURED, with an explicit failing preflight until the owner provides narration credentials and verifies exact-release capture and timing. No candidate recording is claimed.
 
 | Component | Where it came from | What was carried |
 |---|---|---|

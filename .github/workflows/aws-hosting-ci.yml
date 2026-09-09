@@ -31,3 +31,4 @@ jobs:
         with:
           name: aws-frontend-template
           path: frontend-stack.json
+          retention-days: 90

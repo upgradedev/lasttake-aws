@@ -1,6 +1,6 @@
 {
-  "_comment": "Seven beats. captionText is what a judge reads on screen and carries the exact figures. speechText is the same sentence spelled for a text to speech engine, so AWS becomes A W S and 34 becomes thirty four. Run video/generate-narration.py once and read the total it prints before planning around any length: it refuses outside 90 to 174 seconds and tells you the measured figure.",
-  "schemaVersion": "archon.submission-video/v1",
+  "_comment": "Draft script for the current React workspace, not a generated recording. Owner must provide narration credentials and verify the live release, capture, and measured timing before setting READY_OWNER_VERIFIED. Pre-existing kit provenance is retained in the scripts; no media dispatch was performed.",
+  "schemaVersion": "lasttake.submission-video/v1",
   "provider": "elevenlabs",
   "elevenLabs": {
     "voiceId": "pNInz6obpgDQGcFmaJgB",
@@ -13,45 +13,39 @@
   "segments": [
     {
       "id": "hook",
-      "_beat": "The problem, in the words of the person who has it. One named profession, never a market.",
-      "captionText": "A script supervisor decides one thing at the end of a shoot day: is this scene safe to wrap. The evidence sits in seven documents owned by five departments and nobody holds all of it. While the set stands, a missing shot is fifteen minutes. Once cast and location go home, it is a pickup day.",
-      "speechText": "A script supervisor decides one thing at the end of a shoot day: is this scene safe to wrap. The evidence sits in seven documents owned by five departments, and nobody holds all of it. While the set stands, a missing shot is fifteen minutes. Once cast and location go home, it is a pickup day."
+      "captionText": "For a script supervisor and the first assistant director, LastTake brings supplied shoot-day records into one review. Open the AWS workspace at d3kf6hquzlli8g.cloudfront.net. This is a fictional production, not an observed crew trial. It reconciles records and asks for a human decision; it does not claim a time saving.",
+      "speechText": "For a script supervisor and the first assistant director, LastTake brings supplied shoot-day records into one review. Open the AWS workspace at d3kf6hquzlli8g.cloudfront.net. This is a fictional production, not an observed crew trial. It reconciles records and asks for a human decision; it does not claim a time saving."
     },
     {
       "id": "surface",
-      "_beat": "The surface they already work from, not a twelfth tab.",
-      "captionText": "So it opens on the lined script, the page a supervisor already works from. Thirty four required beats down the left, and beside each one the takes actually shot against it, with slate, lens and timecode. No new habit to learn. The verdict lands on top of that page seconds later.",
-      "speechText": "So it opens on the lined script, the page a supervisor already works from. Thirty four required beats down the left, and beside each one the takes actually shot against it, with slate, lens and timecode. No new habit to learn. The verdict lands on top of that page seconds later."
+      "captionText": "Create a shoot-day run, then inspect Workspace. The lined script links each beat to captured takes and source reports. A take without an independent camera report stays missing evidence. Matching identifiers alone do not establish source authenticity, creative quality, or whether the production has everything it needs.",
+      "speechText": "Create a shoot-day run, then inspect Workspace. The lined script links each beat to captured takes and source reports. A take without an independent camera report stays missing evidence. Matching identifiers alone do not establish source authenticity, creative quality, or whether the production has everything it needs."
     },
     {
       "id": "trigger",
-      "_beat": "A real event starts the work. Nobody presses anything.",
-      "captionText": "Nothing waits to be asked. A wrap checkpoint fires as the unit begins to strike. Four agents read the script revision, the takes, the reports, the continuity references and the rights ledger. The count is finished before anyone looks: of 34 required beats, 31 covered with evidence, 2 raising exceptions, 1 with no release record.",
-      "speechText": "Nothing waits to be asked. A wrap checkpoint fires as the unit begins to strike. Four agents read the script revision, the takes, the reports, the continuity references and the rights ledger. The count is finished before anyone looks. Of thirty four required beats, thirty one covered with evidence, two raising exceptions, one with no release record."
+      "captionText": "Press Run wrap checkpoint. Four bounded checks read the package, and a deterministic gate combines their findings. The public demo uses an offline planner and lexical interpreter with real API persistence. It makes no Bedrock call and does not analyze footage or audio. Model-backed validation is separate, with dated results.",
+      "speechText": "Press Run wrap checkpoint. Four bounded checks read the package, and a deterministic gate combines their findings. The public demo uses an offline planner and lexical interpreter with real API persistence. It makes no Bedrock call and does not analyze footage or audio. Model-backed validation is separate, with dated results."
     },
     {
       "id": "live",
-      "_beat": "The flagship claim, executing on the anonymous live path. This is what the capture must be showing.",
-      "captionText": "Then it stops. A pickup needs the 1st AD, and at eleven at night the 1st AD is not at a screen. The run ends. The process ends. They approve at six the next morning, before the first setup, and it resumes from exactly where it stopped, inside a process that no longer exists.",
-      "speechText": "Then it stops. A pickup needs the first assistant director, and at eleven at night the first assistant director is not at a screen. The run ends. The process ends. They approve at six the next morning, before the first setup, and it resumes from exactly where it stopped, inside a process that no longer exists."
+      "captionText": "The pickup tool stops for the first assistant director. Reload restores the saved Strands request. This walkthrough declines the pickup; no pickup message is sent. A wrap decision is separate and binds the exact reviewed evidence. A later pending review or decline removes earlier authority without deleting its history.",
+      "speechText": "The pickup tool stops for the first assistant director. Reload restores the saved Strands request. This walkthrough declines the pickup; no pickup message is sent. A wrap decision is separate and binds the exact reviewed evidence. A later pending review or decline removes earlier authority without deleting its history."
     },
     {
       "id": "sponsor",
-      "_beat": "One sentence on what is load-bearing. Remove it and the product stops.",
-      "captionText": "The Strands Agents SDK does that, on AWS Lambda with the session on S3. Remove it and the product stops, because the pause is not a saved form. It is a tool call suspended mid execution and replayed on resume. Aurora DSQL answers what object storage cannot: which scenes are blocked, and on whom.",
-      "speechText": "The Strands Agents S D K does that, on A W S Lambda, with the session on S three. Remove it and the product stops, because the pause is not a saved form. It is a tool call suspended mid execution and replayed on resume. Aurora D S Q L answers what object storage cannot. Which scenes are blocked, and on whom."
+      "captionText": "Strands supplies the tool loop, saved interrupt and replay on resume. On AWS, S3 stores sessions and Aurora DSQL stores run state. The final tool rechecks evidence before a consequential event. A claim means pending work, not success; a new approval identifier cannot resend an unresolved logical action.",
+      "speechText": "Strands supplies the tool loop, saved interrupt and replay on resume. On AWS, S3 stores sessions and Aurora DSQL stores run state. The final tool rechecks evidence before a consequential event. A claim means pending work, not success; a new approval identifier cannot resend an unresolved logical action."
     },
     {
       "id": "evidence",
-      "_beat": "What a judge can check without asking us, including what is not deployed.",
-      "captionText": "Every claim is checkable without asking us. The repository carries the synthetic corpus, the deterministic gate and 145 tests. An ablation measures each rule: remove the model and coverage falls from 31 of 34 to zero, every beat unknown rather than a pass. The live site runs the offline interpreter, not Bedrock, and says so.",
-      "speechText": "Every claim is checkable without asking us. The repository carries the synthetic corpus, the deterministic gate, and one hundred and forty five tests. An ablation measures each rule. Remove the model and coverage falls from thirty one of thirty four to zero, every beat unknown rather than a pass. The live site runs the offline interpreter, not Bedrock, and says so."
+      "captionText": "History prepares a portable evidence bundle with source digests, current decisions, revision, serialized model identifiers and known limits. Missing model provenance remains unknown. Bus acceptance is not downstream completion. Only definite rejection offers an explicit retry; ambiguous outcomes require reconciliation. A hash identifies bytes, not truth.",
+      "speechText": "History prepares a portable evidence bundle with source digests, current decisions, revision, serialized model identifiers and known limits. Missing model provenance remains unknown. Bus acceptance is not downstream completion. Only definite rejection offers an explicit retry; ambiguous outcomes require reconciliation. A hash identifies bytes, not truth."
     },
     {
       "id": "close",
-      "_beat": "The republishable sentence. One mechanism, one consequence.",
-      "captionText": "LastTake checks every required beat against the takes actually captured before the crew is released, so a missing shot costs minutes, not a pickup day. It decides nothing: absent evidence is a finding, never a pass. Live, no account, open source. Walk the shoot day yourself.",
-      "speechText": "LastTake checks every required beat against the takes actually captured before the crew is released, so a missing shot costs minutes, not a pickup day. It decides nothing. Absent evidence is a finding, never a pass. Live, no account, open source. Walk the shoot day yourself."
+      "captionText": "Open the guided demo to try three editable documents: a valid take, an impossible expiry date, then a corrected date. Refused input stays editable and must leave stored evidence unchanged. The dashboard reports saved session outcomes and decisions, not invented human time or financial benefits. Review the limits and pre-existing component disclosures in the repository.",
+      "speechText": "Open the guided demo to try three editable documents: a valid take, an impossible expiry date, then a corrected date. Refused input stays editable and must leave stored evidence unchanged. The dashboard reports saved session outcomes and decisions, not invented human time or financial benefits. Review the limits and pre-existing component disclosures in the repository."
     }
-  ]
+  ],
+  "recording_status": "NOT_CONFIGURED"
 }

@@ -172,6 +172,8 @@ def state_for(run, store_kind) -> dict:
     outcomes = rollup.roll_up(run.package, findings if current else [], decisions)
     packet = current_eligibility(run).to_dict() if findings else None
     turnover_key = f"turnover/{run.run_id.replace(':', '_')}.json"
+    turnover = json.loads(run.artifacts.get(turnover_key)) if run.artifacts.exists(turnover_key) else None
+    approval = run.current_wrap_approval()
     return {
         "run_id": run.run_id,
         "scene_id": run.package.scene_id,
@@ -198,10 +200,12 @@ def state_for(run, store_kind) -> dict:
         "decisions": decisions,
         "eligible": bool(packet and packet.get("eligible")),
         "causes": (packet or {}).get("causes", []),
-        "wrap_approved": run.wrap_approved(),
+        "wrap_approved": approval is not None,
+        "turnover_current": bool(turnover and approval and all(turnover.get(key) == approval.get(key)
+                                 for key in ("approval_id", "review_digest", "package_revision_digest"))),
         "interpreter": run.interpreter.model_id,
         "run_state_store": store_kind(),
         "pending_approval": pending_for(run),
-        **({"turnover": json.loads(run.artifacts.get(turnover_key))} if run.artifacts.exists(turnover_key) else {}),
+        **({"turnover": turnover} if turnover else {}),
         "package_revision_digest": run.package.revision_digest(),
     }
