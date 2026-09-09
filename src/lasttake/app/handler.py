@@ -209,46 +209,7 @@ def _page() -> dict:
 
 
 def _state(run: WrapRun) -> dict:
-    findings = [from_dict(f) for f in run.load_findings()]
-    decisions = run.load_decisions()
-    recovery = workspace.recovery_state(run)
-    current = bool(findings) and not recovery["needs_checkpoint"]
-    outcomes = rollup.roll_up(run.package, findings if current else [], decisions)
-    packet = workspace.current_eligibility(run).to_dict() if findings else None
-    turnover_key = f"turnover/{run.run_id.replace(':', '_')}.json"
-    return {
-        "run_id": run.run_id,
-        "scene_id": run.package.scene_id,
-        "production_id": run.package.production_id,
-        "revision": run.package.revision,
-        "headline": rollup.sentence(outcomes) if current else None,
-        "counts": rollup.headline(outcomes) if current else None,
-        **recovery,
-        "execution": workspace.execution_record(run),
-        "delivery_outcomes": run.delivery_states(),
-        "beats": [o.to_dict() for o in outcomes],
-        # The seal travels with the finding, because the page has to tell a live
-        # approval from a withdrawn one. A decision carries the digest of the
-        # reading it was taken about; without the current digest beside it the
-        # interface would keep showing an approval the gate has already stopped
-        # honouring, which is the exact confusion this rule exists to remove.
-        "exceptions": [
-            {**f.to_dict(), "record_sha256": f.record_sha256, "next_action": receipt.next_action(f)}
-            for f in sorted(findings, key=lambda f: f.finding_id)
-            if f.truth_state.is_exception
-        ],
-        # What a human already decided about a finding, so the page can say so
-        # beside it rather than offering the same control twice.
-        "decisions": decisions,
-        "eligible": bool(packet and packet.get("eligible")),
-        "causes": (packet or {}).get("causes", []),
-        "wrap_approved": run.wrap_approved(),
-        "interpreter": run.interpreter.model_id,
-        "run_state_store": run_store_kind(),
-        "pending_approval": workspace.pending_for(run),
-        **({"turnover": json.loads(run.artifacts.get(turnover_key))} if run.artifacts.exists(turnover_key) else {}),
-        "package_revision_digest": run.package.revision_digest(),
-    }
+    return workspace.state_for(run, run_store_kind)
 
 
 def _pending_interrupt(result) -> dict | None:

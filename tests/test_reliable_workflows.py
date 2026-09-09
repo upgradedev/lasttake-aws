@@ -190,3 +190,79 @@ def test_finding_delivery_batch_preserves_outcomes_without_per_finding_audit(mon
     assert not any(a["kind"] == "event.delivery" for a in audits)
     assert len(run.delivery_states()) == len(run.load_findings())
     assert all(d["status"] == "rejected" and d["elapsed_ms"] >= 0 for d in run.delivery_states())
+
+
+@pytest.mark.parametrize("response,status", [
+    ({"FailedEntryCount": 1, "Entries": [{"ErrorCode": "InternalFailure", "ErrorMessage": "rejected"}]}, "rejected"),
+    ({"FailedEntryCount": 0, "Entries": [{"ErrorCode": "AccessDeniedException"}]}, "rejected"),
+    ({"FailedEntryCount": 0, "Entries": []}, "unknown"),
+    ({"FailedEntryCount": 0, "Entries": [{"EventId": "actual-aws-event-id"}]}, "accepted"),
+    (TimeoutError("response lost"), "unknown"),
+])
+def test_aws_entry_receipts_do_not_infer_acceptance_from_s3(response, status):
+    from types import SimpleNamespace
+    from lasttake.adapters.aws.infrastructure import EventBridgeBus
+    saved = []
+    def put_events(**_):
+        if isinstance(response, Exception):
+            raise response
+        return response
+    bus = EventBridgeBus("configured-bus", "artifacts", events_client=SimpleNamespace(put_events=put_events),
+        s3_client=SimpleNamespace(put_object=lambda **kw: saved.append(kw)))
+    run = H.build_run(owned()["run_id"])
+    result = bus.publish(run.build_event(EventType.PICKUP_REQUESTED, {"approval_id": "review-a"}))
+    assert len(saved) == 1 and result.outcome == status
+    assert result.accepted == (status == "accepted")
+    if result.accepted:
+        assert result.reference == "actual-aws-event-id" and "downstream completion is not established" in result.detail
+
+
+def test_rejected_pickup_retries_through_owned_api_and_replays_actual_receipt(monkeypatch):
+    body = owned()
+    run = H.build_run(body["run_id"])
+    attempts = []
+    original = type(run.bus).publish
+    def publish(bus, event):
+        if event.event_type is EventType.PICKUP_REQUESTED:
+            attempts.append(event)
+            if len(attempts) == 1:
+                return Receipt(False, event.event_id, "Explicit entry rejection")
+        return original(bus, event)
+    monkeypatch.setattr(type(run.bus), "publish", publish)
+    pending = post("/api/checkpoint", body)["pending_approval"]
+    state = post("/api/approve", {**body, "role": "first_ad", "approve": True, "interrupt_id": pending["id"]})
+    assert "rejected" in state["message"] and "Pickup approved" not in state["message"]
+    rejected = next(row for row in state["delivery_outcomes"] if row["event_type"] == "pickup.requested")
+    retry = {**body, "role": "first_ad", "idempotency_key": rejected["idempotency_key"]}
+    assert post("/api/retry-delivery", {**retry, "role": "editorial"})["status"] == 403
+    assert post("/api/retry-delivery", {**retry, "session_id": "0" * 64})["status"] == 403
+    accepted = post("/api/retry-delivery", retry)
+    assert accepted["status"] == 200 and accepted["delivery"]["accepted"]
+    assert post("/api/retry-delivery", retry)["delivery"] == accepted["delivery"]
+    assert len(attempts) == 2
+
+
+def test_final_wrap_guard_refuses_stale_or_wrong_role_without_http_guard():
+    body = owned()
+    eligible(body)
+    run = H.build_run(body["run_id"])
+    payload = {**run.review_binding(), "approval_id": "direct-review", "required_role": "first_ad",
+               "approved_by_role": "first_ad"}
+    assert run.publish_approved(EventType.WRAP_READY, {**payload, "approved_by_role": "editorial"}).outcome == "refused"
+    assert post("/api/ingest", {**body, "kind": "rights_record", "document": RELEASE})["status"] == 200
+    changed = H.build_run(run.run_id)
+    assert changed.publish_approved(EventType.WRAP_READY, payload).outcome == "refused"
+    assert not any(d["event_type"] == "wrap.ready" for d in changed.delivery_states())
+    assert changed.publish_approved(EventType.WRAP_READY, {**payload, **changed.review_binding()}).accepted
+
+
+def test_evidence_bundle_reports_serialized_model_and_unknown_human_metrics():
+    body = owned()
+    post("/api/checkpoint", body)
+    bundle = post("/api/receipt", body)["receipt"]
+    assert bundle["source_manifest"] and bundle["execution"]["mode"] == "offline-demo"
+    assert bundle["human_active_seconds"] is None and bundle["measured_benefit"] is None
+    assert "Hash" in bundle["human_readable"] or "hash" in bundle["human_readable"]
+    assert bundle["delivery_outcomes"] and bundle["finding_provenance"]
+    assert any(f["model_id"] is None for f in bundle["finding_provenance"])
+    assert any(f["model_id"] == "offline-lexical/1.0.0" for f in bundle["finding_provenance"])

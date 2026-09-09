@@ -303,7 +303,10 @@ jobs:
           import json,sys
           d=json.load(sys.stdin)
           print(d['message'])
-          assert 'Pickup approved' in d['message'], d['message']
+          assert 'Pickup approved' in d['message'] and 'Bus accepted' in d['message'], d['message']
+          receipts=[r for r in d['delivery_outcomes'] if r['event_type']=='pickup.requested']
+          assert len(receipts)==1 and receipts[0]['status']=='accepted' and receipts[0]['reference'], receipts
+          assert d['run_state_store']=='aurora-dsql', d['run_state_store']
           c1=open('/tmp/c1').read(); c2=d['served_by']['container_id']
           print('container that stopped the run: ', c1)
           print('container that resumed it:      ', c2)

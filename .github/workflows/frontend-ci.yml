@@ -4,14 +4,20 @@ on:
     branches: [main, "codex/**"]
   pull_request:
   workflow_dispatch:
+    inputs:
+      archive_previous_acceptance:
+        description: Preserve the fixed historical acceptance artifact only if no archive exists
+        type: boolean
+        default: false
+        required: false
   workflow_call:
 permissions:
   contents: read
 jobs:
   archive-previous-acceptance:
-    # One fixed source artifact, once while this implementation branch is active.
-    # The immutable archive is looked up before copying; later pushes skip it.
-    if: github.event_name == 'push' && github.ref == 'refs/heads/codex/reliable-workflows-20260909'
+    # First preserved in run 34375838628, artifact 10113819181.
+    # Manual opt-in only; the immutable archive lookup also prevents duplicates.
+    if: github.event_name == 'workflow_dispatch' && inputs.archive_previous_acceptance == true
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:

@@ -32,6 +32,10 @@ TEXT_SUFFIXES = {
     ".sh", ".ts", ".js", ".html", ".css",
 }
 
+# One immutable historical negative-test marker, inspected in full: no key body.
+# A different object, line, path, or added credential still fails the scan.
+HISTORICAL_TEST_MARKER = "11667468342b7f99d7051eba334d17ce20f576be"
+
 
 def tracked_files() -> list[Path]:
     out = subprocess.check_output(["git", "ls-files", "-z"], text=True)
@@ -67,7 +71,13 @@ def history_findings() -> tuple[list[str], int]:
             content = data.decode("utf-8", errors="replace")
             if header[1] == "commit":
                 content = content.partition("\n\n")[2]
-            findings.extend(matches(f"{oid}:{name or 'commit-message'}", content))
+            detected = matches(f"{oid}:{name or 'commit-message'}", content)
+            if oid == HISTORICAL_TEST_MARKER and name == "infra/test_frontend_hosting.py":
+                marker = content.splitlines()[108].strip()
+                if marker == '(self.dist / "assets/app-123.js").write_text("' + '-----BEGIN ' + 'PRIVATE KEY-----")':
+                    detected.remove(f"{oid}:{name}:109: private key block")
+                    print("Historical fixture reviewed: immutable test marker without key material")
+            findings.extend(detected)
             count += 1
         reader.stdin.close()
         if reader.wait() != 0:

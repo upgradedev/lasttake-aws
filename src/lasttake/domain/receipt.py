@@ -170,6 +170,14 @@ def build(
              f"Policy {policy_version}; current gate {'eligible' if packet.eligible else 'blocked'}; {len(packet.causes)} cause(s).",
              "Synthetic role selection; no authenticated staff identity.",
              "Sources: " + ", ".join(s["artifact_id"] for s in sources)]
+    mode = execution or {}
+    lines.append(f"Execution mode: {mode.get('mode', 'not_recorded')}; backend revision: {mode.get('backend_revision') or 'unknown'}.")
+    lines.append("Serialized finding model identifiers: " + ", ".join(sorted({p['model_id'] or 'unknown' for p in provenance})))
+    lines.extend(f"Source {s['artifact_id']}: SHA-256 {s['sha256']}" for s in sources)
+    if recovery and recovery.get("recovery_reason"):
+        lines.append(recovery["recovery_reason"])
+    lines.append("Recovery: refresh saved state; correct refused evidence; obtain a fresh review after changes. Retry only a definite rejection. Pending or unknown external outcomes require operator reconciliation.")
+    lines.append("Human-active time and measured benefits: unknown.")
     for row in still_open:
         decision = row["a_human_decided"]
         review = f"{decision['action']} by {decision['actor']}" if decision else "current decision absent"
