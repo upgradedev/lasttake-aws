@@ -4,6 +4,9 @@ async function fresh(page:Page){
   await page.goto('/');
   await page.getByRole('button',{name:'New shoot-day run',exact:true}).click();
   await expect(page.getByRole('button',{name:'Run wrap checkpoint'})).toBeEnabled();
+  const badges=page.locator('.beat .badge');
+  await expect(badges.first()).toHaveText('Not assessed');
+  expect((await badges.allTextContents()).every(text=>text==='Not assessed')).toBe(true);
   await page.getByRole('button',{name:'Run wrap checkpoint'}).click();
   await expect(page.getByRole('button',{name:'Refresh saved state'})).toBeEnabled();
   await expect(page.getByText(/Of 34 required beats/).first()).toBeVisible();

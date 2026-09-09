@@ -15,16 +15,29 @@ Before you wrap the set, know whether you truly have the scene.
 
 ### React workspace usage
 
-AWS frontend release target: [LastTake React workspace](https://d3kf6hquzlli8g.cloudfront.net/).
-Status: pending release and parent deployment verification. This is not a claim
-that the React build is live at that URL; the green CI checkpoint verifies the
-built application against the real offline Python HTTP handler.
+Live AWS application: [LastTake React workspace](https://d3kf6hquzlli8g.cloudfront.net/).
+[Live AWS acceptance](https://github.com/upgradedev/lasttake-aws/actions/runs/34327806494)
+passed all 8 desktop/mobile journeys on 2026-09-09 against CloudFront, Lambda, S3 and Aurora DSQL.
+This is automated synthetic acceptance, not a practising supervisor's signoff.
+The tested frontend was `1f10d39c8b2b22474f64b1c057851eb2057665e7`; current release identity is
+at `/release.json`, and backend identity at `/healthz`.
 
 The React, TypeScript and Tailwind application is in `frontend/`. It builds to
 `frontend/dist/` with hashed `/assets/` files and uses same-origin `/api/*` JSON
 requests. Hash routes open Overview, Scene workspace, My actions and Turnovers &
 history. The static UAT testbook is included as `UAT.testbook.html` and
 `UAT.testbook.json`; human signoff remains `NOT_RUN` until a person completes it.
+
+Every push to `main`, including a merged pull request, now starts
+[`frontend-deploy.yml`](https://github.com/upgradedev/lasttake-aws/actions/workflows/frontend-deploy.yml):
+offline checks -> AWS frontend deployment -> live desktop/mobile Playwright testbook journeys.
+The release lock stays held through acceptance; queued releases do not interrupt a running test.
+The reusable `aws-uat.yml` checks the exact frontend SHA before and after the journeys and fails
+on browser errors or a changed release. Focused `test.only` tests are refused. Each run retains
+HTML/JUnit reports, traces, screenshots, failure video and the testbook for 14 days, with a
+result summary in GitHub Actions. Failure makes the pipeline red; it does not undo a merge
+or automatically roll back the deployed frontend. Backend deployment remains a separate process.
+Manual reruns remain available. Automated results never set human UAT signoff to PASS.
 
 Create a fictional shoot-day run, start a checkpoint, inspect the script and
 source records, then select the demo role responsible for each decision. Take

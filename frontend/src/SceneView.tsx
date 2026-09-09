@@ -24,7 +24,7 @@ export function SceneView({scene,state,selected}:{scene:Scene;state:RunState;sel
   const [search,setSearch]=useState('');
   const beat=scene.beats.find(b=>b.beat_id===selected);
   const findings=beat ? state.exceptions.filter(f=>aboutBeat(f,beat)) : state.exceptions;
-  const outcomes=new Map(state.beats.map(b=>[b.beat_id,b]));
+  const outcomes=new Map((state.counts ? state.beats : []).map(b=>[b.beat_id,b]));
   const shown=scene.beats.filter(b=>(filter==='all'||state.exceptions.some(f=>aboutBeat(f,b))) && `${b.slug} ${b.beat_id}`.toLowerCase().includes(search.toLowerCase()));
   return <><div className="toolbar"><label className="grow">Find a beat<input type="search" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search script or beat identifier"/></label><label>Show<select value={filter} onChange={e=>setFilter(e.target.value)}><option value="all">All script beats</option><option value="exceptions">Beats with exceptions</option></select></label></div>
   <div className="scene-layout"><section className="script" aria-label="Lined script"><div className="script-title"><p className="eyebrow">The Last Ferry · scene 42</p><h2>{scene.scene_heading}</h2><p>{scene.revision} · {scene.take_count} supplied takes</p></div>
