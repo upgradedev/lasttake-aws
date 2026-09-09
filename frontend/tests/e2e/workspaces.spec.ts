@@ -7,6 +7,10 @@ async function create(page:Page){await page.goto('/');await page.getByRole('butt
 test('LT-DASH scoped metrics drill into matching evidence, and desktop/mobile cockpit captures are reviewable',async({page},info)=>{
   const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
   await create(page);await nav(page,'Dashboard');
+  if(info.project.name==='mobile'){
+    const role=await page.getByLabel('Demo role').boundingBox();
+    expect(role!.width).toBeGreaterThanOrEqual(200);
+  }
   await expect(page.getByTestId('metric-coverage')).toContainText('Not assessed');
   await expect(page.getByTestId('metric-exceptions')).toContainText('Not assessed');
   await expect(page.getByTestId('metric-releases')).toContainText('Not assessed');
