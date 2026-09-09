@@ -143,6 +143,8 @@ test('navigation keeps session-owned history and blocked browser storage remains
   await page.getByRole('button',{name:'Start this fictional shoot day'}).click();
   await expect(page.getByRole('button',{name:'Run wrap checkpoint'})).toBeVisible();
   await navigate(page,'Overview');await expect(page.getByText('Current saved run')).toBeVisible();
+  // A shadow token must not also name an opaque Tailwind shadow-color token.
+  await expect(page.locator('.summary.panel')).toHaveCSS('box-shadow',/rgba\(23, 38, 53, 0\.0?8\)/);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await page.screenshot({path:info.outputPath('overview.png'),fullPage:true});
 });
