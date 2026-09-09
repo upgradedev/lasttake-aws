@@ -25,6 +25,30 @@ describe('intake',()=>{
   it('rejects malformed advanced JSON locally and submits repaired JSON',async()=>{const submit=act(),close=vi.fn();const user=userEvent.setup();render(<Intake scene={scene} busy={false} guided={false} onSubmit={submit} onClose={close}/>);expect(screen.queryByRole('button',{name:'Fill synthetic example'})).toBeNull();await user.click(screen.getByLabelText('Advanced JSON entry'));fireEvent.change(screen.getByLabelText('Document JSON'),{target:{value:'{'}});await user.click(screen.getByRole('button',{name:'Save evidence & rerun checks'}));expect(screen.getByRole('alert')).toHaveTextContent('valid JSON');expect(submit).not.toHaveBeenCalled();fireEvent.change(screen.getByLabelText('Document JSON'),{target:{value:'{"take_id":"T-3"}'}});await user.click(screen.getByRole('button',{name:'Save evidence & rerun checks'}));expect(submit).toHaveBeenCalled();await user.click(screen.getByRole('button',{name:'Close form'}));expect(close).toHaveBeenCalled();});
 });
 describe('history',()=>{
+  it('pages every event newest first without changing the original records',async()=>{
+    const events=Array.from({length:45},(_,i)=>({event_id:`event-${i}`,event_type:`record.${i}`,occurred_at:new Date(Date.UTC(2026,8,9,0,i)).toISOString(),payload:{index:i}}));
+    const original=JSON.stringify(events);
+    const user=userEvent.setup();
+    const {rerender}=render(<History state={state} session={session} events={events} role="dit" busy={false} act={act()} handle={act()}/>);
+    const record=within(screen.getByRole('region',{name:'Recorded events'}));
+    expect(record.getByRole('status')).toHaveTextContent('Events 1–20 of 45');
+    expect(record.getAllByRole('listitem')).toHaveLength(20);
+    expect(record.getAllByRole('listitem')[0]).toHaveTextContent('record 44');
+    expect(record.getByRole('button',{name:'Newer events'})).toBeDisabled();
+    await user.click(record.getByRole('button',{name:'Older events'}));
+    expect(record.getByRole('status')).toHaveTextContent('Events 21–40 of 45');
+    expect(record.getAllByRole('listitem')[0]).toHaveTextContent('record 24');
+    await user.click(record.getByRole('button',{name:'Older events'}));
+    expect(record.getAllByRole('listitem')).toHaveLength(5);
+    expect(record.getAllByRole('listitem')[4]).toHaveTextContent('record 0');
+    expect(record.getByRole('button',{name:'Older events'})).toBeDisabled();
+    await user.click(record.getByRole('button',{name:'Newer events'}));
+    expect(record.getByRole('status')).toHaveTextContent('Events 21–40 of 45');
+    expect(JSON.stringify(events)).toBe(original);
+    rerender(<History state={state} session={session} events={events.slice(0,2)} role="dit" busy={false} act={act()} handle={act()}/>);
+    expect(record.getByRole('status')).toHaveTextContent('Events 1–2 of 2');
+    expect(record.getAllByRole('listitem')).toHaveLength(2);
+  });
   it('prepares role receipt and displays original events and all saved runs',async()=>{vi.stubGlobal('fetch',vi.fn().mockResolvedValue({ok:true,json:async()=>({receipt})}));const handle=async(work:()=>Promise<void>)=>{await work();return true;};const user=userEvent.setup();render(<History state={state} session={session} events={[{event_id:'e',event_type:'take.captured',occurred_at:'2026-08-19T00:00:00Z',payload:{take_id:'T-1'}}]} role="script_supervisor" busy={false} act={act()} handle={handle}/>);expect(screen.getByRole('button',{name:'Publish approved turnover'})).toBeDisabled();await user.click(screen.getByRole('button',{name:'Prepare receipt'}));expect(await screen.findByText('Receipt ready for review')).toBeVisible();expect(screen.getByText('Review mug.')).toBeVisible();await user.selectOptions(screen.getByLabelText('Receipt purpose'),'wrap');expect(screen.queryByText('Receipt ready for review')).not.toBeInTheDocument();});
   it('shows empty states and allows publication only after approval',()=>{const save=act();const {rerender}=render(<History state={{...state,counts:null}} session={{...session,runs:[]}} events={[]} role="editorial" busy={false} act={save} handle={act()}/>);expect(screen.getByRole('button',{name:'Prepare receipt'})).toBeDisabled();expect(screen.getByText(/No events yet/)).toBeVisible();rerender(<History state={{...state,wrap_approved:true,eligible:true}} session={session} events={[]} role="editorial" busy={false} act={save} handle={act()}/>);fireEvent.click(screen.getByRole('button',{name:'Publish approved turnover'}));expect(save).toHaveBeenCalledWith('turnover');});
   it('downloads persisted historical turnovers without presenting changed evidence as approved',()=>{vi.spyOn(HTMLAnchorElement.prototype,'click').mockImplementation(()=>{});vi.stubGlobal('URL',Object.assign(URL,{createObjectURL:vi.fn(()=> 'blob:test'),revokeObjectURL:vi.fn()}));render(<History state={{...state,turnover:{package_revision_digest:'old'}}} session={{...session,runs:[{...session.runs[0],turnover_published:true}]}} events={[]} role="dit" busy={false} act={act()} handle={act()}/>);expect(screen.getByText(/Evidence has changed since this turnover/)).toBeVisible();fireEvent.click(screen.getByRole('button',{name:'Download turnover'}));});

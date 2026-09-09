@@ -112,6 +112,13 @@ test('LT03 saved Strands approval resumes, retry acts once, then approved turnov
   expect(receipt.receipt.still_open_count).toBeGreaterThan(0);
   const forged=await page.request.post('/api/receipt',{data:{...body,subject:{caller_assertion:'unchecked'}}});expect(forged.status()).toBe(400);
   const denied=await page.request.post('/api/state',{data:{run_id:body.run_id}});expect(denied.status()).toBe(403);
+  const timeline=page.getByRole('region',{name:'Recorded events'});
+  await expect(timeline.getByRole('listitem')).toHaveCount(20);
+  await expect(timeline.getByRole('status')).toContainText('Events 1–20 of');
+  await timeline.getByRole('button',{name:'Older events'}).click();
+  await expect(timeline.getByRole('status')).toContainText('Events 21–40 of');
+  await timeline.getByRole('button',{name:'Newer events'}).click();
+  await expect(timeline.getByRole('status')).toContainText('Events 1–20 of');
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await page.screenshot({path:info.outputPath('approved-turnover.png'),fullPage:true});
 });
