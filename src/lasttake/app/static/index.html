@@ -1026,9 +1026,12 @@ function paintMine() {
    clipboard permission is not something a judge should have to grant to see the
    thing exists. */
 function takeReceipt() {
-  var out = $('receiptOut');
+  /* `#receiptOut` is re-created by every paintMine, so the node is looked up
+     again after the request rather than captured before it. Holding the old
+     reference across the await writes into a node that is no longer in the
+     document, and the packet the person asked for silently never appears. */
   RECEIPT_HTML = '<div class="receipt">Asking the server for a sealed receipt…</div>';
-  out.innerHTML = RECEIPT_HTML;
+  $('receiptOut').innerHTML = RECEIPT_HTML;
   return fetch('/api/receipt', {
     method: 'POST',
     headers: {'content-type': 'application/json'},
@@ -1039,7 +1042,7 @@ function takeReceipt() {
     if (!res.ok || !res.d.receipt) {
       RECEIPT_HTML = '<div class="receipt">' +
         esc((res.d && res.d.error) || 'the receipt could not be built') + '</div>';
-      out.innerHTML = RECEIPT_HTML;
+      $('receiptOut').innerHTML = RECEIPT_HTML;
       return;
     }
     var text = JSON.stringify(res.d.receipt, null, 2);
@@ -1059,7 +1062,7 @@ function takeReceipt() {
       'phone. An accepted exception travels in that list too: somebody signed ' +
       'for it, which does not make it fixed.' +
       '<pre id="receiptText">' + esc(text) + '</pre></div>';
-    out.innerHTML = RECEIPT_HTML;
+    $('receiptOut').innerHTML = RECEIPT_HTML;
   });
 }
 

@@ -140,3 +140,66 @@ test.describe("LT-03, a receipt that survives leaving the page", () => {
     expect(row.a_human_decided.still_open_because).toContain("not a fixed one");
   });
 });
+
+test.describe("LT-02, a retried approval does not act twice", () => {
+  test.describe.configure({ mode: "serial", timeout: 420_000 });
+
+  test("resending the same approval leaves one event on the record", async ({ page }) => {
+    // This is the claim the Strands resume model makes expensive to get right.
+    // On resume a tool body replays from its first line, so an external effect
+    // placed before the interrupt fires again on every retry. The proof has to
+    // be at the event store, because that is where a duplicate pickup request
+    // would actually appear, and it has to be reached through the browser,
+    // because a unit test with a fake bus proves the guard and not the wiring.
+    await page.goto(URL, { waitUntil: "networkidle" });
+    await page.locator("#bReset").click();
+    await expect(page.locator("#tally")).toContainText("34", { timeout: 90_000 });
+
+    const run = await page.evaluate(
+      () => JSON.parse(localStorage.getItem("lasttake.run")).run_id,
+    );
+
+    // Walk until the run stops and asks a human. Press what a human presses.
+    let interruptId = null;
+    for (let move = 0; move < 8 && !interruptId; move += 1) {
+      const label = await page.locator("#go").textContent();
+      if (label?.includes("complete")) break;
+      await page.locator("#go").click();
+      await page.waitForTimeout(2_000);
+      interruptId = await page.evaluate(() => (window.PENDING || {}).id || null);
+      if (!interruptId) {
+        const accept = page.locator('.card.linked button[data-action="accept_exception"]');
+        if (await accept.count()) {
+          await accept.first().click();
+          await page.waitForTimeout(2_500);
+        }
+      }
+    }
+    expect(interruptId, "the run should have stopped and asked the 1st AD").toBeTruthy();
+
+    await page.locator("#bYes").click();
+    await expect(page.locator("#bYes")).toHaveCount(0, { timeout: 90_000 });
+
+    const countPickups = async () => {
+      const res = await page.request.post(new global.URL("/api/events", URL).toString(), {
+        data: { run_id: run },
+      });
+      const body = await res.json();
+      return body.events.filter((e) => e.event_type === "pickup.requested").length;
+    };
+
+    const once = await countPickups();
+    expect(once).toBe(1);
+
+    // Now send the identical approval again, the way a lost response or an
+    // impatient second press would.
+    const again = await page.request.post(new global.URL("/api/approve", URL).toString(), {
+      data: { run_id: run, interrupt_id: interruptId, approve: true },
+    });
+    expect(again.status()).toBeLessThan(500);
+
+    // Still one. The retry is safe, and it is safe at the store rather than in
+    // a guard somebody could remove without a test noticing.
+    expect(await countPickups()).toBe(1);
+  });
+});

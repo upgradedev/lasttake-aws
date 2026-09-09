@@ -40,13 +40,13 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Fifteen hostile bodies, and what must never come back
+      - name: Every hostile body, and what must never come back
         run: python tools/dast_probe.py "${LASTTAKE_URL}" | tee -a "${GITHUB_STEP_SUMMARY}"
 
   journey:
     name: The judge journey, in a browser
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
