@@ -1,6 +1,11 @@
 {
   "schema": "lasttake/uat/v1",
   "scope": "Synthetic React workspace with real offline Python HTTP handler and Strands sessions. Cloud deployment and practising-user acceptance require separate evidence.",
+  "aws_release": {
+    "url": "https://d3kf6hquzlli8g.cloudfront.net/",
+    "status": "PENDING_RELEASE_VERIFICATION",
+    "observed_result_evidence": "NOT_RUN: parent owns release publication and AWS verification. The CI results below do not assert that the React build is live at this URL."
+  },
   "cases": [
     {
       "id": "LT01",

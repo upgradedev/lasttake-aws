@@ -15,6 +15,11 @@ Before you wrap the set, know whether you truly have the scene.
 
 ### React workspace usage
 
+AWS frontend release target: [LastTake React workspace](https://d3kf6hquzlli8g.cloudfront.net/).
+Status: pending release and parent deployment verification. This is not a claim
+that the React build is live at that URL; the green CI checkpoint verifies the
+built application against the real offline Python HTTP handler.
+
 The React, TypeScript and Tailwind application is in `frontend/`. It builds to
 `frontend/dist/` with hashed `/assets/` files and uses same-origin `/api/*` JSON
 requests. Hash routes open Overview, Scene workspace, My actions and Turnovers &
