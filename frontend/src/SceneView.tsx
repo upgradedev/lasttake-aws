@@ -1,4 +1,4 @@
-import {useState} from 'react';
+import {useEffect,useRef,useState} from 'react';
 import {ApprovalConsole,DecisionForm} from './Actions';
 import {Evidence,Inspector} from './Inspector';
 import {link,roles,words} from './model';
@@ -10,6 +10,15 @@ export function SceneView({scene,state,selected,selection={},role='script_superv
   const [localFilter,setLocalFilter]=useState('all');
   const filter=selection.filter ?? localFilter;
   const {beat,finding,findings,invalid,related}=selectEvidence(scene,state,{...selection,beat:selected});
+  const scriptList=useRef<HTMLDivElement>(null);
+  const activeBeat=selected ?? related[0]?.beat_id;
+  useEffect(()=>{
+    const list=scriptList.current;
+    const row=activeBeat?document.getElementById('beat-'+activeBeat):null;
+    if(list && row && list.contains(row)){
+      list.scrollTop=Math.max(0,list.scrollTop+row.getBoundingClientRect().top-list.getBoundingClientRect().top-10);
+    }
+  },[activeBeat]);
   const outcomes=new Map((state.counts ? state.beats : []).map(b=>[b.beat_id,b]));
   const shown=uniqueBy(scene.beats,b=>b.beat_id).filter(b=>beatMatches(b,state,['covered','exceptions','missing-releases'].includes(filter)?filter:'all') && `${b.slug} ${b.beat_id} ${b.description} ${b.page} ${b.line}`.toLowerCase().includes(search.toLowerCase()));
   const updateFilter=(value:string)=>{setLocalFilter(value);if(selection.filter)location.hash=link('scene',state.run_id,undefined,{filter:value});};
@@ -19,7 +28,7 @@ export function SceneView({scene,state,selected,selection={},role='script_superv
     <div className="scene-layout" data-testid="production-cockpit">
       <section id="script-pane" tabIndex={-1} className="script cockpit-pane" aria-label="Lined script"><div className="pane-heading"><span>01</span><h2>Scene & script beats</h2></div><div className="script-title"><div className="slate-index">{scene.scene_id}</div><div><h3>{scene.scene_heading}</h3><p>{scene.revision} · {scene.take_count} supplied takes</p></div></div>
         <div className="pane-controls"><label>Find a beat<input type="search" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Beat, script text, page or line"/></label><label>Show<select value={['covered','exceptions','missing-releases'].includes(filter)?filter:'all'} onChange={e=>updateFilter(e.target.value)}><option value="all">All script beats</option><option value="exceptions">Beats with exceptions</option><option value="covered">Covered required beats</option><option value="missing-releases">Beats missing release records</option></select></label></div>
-        <div className="pane-scroll" tabIndex={0} aria-label="Script beat list"><p className="list-count">{shown.length} shown · {scene.required_beats} required in scene</p>{shown.length===0 && <p className="empty">No beats match this filter. Try another search or show all beats.{!state.counts?' Assessment is not available until a checkpoint.':''}</p>}
+        <div ref={scriptList} className="pane-scroll" tabIndex={0} aria-label="Script beat list"><p className="list-count">{shown.length} shown · {scene.required_beats} required in scene</p>{shown.length===0 && <p className="empty">No beats match this filter. Try another search or show all beats.{!state.counts?' Assessment is not available until a checkpoint.':''}</p>}
           {shown.map(b=>{const outcome=outcomes.get(b.beat_id);return <article key={b.beat_id} id={'beat-'+b.beat_id} className={'beat '+(selected===b.beat_id || related.some(r=>r.beat_id===b.beat_id)?'selected':'')}>
             <a className="beat-link" href={link('scene',state.run_id,b.beat_id)} aria-current={selected===b.beat_id?'location':undefined}><span className="page-line">{b.page}:{b.line}</span><span><span className="beat-slug">{b.slug}</span><span className={'badge '+(outcome?.status==='covered_with_evidence'?'verified':'')}>{outcome?words(outcome.status):!state.counts?'Not assessed':b.required?'Not assessed':'Optional · outside coverage count'}</span></span></a>
             <p className="script-text">{b.description}</p><p className="fine">{b.beat_id} · {b.required?'Required beat':'Optional insert'} · {b.planned_shot ?? 'No planned shot'}</p>
