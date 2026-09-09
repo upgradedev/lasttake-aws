@@ -119,7 +119,10 @@ class WrapRun:
         self.runs.append_audit(self.run_id, {"kind": kind, **detail})
 
     def wrap_approved(self) -> bool:
-        return any(e.get("kind") == "wrap.approved" for e in self.runs.load_audit(self.run_id))
+        return any(e.get("kind") == "wrap.approved" and
+                   (not e.get("package_revision_digest") or
+                    e["package_revision_digest"] == self.package.revision_digest())
+                   for e in self.runs.load_audit(self.run_id))
 
     def wrap_approver(self) -> str:
         for entry in self.runs.load_audit(self.run_id):
