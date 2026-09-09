@@ -13,6 +13,35 @@ Before you wrap the set, know whether you truly have the scene.
 
 ## Contents
 
+### React workspace usage
+
+The React, TypeScript and Tailwind application is in `frontend/`. It builds to
+`frontend/dist/` with hashed `/assets/` files and uses same-origin `/api/*` JSON
+requests. Hash routes open Overview, Scene workspace, My actions and Turnovers &
+history. The static UAT testbook is included as `UAT.testbook.html` and
+`UAT.testbook.json`; human signoff remains `NOT_RUN` until a person completes it.
+
+Create a fictional shoot-day run, start a checkpoint, inspect the script and
+source records, then select the demo role responsible for each decision. Take
+and release forms save records through the Python backend. The optional guided
+demo supplies labelled fictional examples. The API reports the offline lexical
+interpreter; real Strands interrupts govern pickup and wrap approvals.
+
+The browser stores only a session handle and role preference. Saved runs belong
+to that session; role selection is a synthetic demonstration, not staff login.
+With browser storage blocked the tab remains usable, but a reload may start a
+separate session. Requests time out after 35 seconds and never automatically
+retry writes. Refresh saved state before retrying a write with an uncertain result.
+
+Dependencies are installed in GitHub Actions. `frontend-ci.yml` generates a lock
+only when absent, uploads it, builds the app, measures unit coverage, runs the
+Python regressions and exercises desktop/mobile browsers against the real Python
+HTTP handler with local durable adapters. It supports `workflow_call` for release
+integration. A build artifact from a failed verification is for diagnosis only.
+The HTTP test entrypoint is `python -m lasttake.app.local_server --state-dir
+.lasttake-ui`; Vite's test proxy targets `127.0.0.1:8765`. No model credentials
+are needed. Frontend deployment is a separate AWS integration step.
+
 - [Who this is for](#who-this-is-for)
 - [What a script supervisor already uses](#what-a-script-supervisor-already-uses-and-what-this-does-instead)
 - [The problem](#the-problem)
