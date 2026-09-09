@@ -19,7 +19,7 @@ export function beatsFor(scene:Scene,finding:Finding) {
   return uniqueBy(scene.beats.filter(b=>aboutBeat(finding,b)),b=>b.beat_id);
 }
 export function beatMatches(beat:Beat,state:RunState,filter:string) {
-  if(filter==='all')return true;
+  if(!['covered','exceptions','missing-releases'].includes(filter))return true;
   if(!state.counts)return false;
   const outcome=state.beats.find(b=>b.beat_id===beat.beat_id);
   if(filter==='covered')return beat.required && outcome?.status==='covered_with_evidence';

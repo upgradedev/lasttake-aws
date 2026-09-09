@@ -1,15 +1,17 @@
 import {useState} from 'react';
 import {request,saveJson} from './api';
 import {link,roles,words} from './model';
+import {recentEvents as orderedEvents} from './projection';
 import type {Document,EventRow,Receipt,Role,RunState,Session} from './types';
 export function History({state,session,events,role,busy,act,handle}:{state:RunState;session:Session;events:EventRow[];role:Role;busy:boolean;act:(path:string,extra?:Document)=>Promise<boolean>;handle:(work:()=>Promise<void>)=>Promise<boolean>}) {
   const [receipt,setReceipt]=useState<Receipt|null>(null);
   const [kind,setKind]=useState('pickup');
   const [eventPage,setEventPage]=useState(0);
-  const pageCount=Math.max(1,Math.ceil(events.length/20));
+  const distinctEvents=orderedEvents(events);
+  const pageCount=Math.max(1,Math.ceil(distinctEvents.length/20));
   const currentPage=Math.min(eventPage,pageCount-1);
   const start=currentPage*20;
-  const recentEvents=[...events].sort((a,b)=>b.occurred_at.localeCompare(a.occurred_at)).slice(start,start+20);
+  const recentEvents=distinctEvents.slice(start,start+20);
   const mine=receipt?.still_open.filter(item=>item.responsible_role===role);
   return <><section className="panel"><p className="eyebrow">Production to post</p><h2>Turnover for this run</h2>
     {state.turnover ? <><p className="verified-text">A sealed turnover is saved for this run.</p>{state.turnover.package_revision_digest!==state.package_revision_digest && <p className="warning">Evidence has changed since this turnover. This is the historical record; it does not approve the changed package. Start a new run for a new turnover.</p>}<button className="primary" onClick={()=>saveJson(`${state.run_id}-turnover.json`,state.turnover)}>Download turnover</button><details><summary>Inspect saved manifest</summary><pre>{JSON.stringify(state.turnover,null,2)}</pre></details></> : <><p>No turnover has been published for this run.</p><button disabled={busy || !state.wrap_approved || !state.eligible} onClick={()=>void act('turnover')}>Publish approved turnover</button>{(!state.wrap_approved || !state.eligible) && <p className="fine">Publishing requires current eligibility and the 1st AD's wrap approval.</p>}</>}
@@ -18,8 +20,8 @@ export function History({state,session,events,role,busy,act,handle}:{state:RunSt
     {!state.counts && <p className="fine">Run a checkpoint before preparing a receipt.</p>}
     {receipt && <div className="receipt"><h3>Receipt ready for review</h3><p>{receipt.still_open_count} open items across all roles. {mine!.length} assigned to {roles[role]}.</p><ul className="action-list">{mine!.map(item=><li key={item.finding_id}>{item.next_action}<small>{item.what_was_observed}</small></li>)}</ul><p className="fine">The download includes every role so context can travel with the record.</p><button onClick={()=>saveJson(`${state.run_id}-${kind}-receipt.json`,receipt)}>Download receipt</button><details><summary>Receipt limits & sealed record</summary>{receipt.what_this_does_not_say.map(limit=><p key={limit}>{limit}</p>)}<pre>{JSON.stringify(receipt,null,2)}</pre></details></div>}
   </section><section className="panel"><h2>Saved shoot-day runs</h2><p className="fine">Only runs owned by this browser's session are listed. These are repeated runs of the same fictional scene.</p><ul className="run-list">{session.runs.map(run=><li key={run.run_id}><a href={link('history',run.run_id)}>Scene 42 · {new Date(run.created_at).toLocaleString()}</a><span>{run.turnover_published?'Turnover saved':run.checked?'Checkpoint saved':'Awaiting checkpoint'}</span><small>{run.run_id}</small></li>)}</ul></section>
-  <section className="panel" aria-labelledby="events-heading"><h2 id="events-heading">Recorded events</h2>{events.length ? <>
-    <div className="toolbar"><p role="status" aria-live="polite">Events {start+1}–{Math.min(start+20,events.length)} of {events.length} · newest first</p><button aria-controls="event-timeline" disabled={currentPage===0} onClick={()=>setEventPage(currentPage-1)}>Newer events</button><button aria-controls="event-timeline" disabled={currentPage===pageCount-1} onClick={()=>setEventPage(currentPage+1)}>Older events</button></div>
+  <section className="panel" aria-labelledby="events-heading"><h2 id="events-heading">Recorded events</h2>{distinctEvents.length ? <>
+    <div className="toolbar"><p role="status" aria-live="polite">Events {start+1}–{Math.min(start+20,distinctEvents.length)} of {distinctEvents.length} · newest first</p><button aria-controls="event-timeline" disabled={currentPage===0} onClick={()=>setEventPage(currentPage-1)}>Newer events</button><button aria-controls="event-timeline" disabled={currentPage===pageCount-1} onClick={()=>setEventPage(currentPage+1)}>Older events</button></div>
     <ol id="event-timeline" className="timeline" start={start+1}>{recentEvents.map(event=><li key={event.event_id}><strong>{words(event.event_type.replaceAll('.',' '))}</strong><time dateTime={event.occurred_at}>{new Date(event.occurred_at).toLocaleString()}</time><details><summary>Event details</summary><pre>{JSON.stringify(event.payload,null,2)}</pre><code>{event.event_id}</code></details></li>)}</ol>
   </> : <p className="empty">No events yet. A checkpoint or evidence intake starts this run's record.</p>}</section></>;
 }

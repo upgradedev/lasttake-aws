@@ -156,6 +156,10 @@
   .decision-console .decision-card {padding:14px;margin-bottom:20px}
   .decision-console .form-grid {grid-template-columns:1fr}
   .console-role {color:var(--amber);margin-top:0}
+  .wrap-status {display:flex;flex-direction:column;gap:5px;padding:12px 16px;background:#282637;border-bottom:1px solid #796442;font-size:.875rem;flex-shrink:0}
+  .wrap-status>span {display:flex;justify-content:space-between;gap:12px}
+  .wrap-status strong {color:#f0d3a1}
+  .wrap-status a {display:block;padding:6px 0;min-height:36px}
   .guide {background:#182043}
   .guide ol {list-style:decimal;padding-left:22px;margin:15px 0;font-size:1rem}
   .guide p {font-size:1rem}

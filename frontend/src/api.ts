@@ -1,4 +1,7 @@
 import type { Document } from './types';
+export class ApiError extends Error {
+  constructor(message:string,public readonly status:number){super(message);this.name='ApiError';}
+}
 export async function request<T>(path:string, body:Document = {}):Promise<T> {
   const controller=new AbortController();
   const timer=setTimeout(()=>controller.abort(),35000);
@@ -7,7 +10,7 @@ export async function request<T>(path:string, body:Document = {}):Promise<T> {
   let data: Document;
   try { data=await response.json() as Document; }
   catch { throw new Error('The service returned an unreadable response. Refresh saved state before retrying.'); }
-  if(!response.ok) throw new Error(String(data.error ?? data.message ?? `Request failed (${response.status}).`));
+  if(!response.ok) throw new ApiError(String(data.error ?? data.message ?? `Request failed (${response.status}).`),response.status);
   return data as T;
   } catch(error) {
     if(controller.signal.aborted)throw new Error('The request timed out. The server may have saved it. Refresh saved state before retrying a write.');

@@ -1,5 +1,5 @@
 import {useCallback,useEffect,useRef,useState,useSyncExternalStore} from 'react';
-import {errorMessage,request} from './api';
+import {ApiError,errorMessage,request} from './api';
 import {link,readRoute} from './model';
 import {readPreference,writePreference} from './storage';
 import type {Document,EventRow,RunState,Scene,Session} from './types';
@@ -15,13 +15,14 @@ export function useWorkspace() {
   const [working,setWorking]=useState(false);
   const [loading,setLoading]=useState(true);
   const [error,setError]=useState('');
+  const [requiresRefresh,setRequiresRefresh]=useState(false);
   const [message,setMessage]=useState('');
   const lock=useRef(false);
   const generation=useRef(0);
   const handle=useCallback(async (work:()=>Promise<void>)=>{
     if(lock.current) return false;
     lock.current=true;setWorking(true);setError('');setMessage('');
-    try {await work();return true;}catch(e){setError(errorMessage(e));return false;}
+    try {await work();setRequiresRefresh(false);return true;}catch(e){setError(errorMessage(e));setRequiresRefresh(!(e instanceof ApiError && e.status===400));return false;}
     finally{lock.current=false;setWorking(false);}
   },[]);
   const loadSession=useCallback(async(newSession=false)=>{
@@ -39,8 +40,8 @@ export function useWorkspace() {
   },[]);
   const bootstrap=useCallback(async()=>{
     setLoading(true);setError('');
-    try {const data=await loadSession();const current=readRoute();if(!current.run && data.runs[0])location.hash=link(current.page,data.runs[0].run_id);}
-    catch(e){setError(errorMessage(e));}
+    try {const data=await loadSession();const current=readRoute();if(!current.run && data.runs[0])location.hash=link(current.page,data.runs[0].run_id,undefined,{beat:current.beat,finding:current.finding,filter:current.filter,record:current.record,q:current.q});}
+    catch(e){setError(errorMessage(e));setRequiresRefresh(true);}
     finally{setLoading(false);}
   },[loadSession]);
   useEffect(()=>{void bootstrap();},[bootstrap]);
@@ -49,7 +50,7 @@ export function useWorkspace() {
     if(!sessionId || !route.run)return;
     let active=true;
     setState(null);setScene(null);setEvents([]);setMessage('');setError('');setLoading(true);
-    void loadRun(route.run,sessionId).catch(e=>{if(active)setError(errorMessage(e));}).finally(()=>{if(active)setLoading(false);});
+    void loadRun(route.run,sessionId).then(()=>{if(active)setRequiresRefresh(false);}).catch(e=>{if(active){setError(errorMessage(e));setRequiresRefresh(true);}}).finally(()=>{if(active)setLoading(false);});
     return ()=>{active=false;generation.current++;};
   },[route.run,sessionId,loadRun]);
   const create=()=>handle(async()=>{
@@ -69,6 +70,6 @@ export function useWorkspace() {
   const recover=()=>handle(async()=>{
     generation.current++;await loadSession(true);setState(null);setScene(null);setEvents([]);location.hash='#overview';
   });
-  return {route,session,state,scene,events,busy:loading||working,error,message,create,act,handle,
+  return {route,session,state,scene,events,busy:loading||working,error,requiresRefresh,message,create,act,handle,
     refresh:()=>route.run && session ? handle(()=>loadRun(route.run!,session.session_id)) : bootstrap(),recover};
 }
