@@ -30,10 +30,11 @@ export function selectEvidence(scene:Scene,state:RunState,selection:Selection) {
   const all=exceptions(state);
   const beat=scene.beats.find(b=>b.beat_id===selection.beat);
   const requested=all.find(f=>f.finding_id===selection.finding);
-  const conflicting=requested && state.exceptions.some(f=>f.finding_id===requested.finding_id && f.record_sha256!==requested.record_sha256);
-  const invalid=Boolean(conflicting || (selection.beat && !beat)||(selection.finding && !requested)||(beat && requested && !aboutBeat(requested,beat)));
   const filtered=all.filter(f=>(!beat || aboutBeat(f,beat)) && (selection.filter!=='missing-releases'||f.check_type==='rights'));
-  const finding=invalid?undefined:requested ?? filtered[0];
+  const candidate=requested ?? filtered[0];
+  const conflicting=candidate && state.exceptions.some(f=>f.finding_id===candidate.finding_id && f.record_sha256!==candidate.record_sha256);
+  const invalid=Boolean(conflicting || (selection.beat && !beat)||(selection.finding && !requested)||(beat && requested && !aboutBeat(requested,beat)));
+  const finding=invalid?undefined:candidate;
   return {beat,finding,findings:filtered,invalid,related:finding?beatsFor(scene,finding):[]};
 }
 export function metrics(scene:Scene,state:RunState) {

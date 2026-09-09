@@ -23,6 +23,7 @@ test('LT-DASH scoped metrics drill into matching evidence, and desktop/mobile co
   await expect(page.getByTestId('metric-takes').locator('strong')).toHaveText(String(scene.take_count));
   await expect(page.getByTestId('metric-eligibility')).toContainText('Blocked');
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await page.evaluate(()=>window.scrollTo(0,0));
   await page.screenshot({path:info.outputPath('dashboard-success.png'),fullPage:true});
   await page.getByTestId('metric-coverage').click();
   await expect(page.getByLabel('Show')).toHaveValue('covered');
@@ -41,6 +42,7 @@ test('LT-DASH scoped metrics drill into matching evidence, and desktop/mobile co
   for(const source of continuity.sources)await expect(page.getByRole('region',{name:'Evidence and exceptions'})).toContainText(source.artifact_id);
   await page.emulateMedia({reducedMotion:'reduce'});
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await page.evaluate(()=>window.scrollTo(0,0));
   await page.screenshot({path:info.outputPath('workspace-success.png'),fullPage:true});
   await expect(page.getByTestId('wrap-status')).toContainText('Not approved');
   if(info.project.name==='desktop')await expect(page.getByTestId('wrap-status')).toBeInViewport();

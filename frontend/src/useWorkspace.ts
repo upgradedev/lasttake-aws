@@ -17,6 +17,7 @@ export function useWorkspace() {
   const [error,setError]=useState('');
   const [requiresRefresh,setRequiresRefresh]=useState(false);
   const [message,setMessage]=useState('');
+  useEffect(()=>{setMessage('');},[route.page]);
   const lock=useRef(false);
   const generation=useRef(0);
   const handle=useCallback(async (work:()=>Promise<void>)=>{
