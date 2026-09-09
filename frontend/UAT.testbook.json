@@ -175,6 +175,23 @@
       ],
       "observed_result_evidence": "AUTOMATED CHECKS PASS: component/app tests exercised synthetic guided mode, execution labels including offline-lexical/1.0.0, unchecked evidence and receipt limitations. Build contract rejected HTML proxies. Cloud runtime provider verification and evaluator signoff remain NOT_RUN. Evidence: https://github.com/upgradedev/lasttake-aws/actions/runs/34326031169; frontend-evidence-4953c125e499d40f6ce13c0eeff42d92d726322a.",
       "human_signoff": "NOT_RUN"
+    },
+    {
+      "id": "LT-UI",
+      "persona": "Script supervisor and 1st AD",
+      "requirement": "Readable cinematic workspace with truthful, accessible approval feedback",
+      "preconditions": "Synthetic run with current assessed evidence; desktop/mobile and reduced-motion browser preference",
+      "steps": [
+        "Review the lined script and exception cards; follow a beat to its evidence.",
+        "Request wrap as 1st AD; read the current package SHA-256 fingerprint.",
+        "Approve; wait for returned server state before expecting a saved confirmation.",
+        "Repeat with reduced motion; inspect viewport and approval evidence."
+      ],
+      "expected_outcome": "Continuity/coverage accents retain text labels; server-confirmed wrap state alone controls the checkmark; displayed digest equals API package_revision_digest. No Merkle proof or legal-clearance claim. Reduced-motion removes decorative animation.",
+      "negative_recovery_case": "A failed click or a successful action without refreshed state does not claim a saved wrap. Changed server state removes confirmation. Existing stale-evidence approval refusal remains enforced.",
+      "automation_mapping": "tests/components.test.tsx (server-state-only confirmation and status accents); tests/e2e/journeys.spec.ts LT03 (exact API fingerprint, saved feedback, reduced motion and viewport); tests/contracts.test.mjs",
+      "observed_result_evidence": "Run-specific automated outcome is recorded in the frontend-ci and main release Live Playwright testbook artifacts. Earlier checkpoints in this document predate this UI case and are not evidence for it.",
+      "human_signoff": "NOT_RUN"
     }
   ],
   "verification_checkpoint": {

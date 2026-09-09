@@ -19,6 +19,31 @@ describe('scene workspace',()=>{
   it('shows selected beat context without claiming scene clearance',()=>{render(<SceneView scene={scene} state={state} selected="B-17"/>);expect(screen.getByText(/No exception is associated/)).toBeVisible();expect(screen.getByRole('link',{name:'Show all'})).toHaveAttribute('href',`#scene?run=${state.run_id}`);});
 });
 describe('human authority',()=>{
+  it('renders a saved wrap confirmation only from returned server state, never from a click',async()=>{
+    const save=vi.fn().mockResolvedValue(false),user=userEvent.setup();
+    const pending={...state,eligible:true,pending_approval:{id:'wrap-1',reason:{kind:'wrap' as const,required_role:'first_ad' as const,note:'Exact package'}}};
+    const {rerender}=render(<Actions scene={scene} state={pending} role="first_ad" busy={false} act={save}/>);
+    await user.click(screen.getByText('Current package fingerprint · SHA-256'));
+    expect(screen.getByText(state.package_revision_digest,{exact:true})).toBeVisible();
+    expect(screen.getByText(/not a Merkle proof or an independent browser verification/)).toBeVisible();
+    await user.click(screen.getByRole('button',{name:'Approve wrap'}));
+    expect(save).toHaveBeenCalledWith('wrap',{interrupt_id:'wrap-1',approve:true,role:'first_ad'});
+    expect(screen.queryByText('Wrap decision saved by the server')).not.toBeInTheDocument();
+    save.mockResolvedValue(true);
+    await user.click(screen.getByRole('button',{name:'Approve wrap'}));
+    expect(screen.queryByText('Wrap decision saved by the server')).not.toBeInTheDocument();
+    rerender(<Actions scene={scene} state={{...pending,pending_approval:null,wrap_approved:true}} role="first_ad" busy={false} act={save}/>);
+    expect(screen.getByRole('status')).toHaveTextContent('Wrap decision saved by the server');
+    rerender(<Actions scene={scene} state={pending} role="first_ad" busy={false} act={save}/>);
+    expect(screen.queryByText('Wrap decision saved by the server')).not.toBeInTheDocument();
+  });
+  it('keeps status accents tied to check type and current recorded decisions',()=>{
+    const {rerender}=render(<Actions scene={scene} state={state} role="script_supervisor" busy={false} act={act()}/>);
+    expect(screen.getByRole('article',{name:'continuity CR-01'})).toHaveAttribute('data-check','continuity');
+    expect(screen.getByRole('article',{name:'coverage advisory'})).toHaveAttribute('data-review','open');
+    rerender(<Actions scene={scene} state={{...state,decisions:[{decision_id:'d1',finding_id:'f-con',action:'accept_exception',actor:'Sue',role:'script_supervisor',reason:'Intentional',finding_sha256:finding.record_sha256,at:'date'}]}} role="script_supervisor" busy={false} act={act()}/>);
+    expect(screen.getByRole('article',{name:'continuity CR-01'})).toHaveAttribute('data-review','recorded');
+  });
   it('binds a reasoned decision to the displayed finding digest',async()=>{const save=act();const user=userEvent.setup();render(<Actions scene={scene} state={state} role="script_supervisor" busy={false} act={save}/>);const card=within(screen.getByRole('article',{name:'continuity CR-01'}));await user.type(card.getByLabelText('Your name in this demo'),'Sue');await user.selectOptions(card.getByLabelText('Decision'),'accept_exception');await user.type(card.getByLabelText('Reason for this exact evidence'),'Reviewed intent');await user.click(card.getByRole('button',{name:'Record decision'}));expect(save).toHaveBeenCalledWith('decide',expect.objectContaining({finding_sha256:finding.record_sha256,reason:'Reviewed intent',role:'script_supervisor'}));});
   it('withholds pickup controls from other roles and rights acceptance from everyone',async()=>{render(<Actions scene={scene} state={state} role="production_coordinator" busy={false} act={act()}/>);expect(screen.queryByRole('button',{name:'Approve pickup'})).not.toBeInTheDocument();expect(screen.queryByRole('option',{name:'Accept the documented exception'})).not.toBeInTheDocument();expect(screen.getByText(/cannot accept away/)).toBeVisible();});
   it('lets only the first AD answer a saved pickup or request wrap',async()=>{const save=act();const user=userEvent.setup();const {rerender}=render(<Actions scene={scene} state={state} role="first_ad" busy={false} act={save}/>);await user.click(screen.getByRole('button',{name:'Approve pickup'}));await user.click(screen.getByRole('button',{name:'Decline pickup'}));await user.click(screen.getByRole('button',{name:'Review wrap readiness'}));expect(save).toHaveBeenCalledWith('approve',expect.objectContaining({approve:false,role:'first_ad'}));rerender(<Actions scene={scene} state={{...state,pending_approval:null,eligible:true}} role="first_ad" busy={false} act={save}/>);await user.click(screen.getByRole('button',{name:'Request wrap approval'}));expect(save).toHaveBeenCalledWith('wrap',{role:'first_ad'});});
