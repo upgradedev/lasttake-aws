@@ -510,7 +510,9 @@ var WALK = [
   {
     id: 's3', label: 'A late take arrives', sub: 'targeted rerun',
     role: null,
-    run: function () { return call('/api/late-take', {beat_id: 'B-17'}); },
+    run: function () {
+      return call('/api/late-take', {beat_id: 'B-17'}).then(refreshScene);
+    },
     done: function () { return beatStatus('B-17') === 'covered_with_evidence'; },
     hint: 'The takes digest moved, so the checks that read the takes reran.'
   },
@@ -518,9 +520,9 @@ var WALK = [
     id: 's4', label: 'The signed release is filed', sub: 'one check reruns',
     role: 'production_coordinator',
     run: function () {
-      return call('/api/resolve-rights', {subject: 'BG-07'}).then(function () {
-        return call('/api/evaluate');
-      });
+      return call('/api/resolve-rights', {subject: 'BG-07'})
+        .then(refreshScene)
+        .then(function () { return call('/api/evaluate'); });
     },
     done: function () {
       return !!(STATE && STATE.counts && STATE.counts.without_release_record === 0);
@@ -1281,6 +1283,8 @@ function ingest() {
         }).join('') + '</ul>';
       }
       $('ingestOut').innerHTML = out + '</div>';
+      // The document is on the record now, so the script has to show it.
+      return refreshScene();
     });
 }
 
@@ -1312,8 +1316,12 @@ function paintInbox() {
         : 'Available once the 1st AD has approved the wrap.',
       'Publish the turnover', 'iTurn', !wrapped)
   ].join('');
-  bind('iLate', function () { call('/api/late-take', {beat_id: 'B-17'}); });
-  bind('iRights', function () { call('/api/resolve-rights', {subject: 'BG-07'}); });
+  bind('iLate', function () {
+    call('/api/late-take', {beat_id: 'B-17'}).then(refreshScene);
+  });
+  bind('iRights', function () {
+    call('/api/resolve-rights', {subject: 'BG-07'}).then(refreshScene);
+  });
   bind('iEval', function () { call('/api/evaluate'); });
   bind('iWrap', function () { call('/api/wrap'); });
   bind('iTurn', function () { call('/api/turnover').then(showTurnover); });
@@ -1582,6 +1590,21 @@ $('bReset').onclick = function () {
   forget();
   return freshRun();
 };
+
+/* The lined script is drawn from SCENE, which was loaded once and then never
+   again. So a take somebody supplied changed the beat's status, because that
+   comes from the findings, and never appeared on the script, because the takes
+   come from here. The person saw the beat go green with nothing behind it and
+   had to reload to see their own document.
+
+   Anything that amends the scene package has to refresh this. That is the ingest
+   form and the two inbox actions that file a record. */
+function refreshScene() {
+  return call('/api/scene').then(function (d) {
+    if (d) { SCENE = d; paint(); }
+    return d;
+  });
+}
 
 function start() {
   return call('/api/scene').then(function (d) {
