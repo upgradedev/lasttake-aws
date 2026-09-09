@@ -464,6 +464,26 @@ digest changes, the decision stops applying, and the ingest response lists what 
 why. Decisions recorded before this existed still apply; silently voiding every historical
 approval would be its own kind of dishonesty, and the absent field is what says they are weaker.
 
+### What each chair is actually holding, and what leaves the building
+
+Above the exception cards the page answers the three questions a script supervisor has on
+the floor and a 1st AD has at the truck: what do I do, who owns it, and where did it come
+from. One line per item, in the order the cost falls, with no finding ids and no agent
+trace. Which items are yours is read from the same authority table the deterministic gate
+enforces, so moving a check to a different role moves the summary without anyone editing
+it.
+
+Beside it is a sealed receipt a person can copy into a production email. It is the packet
+designed to be read away from this page, so it carries its own context: the run, the scene,
+the script revision, the package digest, the policy version, its own SHA-256, and every
+still-open item with its responsible role, next action and source digests.
+
+An accepted exception travels in that list. Somebody signed for it, which does not make it
+fixed, and a receipt that quietly dropped it is how an approved problem reaches the edit as
+a surprise. The packet also states what it does **not** say: it is not a statement that the
+scene is creatively complete, cleared in law, or safe to wrap, and absent evidence in it is
+a gap rather than a pass.
+
 ## Four kinds of input, and what the pipeline does with each
 
 ```bash
@@ -546,6 +566,34 @@ them fails if the corpus or the rule drifts.
 Of 34 required beats, 31 covered with evidence, 2 raising exceptions with named
 sources, 1 with no release record and routed to production.
 ```
+
+### Measured against a baseline written before the run
+
+`tools/measure.py` is the protocol rather than a results file. The baseline, the fixtures
+and every expected outcome are literals at the top of it, written from the product's rules
+before anything ran, and a case that disagrees with its expectation is reported as a
+failure rather than quietly becoming the new expectation.
+
+```bash
+PYTHONPATH=src python tools/measure.py
+```
+
+Five cases, one for each way a scene package arrives: ordinary, missing evidence, changed
+input, refusal, retry and recovery. Three more were written after the behaviour was fixed
+and kept separate; that is weaker than a set somebody else wrote and it is labelled weaker.
+
+Three fields are deliberately empty. **Human active time, interruptions and corrections are
+not measured, because no human was observed doing any of this.** Timing the model and
+calling the result human time saved would be a fabricated benchmark, and a zero in those
+fields would read as "needed no help". Bedrock inference cost is not measured either: it
+needs per-call token counts this harness does not collect, so the field says so instead of
+guessing. Model time, wall time and human time are three different things and only two of
+them exist here.
+
+One expectation was wrong on its first run and the correction is published in
+`docs/measurement.json` rather than absorbed: rights findings were declared as 6 and
+observed as 7, and the corpus is five people plus two visible assets, so the product was
+right and the expectation never was.
 
 ## The demo corpus is synthetic
 

@@ -59,10 +59,13 @@
       "error": null,
       "correct": true,
       "mismatches": {},
-      "wall_seconds": 0.007,
+      "wall_seconds": 0.008,
       "interpreter_calls": 41,
       "human_active_seconds": null,
       "human_time_basis": "no human was observed performing this case",
+      "human_interruptions": null,
+      "human_corrections_of_the_output": null,
+      "interventions_basis": "not measured. These count what a person did during a run and no person ran one; a zero here would read as 'needed no help'",
       "cost_usd": 0.0,
       "cost_basis": "offline lexical interpreter, no model call, so no inference cost. Bedrock cost is not measured here: it needs per-call token counts this harness does not collect"
     },
@@ -85,10 +88,13 @@
       "error": null,
       "correct": true,
       "mismatches": {},
-      "wall_seconds": 0.005,
+      "wall_seconds": 0.007,
       "interpreter_calls": 41,
       "human_active_seconds": null,
       "human_time_basis": "no human was observed performing this case",
+      "human_interruptions": null,
+      "human_corrections_of_the_output": null,
+      "interventions_basis": "not measured. These count what a person did during a run and no person ran one; a zero here would read as 'needed no help'",
       "cost_usd": 0.0,
       "cost_basis": "offline lexical interpreter, no model call, so no inference cost. Bedrock cost is not measured here: it needs per-call token counts this harness does not collect"
     },
@@ -123,6 +129,9 @@
       "interpreter_calls": 124,
       "human_active_seconds": null,
       "human_time_basis": "no human was observed performing this case",
+      "human_interruptions": null,
+      "human_corrections_of_the_output": null,
+      "interventions_basis": "not measured. These count what a person did during a run and no person ran one; a zero here would read as 'needed no help'",
       "cost_usd": 0.0,
       "cost_basis": "offline lexical interpreter, no model call, so no inference cost. Bedrock cost is not measured here: it needs per-call token counts this harness does not collect"
     },
@@ -149,6 +158,9 @@
       "interpreter_calls": 0,
       "human_active_seconds": null,
       "human_time_basis": "no human was observed performing this case",
+      "human_interruptions": null,
+      "human_corrections_of_the_output": null,
+      "interventions_basis": "not measured. These count what a person did during a run and no person ran one; a zero here would read as 'needed no help'",
       "cost_usd": 0.0,
       "cost_basis": "offline lexical interpreter, no model call, so no inference cost. Bedrock cost is not measured here: it needs per-call token counts this harness does not collect"
     },
@@ -173,6 +185,9 @@
       "interpreter_calls": 0,
       "human_active_seconds": null,
       "human_time_basis": "no human was observed performing this case",
+      "human_interruptions": null,
+      "human_corrections_of_the_output": null,
+      "interventions_basis": "not measured. These count what a person did during a run and no person ran one; a zero here would read as 'needed no help'",
       "cost_usd": 0.0,
       "cost_basis": "offline lexical interpreter, no model call, so no inference cost. Bedrock cost is not measured here: it needs per-call token counts this harness does not collect"
     }
@@ -193,10 +208,13 @@
       "error": null,
       "correct": true,
       "mismatches": {},
-      "wall_seconds": 0.007,
+      "wall_seconds": 0.008,
       "interpreter_calls": 0,
       "human_active_seconds": null,
       "human_time_basis": "no human was observed performing this case",
+      "human_interruptions": null,
+      "human_corrections_of_the_output": null,
+      "interventions_basis": "not measured. These count what a person did during a run and no person ran one; a zero here would read as 'needed no help'",
       "cost_usd": 0.0,
       "cost_basis": "offline lexical interpreter, no model call, so no inference cost. Bedrock cost is not measured here: it needs per-call token counts this harness does not collect"
     },
@@ -213,10 +231,13 @@
       "error": null,
       "correct": true,
       "mismatches": {},
-      "wall_seconds": 0.015,
+      "wall_seconds": 0.011,
       "interpreter_calls": 41,
       "human_active_seconds": null,
       "human_time_basis": "no human was observed performing this case",
+      "human_interruptions": null,
+      "human_corrections_of_the_output": null,
+      "interventions_basis": "not measured. These count what a person did during a run and no person ran one; a zero here would read as 'needed no help'",
       "cost_usd": 0.0,
       "cost_basis": "offline lexical interpreter, no model call, so no inference cost. Bedrock cost is not measured here: it needs per-call token counts this harness does not collect"
     },
@@ -235,13 +256,21 @@
       "error": null,
       "correct": true,
       "mismatches": {},
-      "wall_seconds": 0.012,
+      "wall_seconds": 0.007,
       "interpreter_calls": 41,
       "human_active_seconds": null,
       "human_time_basis": "no human was observed performing this case",
+      "human_interruptions": null,
+      "human_corrections_of_the_output": null,
+      "interventions_basis": "not measured. These count what a person did during a run and no person ran one; a zero here would read as 'needed no help'",
       "cost_usd": 0.0,
       "cost_basis": "offline lexical interpreter, no model call, so no inference cost. Bedrock cost is not measured here: it needs per-call token counts this harness does not collect"
     }
+  ],
+  "what_was_not_measured": [
+    "human active time, interruptions and corrections: no human was observed",
+    "Bedrock inference cost: needs per-call token counts this harness does not collect",
+    "judgement quality against labelled ground truth: these cases check behaviour against declared expectations, which is a weaker claim"
   ],
   "held_out_caveat": "Written after the behaviour was fixed and not used to change it. That is weaker than a set somebody else wrote, and it is not user validation: no practising script supervisor has run any of this."
 }

@@ -425,6 +425,15 @@ def run_case(name, fn):
         # Not measured, and named rather than estimated. Nobody was observed.
         "human_active_seconds": None,
         "human_time_basis": "no human was observed performing this case",
+        # Asked for by name, and answered by name. Nobody interrupted a run and
+        # nobody corrected an output, because nobody ran one: these are counts
+        # of human behaviour and there was no human in the loop to count.
+        "human_interruptions": None,
+        "human_corrections_of_the_output": None,
+        "interventions_basis": (
+            "not measured. These count what a person did during a run and no "
+            "person ran one; a zero here would read as 'needed no help'"
+        ),
         "cost_usd": 0.0,
         "cost_basis": (
             "offline lexical interpreter, no model call, so no inference cost. "
@@ -448,6 +457,13 @@ def main() -> int:
         "command": "PYTHONPATH=src python tools/measure.py",
         "development_cases": dev,
         "held_out_cases": held,
+        "what_was_not_measured": [
+            "human active time, interruptions and corrections: no human was observed",
+            "Bedrock inference cost: needs per-call token counts this harness "
+            "does not collect",
+            "judgement quality against labelled ground truth: these cases check "
+            "behaviour against declared expectations, which is a weaker claim",
+        ],
         "held_out_caveat": (
             "Written after the behaviour was fixed and not used to change it. That "
             "is weaker than a set somebody else wrote, and it is not user "
