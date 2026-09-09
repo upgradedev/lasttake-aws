@@ -62,6 +62,25 @@ NEXT_ACTION = {
     "rights": "Get the signature while the person is still on set.",
 }
 
+#: A finding in the ``unknown`` state is not the same problem as one that failed,
+#: and telling somebody to shoot a setup for it would send them after a beat the
+#: current revision no longer has. The orphan-shot advisory is a coverage finding
+#: with no requirement id at all: it says the shot list and the script have
+#: drifted. The page already draws this distinction and a receipt read away from
+#: the page has to draw the same one, or the two documents disagree about what to
+#: do while claiming the same source.
+NEXT_ACTION_UNKNOWN = {
+    "coverage": "Ask whether the shot list was rebuilt against the current script revision.",
+    "continuity": "Write the intent down on the take, while the setup is still remembered.",
+}
+
+
+def next_action(finding: Finding) -> str:
+    kind = finding.check_type.value
+    if finding.truth_state is TruthState.UNKNOWN and kind in NEXT_ACTION_UNKNOWN:
+        return NEXT_ACTION_UNKNOWN[kind]
+    return NEXT_ACTION.get(kind, "Route this to the responsible role.")
+
 
 def _open_items(
     findings: list[Finding], decisions: list[HumanDecision]
@@ -98,9 +117,7 @@ def _open_items(
                 "requirement_id": finding.requirement_id,
                 "what_was_observed": finding.observation,
                 "responsible_role": finding.required_role.value,
-                "next_action": NEXT_ACTION.get(
-                    finding.check_type.value, "Route this to the responsible role."
-                ),
+                "next_action": next_action(finding),
                 "read_from": [
                     {"artifact_id": s.artifact_id, "sha256": s.sha256}
                     for s in finding.sources

@@ -176,3 +176,27 @@ def test_a_receipt_is_about_a_pickup_or_a_wrap():
 
     with pytest.raises(ValueError):
         a_receipt(kind="whatever")
+
+
+def test_the_orphan_advisory_is_not_told_to_shoot_a_beat_that_is_gone():
+    """The page and the receipt have to agree about what to do.
+
+    The orphan-shot finding is a coverage finding with no requirement id: a shot
+    planned against a beat the current revision no longer has. Telling somebody
+    to shoot one more setup for it sends them after something that does not
+    exist, and a receipt read away from the page is exactly where that would go
+    uncorrected.
+    """
+    manifest = a_receipt()
+    orphan = next(
+        r for r in manifest["still_open"]
+        if r["check_type"] == "coverage" and r["truth_state"] == "unknown"
+    )
+    assert "rebuilt against the current script revision" in orphan["next_action"]
+
+    missing = next(
+        r for r in manifest["still_open"]
+        if r["check_type"] == "coverage" and r["truth_state"] == "missing"
+    )
+    assert "Shoot one more setup" in missing["next_action"]
+    assert missing["next_action"] != orphan["next_action"]
