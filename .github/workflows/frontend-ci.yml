@@ -152,6 +152,14 @@ jobs:
       - name: Secret and prose regressions
         if: ${{ !cancelled() }}
         run: |
+          set -euo pipefail
+          scanned_head="$(git rev-parse HEAD)"
+          echo "History before scan: $(git rev-parse --is-shallow-repository)"
+          if [ "$(git rev-parse --is-shallow-repository)" = true ]; then
+            git fetch --unshallow --no-recurse-submodules origin '+refs/heads/*:refs/remotes/origin/*' '+refs/tags/*:refs/tags/*'
+          fi
+          test "$(git rev-parse --is-shallow-repository)" = false
+          test "$(git rev-parse HEAD)" = "$scanned_head"
           python tools/secret_scan.py --all-history
           python tools/prose_gate.py
       - name: Reviewable UI screenshots
