@@ -133,6 +133,10 @@ test.describe("LT-01, a document a person supplied", () => {
     await openFresh(page);
     await submit(page, "take", aTake());
     await expect(page.locator("#ingestOut .shape")).toHaveClass(/good/);
+    // Count only once the take is actually on the script. The confirmation and
+    // the refreshed script now land together, and this makes the test say so
+    // rather than depend on it.
+    await expect(page.locator('.take[data-take="T-900"]')).toBeVisible();
     const once = await page.locator(".take").count();
 
     await submit(page, "take", aTake());

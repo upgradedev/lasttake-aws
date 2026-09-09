@@ -1282,9 +1282,14 @@ function ingest() {
             ' no longer applies: ' + esc(x.why) + '</li>';
         }).join('') + '</ul>';
       }
-      $('ingestOut').innerHTML = out + '</div>';
-      // The document is on the record now, so the script has to show it.
-      return refreshScene();
+      // The script is refreshed *before* the confirmation is written, so the
+      // message and the take appear together. Writing "Ingested" first means
+      // telling somebody their document is on the record while the record on
+      // screen does not have it yet, and a reader who counts what is in front of
+      // them at that moment gets the old number.
+      return refreshScene().then(function () {
+        $('ingestOut').innerHTML = out + '</div>';
+      });
     });
 }
 
