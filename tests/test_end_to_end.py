@@ -196,12 +196,14 @@ def test_the_full_loop_reaches_a_verifiable_turnover(run, tmp_path):
             "d1", conflict.finding_id, policy.DecisionAction.ACCEPT_EXCEPTION,
             "the script supervisor", Role.SCRIPT_SUPERVISOR,
             "the change was intentional, the second take is preferred",
+            finding_sha256=conflict.resealed().record_sha256,
         ).to_dict()
     )
     run.record_decision(
         policy.HumanDecision(
             "d2", mismatch.finding_id, policy.DecisionAction.ACCEPT_EXCEPTION,
             "the DIT", Role.DIT, "card relabelled on the cart, report is authoritative",
+            finding_sha256=mismatch.resealed().record_sha256,
         ).to_dict()
     )
 

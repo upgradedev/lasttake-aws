@@ -65,13 +65,25 @@ class WrapRun:
         event = self.build_event(event_type, payload)
         key = event.idempotency_key
         saved_key = f"delivery/{self.run_id.replace(':', '_')}/{key}.json"
+        effect_key = self.effect_key(event_type, payload)
+        if idempotent:
+            if self.artifacts.exists(saved_key):
+                return Receipt(**json.loads(self.artifacts.get(saved_key)))
+            unresolved = next((d for d in self.delivery_states() if d.get("retry_supported") and
+                d["status"] in {"pending", "unknown"} and
+                self.effect_key(EventType(d["event_type"]), d["payload"]) == effect_key), None)
+            # Covers historical attempts recorded before logical-effect claims.
+            if unresolved:
+                return Receipt(False, unresolved["reference"], "An earlier attempt for this logical action remains unresolved. Reconcile before a new approval can send it.", unresolved["status"])
+            if not self.runs.claim(effect_key, self.run_id):
+                return Receipt(False, effect_key, "Another attempt for this logical action is pending. A new approval cannot resend it.", "pending")
         if idempotent and not self.runs.claim(key, self.run_id):
             if self.artifacts.exists(saved_key):
                 return Receipt(**json.loads(self.artifacts.get(saved_key)))
             previous = next((d for d in self.delivery_states() if d["idempotency_key"] == key), None)
             status = "unknown" if previous and previous["status"] == "unknown" else "pending"
             return Receipt(False, key, "No saved acceptance receipt. Do not resend; reconcile this attempt.", status)
-        detail = {"idempotency_key": key, "event_id": event.event_id,
+        detail = {"idempotency_key": key, "effect_key": effect_key, "event_id": event.event_id,
                   "event_type": event_type.value, "payload": payload,
                   "package_revision_digest": self.package.revision_digest(),
                   "retry_supported": idempotent}
@@ -97,7 +109,18 @@ class WrapRun:
             self.audit("event.delivery", outcome)
         if idempotent and receipt.outcome == "rejected":
             self.runs.release(key)
+        if idempotent and receipt.outcome in {"accepted", "rejected"}:
+            self.runs.release(effect_key)
         return receipt
+
+    def effect_key(self, event_type: EventType, payload: dict) -> str:
+        """Approval identity is not permission to duplicate an unresolved effect.
+
+        A run has one wrap and one handoff; pickups are additionally beat-scoped.
+        Accepted/rejected outcomes release this exclusion, not ambiguous ones.
+        """
+        return digest_of({"logical_effect": event_type.value, "run": self.run_id,
+                          "beat": payload.get("beat_id")})
 
     def delivery_states(self) -> list[dict]:
         current = {}
@@ -122,10 +145,15 @@ class WrapRun:
         if event_type is EventType.TURNOVER_GENERATED:
             if not self.wrap_approved() or not self.wrap_guard(self.current_wrap_approval() or {}):
                 raise ValueError("The current wrap approval is required before retrying a handoff")
-            if previous["package_revision_digest"] != self.package.revision_digest():
-                raise ValueError("The saved handoff belongs to a historical revision")
+            if not self.handoff_current(payload):
+                raise ValueError("The saved handoff belongs to a historical review. Start a new run.")
             return self.publish(event_type, payload, idempotent=True)
         raise ValueError("This event does not support explicit retry")
+
+    def handoff_current(self, manifest: dict) -> bool:
+        approval = self.current_wrap_approval()
+        return bool(approval and manifest.get("approval_id") == approval.get("approval_id") and
+                    all(manifest.get(key) == value for key, value in self.review_binding().items()))
 
     def review_binding(self) -> dict:
         """The package, findings and decisions actually presented for review."""

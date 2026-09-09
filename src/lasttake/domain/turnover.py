@@ -117,6 +117,7 @@ def generate(
     approved_by: str,
     approved_role: str,
     candidate_sha: Optional[str] = None,
+    approval_binding: Optional[dict] = None,
 ) -> Turnover:
     """Build the versioned packet. Deterministic given its inputs."""
     outstanding = [
@@ -175,6 +176,7 @@ def generate(
         if f.truth_state is not TruthState.VERIFIED
     ]
     manifest = {
+        **(approval_binding or {}),
         "schema": TURNOVER_SCHEMA,
         "synthetic_corpus_notice": SYNTHETIC_NOTICE,
         "evidence_basis": basis,

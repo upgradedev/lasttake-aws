@@ -397,8 +397,8 @@ def latest_decision(finding: Finding, decisions: list[HumanDecision]) -> Optiona
 
 
 def decision_applies(finding: Finding, decision: Optional[HumanDecision]) -> bool:
-    return bool(decision and (decision.finding_sha256 is None or
-                             decision.finding_sha256 == finding.record_sha256))
+    return bool(decision and decision.finding_sha256 and finding.record_sha256 and
+                decision.finding_sha256 == finding.record_sha256)
 
 
 def _resolution(finding: Finding, decisions: list[HumanDecision]) -> Optional[bool]:

@@ -21,7 +21,7 @@ export function aboutBeat(finding:Finding, beat:Beat) {
 }
 export function decisionFor(finding:Finding, decisions:Decision[]) {
   const decision=decisions.filter(d=>d.finding_id===finding.finding_id && d.role===finding.required_role).sort((a,b)=>a.at.localeCompare(b.at)||a.decision_id.localeCompare(b.decision_id)).at(-1);
-  return {decision, stale:!!decision?.finding_sha256 && decision.finding_sha256!==finding.record_sha256};
+  return {decision, stale:!!decision && (!decision.finding_sha256 || decision.finding_sha256!==finding.record_sha256)};
 }
 export function words(value:string) { return value.replaceAll('_',' '); }
 export function makeDocument(kind:'take'|'rights_record', form:FormData) {

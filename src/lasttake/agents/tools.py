@@ -373,8 +373,8 @@ def build_tools(run: WrapRun) -> list[Callable[..., Any]]:
         key = f"turnover/{run.run_id.replace(':', '_')}.json"
         if run.artifacts.exists(key):
             manifest = json.loads(run.artifacts.get(key))
-            if manifest.get("package_revision_digest") != run.package.revision_digest():
-                return "Refusing: the saved turnover is historical. Start a new run for a changed handoff."
+            if not run.handoff_current(manifest):
+                return "Refusing: the saved turnover is historical. Start a new run for a changed review or approval."
             digest = manifest["record_sha256"]
         else:
             turnover = generate_turnover(
@@ -386,12 +386,15 @@ def build_tools(run: WrapRun) -> list[Callable[..., Any]]:
                 approved_by=run.wrap_approver(),
                 approved_role=policy.Role.FIRST_AD.value,
                 candidate_sha=run.candidate_sha,
+                approval_binding={"approval_id": run.current_wrap_approval()["approval_id"], **run.review_binding()},
             )
             key = run.store_turnover(turnover.manifest)
+            manifest = turnover.manifest
             digest = turnover.digest
         delivery = run.publish(
             EventType.TURNOVER_GENERATED,
-            {"artifact_key": key, "digest": digest},
+            {"artifact_key": key, "digest": digest, "approval_id": manifest["approval_id"],
+             "review_digest": manifest["review_digest"], "package_revision_digest": manifest["package_revision_digest"]},
             idempotent=True,
         )
         if not delivery.accepted:

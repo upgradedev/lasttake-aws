@@ -158,6 +158,23 @@ def test_a_supervisor_may_reject_a_coverage_false_positive(work, capsys):
     assert "The original finding is unchanged" in out
 
 
+def test_cli_decision_binds_current_finding_and_does_not_follow_same_id_reread(work):
+    from lasttake.domain import policy
+    from lasttake.domain.findings import from_dict
+    _run(work, "checkpoint")
+    records = json.loads((work / "runs" / cli.RUN_ID / "findings.json").read_text())
+    conflict = next(f for f in records if f["check_type"] == "continuity" and f["requirement_id"])
+    assert _run(work, "resolve", "decision", "--finding-id", conflict["finding_id"],
+        "--action", "accept_exception", "--role", "script_supervisor", "--actor", "Reviewer", "--reason", "Reviewed exact records") == 0
+    decision = policy.decision_from_dict(json.loads((work / "runs" / cli.RUN_ID / "decisions.json").read_text())[-1])
+    assert decision.finding_sha256 == conflict["record_sha256"]
+    assert policy._resolution(from_dict(conflict), [decision]) is True
+    _run(work, "late-take", "--beat", "B-17")
+    reread = next(f for f in json.loads((work / "runs" / cli.RUN_ID / "findings.json").read_text()) if f["finding_id"] == conflict["finding_id"])
+    assert reread["record_sha256"] != decision.finding_sha256
+    assert policy._resolution(from_dict(reread), [decision]) is None
+
+
 def test_verify_accepts_an_intact_manifest_and_rejects_a_tampered_one(work, tmp_path, capsys):
     from lasttake.domain.sealing import seal
 
