@@ -772,6 +772,14 @@ src/lasttake/
   cli.py       the commands a judge runs.
 corpus/        one fictional shoot day, and the generator that produces it.
 tests/         including the gate's own proofs that it can fail.
+web/tests/     nineteen browser tests against the deployed URL. The journey a judge
+               walks, the intake a person supplies, and the handover two roles read.
+tools/         the gates and the harnesses. measure.py holds the declared baseline,
+               dast_probe.py throws hostile bodies at the live API, prose_gate.py and
+               secret_scan.py run in CI.
+docs/          architecture.svg, the assurance tables, and the JSON each harness
+               writes: measurement.json, ablation.json, evaluation_cases.json, and
+               build_stories.json, which holds three unpublished drafts.
 ```
 
 ## Pre-existing components
