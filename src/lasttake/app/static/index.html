@@ -1487,7 +1487,9 @@ function closeTake() {
    looks pressable and silently does nothing is worse than one that is greyed
    out, because the person's next move is to press it again. */
 function paintBusy() {
-  ['bIngest', 'bReset', 'go'].forEach(function (id) {
+  /* Not 'go': paintWalk already owns that button's disabled state and has a
+     second reason to keep it disabled, so two owners here would fight. */
+  ['bIngest', 'bReset'].forEach(function (id) {
     var el = $(id);
     if (el) el.disabled = BUSY;
   });
