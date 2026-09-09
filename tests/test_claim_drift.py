@@ -2,6 +2,7 @@
 import ast
 import importlib.util
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -65,7 +66,8 @@ def test_narration_refuses_unconfigured_status_before_reaching_any_provider(stat
 def test_current_docs_distinguish_live_demo_history_and_unknown_benefits():
     for path in ("README.md", "docs/assurance.md", "docs/BEDROCK_AGENTCORE_ARCHITECTURE.md"):
         first = text(path)[:2400]
-        assert "https://d3kf6hquzlli8g.cloudfront.net/" in first
+        link_targets = re.findall(r"\]\((https?://[^)\s]+)\)", first)
+        assert any(target == "https://d3kf6hquzlli8g.cloudfront.net/" for target in link_targets)
         assert "Strands" in first and "offline" in first.lower()
     assurance = text("docs/assurance.md")
     assert "---|---|---|" not in assurance.splitlines() and "under $0.01" not in assurance
@@ -77,7 +79,7 @@ def test_current_docs_distinguish_live_demo_history_and_unknown_benefits():
     uat = json.loads(text("frontend/UAT.testbook.json"))["current_reliability_revision"]
     assert uat["status"] == "AUTOMATION_PASS" and uat["scope"] == "CI_REAL_HTTP_ONLY"
     assert uat["implementation_sha"] == "59844080b768993d67821fd6fb55db9049c998db"
-    assert uat["ci_run_url"].endswith("/34377650942")
+    assert uat["ci_run_url"] == "https://github.com/upgradedev/lasttake-aws/actions/runs/34377650942"
     assert uat["human_signoff"] == uat["live_aws_acceptance"] == "NOT_RUN"
 
 
