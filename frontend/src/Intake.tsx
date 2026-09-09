@@ -3,7 +3,7 @@ import {makeDocument} from './model';
 import type {Document,Scene} from './types';
 const takeFields=[['take_id','Take identifier'],['slate','Slate'],['shot_id','Shot identifier'],['camera_roll','Camera roll'],['media_id','Media identifier'],['sound_roll','Sound roll'],['timecode_in','Timecode in'],['timecode_out','Timecode out'],['lens_mm','Lens (mm)'],['report_media_id','Reported media identifier'],['report_lens_mm','Reported lens (mm)'],['report_camera_roll','Reported camera roll']];
 const sample:Record<string,string>={take_id:'T-900',slate:'42L/1',shot_id:'S-42-PICKUP',camera_roll:'A007',media_id:'A007R2G01',sound_roll:'SR07',timecode_in:'23:04:00:00',timecode_out:'23:04:41:00',lens_mm:'50',report_media_id:'A007R2G01',report_lens_mm:'50',report_camera_roll:'A007',visible_people:'DELPHINE',note:'Pickup on the reaction. Clean single.'};
-export function Intake({scene,busy,onSubmit,onClose,guided}:{scene:Scene;busy:boolean;onSubmit:(kind:string,document:Document)=>Promise<boolean>;onClose:()=>void;guided:boolean}) {
+export function Intake({scene,busy,writeBlocked=false,onSubmit,onClose,guided}:{scene:Scene;busy:boolean;writeBlocked?:boolean;onSubmit:(kind:string,document:Document)=>Promise<boolean>;onClose:()=>void;guided:boolean}) {
   const [kind,setKind]=useState<'take'|'rights_record'>('take');
   const [example,setExample]=useState(false);
   const [advanced,setAdvanced]=useState(false);
@@ -40,7 +40,8 @@ export function Intake({scene,busy,onSubmit,onClose,guided}:{scene:Scene;busy:bo
         <label>Expiry date, if any<input name="expires_on" type="date"/></label>
       </div>}
       {error && <p role="alert" className="error">{error}</p>}
-      <button className="primary" type="submit">Save evidence & rerun checks</button>
+      <button className="primary" type="submit" disabled={writeBlocked}>Save evidence & rerun checks</button>
+      {writeBlocked && <p className="warning">Refresh saved state before saving more evidence. You can keep editing or close this form.</p>}
       </fieldset>
     </form>
   </section>;

@@ -1,10 +1,11 @@
 {
   "schema": "lasttake/uat/v1",
-  "scope": "Synthetic React workspace with real offline Python HTTP handler and Strands sessions. Cloud deployment and practising-user acceptance require separate evidence.",
+  "scope": "Synthetic React production cockpit and current scene dashboard. Existing evidence entries are historical and release-scoped; the new UX requires exact-commit CI and subsequent parent-approved AWS acceptance.",
   "aws_release": {
     "url": "https://d3kf6hquzlli8g.cloudfront.net/",
     "status": "PASS_AUTOMATED_AWS",
-    "observed_result_evidence": "PASS: 8 desktop/mobile journeys against CloudFront, Lambda, S3 and Aurora DSQL on 2026-09-09. Run https://github.com/upgradedev/lasttake-aws/actions/runs/34327806494, frontend 1f10d39c8b2b22474f64b1c057851eb2057665e7. Command: LASTTAKE_UI_URL=https://d3kf6hquzlli8g.cloudfront.net/ npm run test:e2e. Automated synthetic acceptance only; human signoff remains NOT_RUN."
+    "observed_result_evidence": "PASS: 8 desktop/mobile journeys against CloudFront, Lambda, S3 and Aurora DSQL on 2026-09-09. Run https://github.com/upgradedev/lasttake-aws/actions/runs/34327806494, frontend 1f10d39c8b2b22474f64b1c057851eb2057665e7. Command: LASTTAKE_UI_URL=https://d3kf6hquzlli8g.cloudfront.net/ npm run test:e2e. Automated synthetic acceptance only; human signoff remains NOT_RUN.",
+    "scope": "HISTORICAL_RELEASE_ONLY: the named frontend SHA and run validate the earlier UX, not the current dashboard/workspace."
   },
   "cases": [
     {
@@ -192,6 +193,94 @@
       "automation_mapping": "tests/components.test.tsx (server-state-only confirmation and status accents); tests/e2e/journeys.spec.ts LT03 (exact API fingerprint, saved feedback, reduced motion and viewport); tests/contracts.test.mjs",
       "observed_result_evidence": "Run-specific automated outcome is recorded in the frontend-ci and main release Live Playwright testbook artifacts. Earlier checkpoints in this document predate this UI case and are not evidence for it.",
       "human_signoff": "NOT_RUN"
+    },
+    {
+      "id": "LT-DASH",
+      "persona": "Script supervisor and 1st AD",
+      "requirement": "Current-scene metrics and priority work use actual nullable data and drill into matching records.",
+      "preconditions": "Current candidate built in GitHub Actions; real Python HTTP backend for offline CI or exact-SHA released AWS surface for live acceptance.",
+      "steps": [
+        "Create run and inspect Not assessed metrics",
+        "Run checkpoint and compare all metric values with API state",
+        "Drill coverage, missing releases and retained exceptions",
+        "Capture desktop/mobile dashboard and cockpit"
+      ],
+      "expected_outcome": "No provisional pass, invented trend or portfolio total. Required-beat drill counts match the server assessment; reviewed exceptions remain retained.",
+      "negative_recovery_case": "Null counts and duplicate rows do not become zero or inflate counts.",
+      "automation_mapping": [
+        "tests/e2e/workspaces.spec.ts: LT-DASH",
+        "tests/projection.test.ts",
+        "tests/workspaces.test.tsx"
+      ],
+      "observed_result_evidence": "AUTOMATION_PASS for implementation 896442b1359893f571dd0fbcd0335ccb2ffe1299 in https://github.com/upgradedev/lasttake-aws/actions/runs/34357735501. Real Python HTTP, Chromium desktop/mobile CI only; see frontend-evidence-896442b1359893f571dd0fbcd0335ccb2ffe1299 and ui-screenshots-896442b1359893f571dd0fbcd0335ccb2ffe1299. This is not live-AWS or human acceptance.",
+      "human_signoff": "NOT_RUN"
+    },
+    {
+      "id": "LT-SELECT",
+      "persona": "Script supervisor and DIT",
+      "requirement": "Bidirectional beat/finding and source inspection preserves real identity and route context.",
+      "preconditions": "Current candidate built in GitHub Actions; real Python HTTP backend for offline CI or exact-SHA released AWS surface for live acceptance.",
+      "steps": [
+        "Select script beat then linked finding",
+        "Inspect source IDs, locators and report mismatch",
+        "Follow Records link, type multiple search characters, select take",
+        "Reload and use browser back; return Records takes to Workspace",
+        "Inspect unmatched shot advisory"
+      ],
+      "expected_outcome": "Actual IDs/pages/lines retained; search keeps focus; all beats remain available after a record-category route; unmatched advisory selects no beat.",
+      "negative_recovery_case": "Null, empty, missing or incompatible identities offer no unrelated finding decision.",
+      "automation_mapping": [
+        "tests/e2e/workspaces.spec.ts: LT-SELECT",
+        "tests/projection.test.ts",
+        "tests/workspaces.test.tsx"
+      ],
+      "observed_result_evidence": "AUTOMATION_PASS for implementation 896442b1359893f571dd0fbcd0335ccb2ffe1299 in https://github.com/upgradedev/lasttake-aws/actions/runs/34357735501. Real Python HTTP, Chromium desktop/mobile CI only; see frontend-evidence-896442b1359893f571dd0fbcd0335ccb2ffe1299 and ui-screenshots-896442b1359893f571dd0fbcd0335ccb2ffe1299. This is not live-AWS or human acceptance.",
+      "human_signoff": "NOT_RUN"
+    },
+    {
+      "id": "LT-OFFLINE",
+      "persona": "Supervisor with unreliable connectivity",
+      "requirement": "Unknown write state requires recovery; known validation refusal permits correction.",
+      "preconditions": "Current candidate built in GitHub Actions; real Python HTTP backend for offline CI or exact-SHA released AWS surface for live acceptance.",
+      "steps": [
+        "Create and assess run",
+        "Take browser transport offline and refresh",
+        "Confirm decisions disabled and original run retained",
+        "Restore transport and refresh",
+        "Refuse invalid intake, correct input and save without refreshing"
+      ],
+      "expected_outcome": "No automatic mutation retry; current state recovers; known 400 errors retain editable fields and resubmission.",
+      "negative_recovery_case": "Stale 409, unreadable and server/network failures require refresh; closing intake remains possible.",
+      "automation_mapping": [
+        "tests/e2e/workspaces.spec.ts: LT-OFFLINE",
+        "tests/e2e/journeys.spec.ts: LT01",
+        "tests/workspaces.test.tsx",
+        "tests/model.test.ts"
+      ],
+      "observed_result_evidence": "AUTOMATION_PASS for implementation 896442b1359893f571dd0fbcd0335ccb2ffe1299 in https://github.com/upgradedev/lasttake-aws/actions/runs/34357735501. Real Python HTTP, Chromium desktop/mobile CI only; see frontend-evidence-896442b1359893f571dd0fbcd0335ccb2ffe1299 and ui-screenshots-896442b1359893f571dd0fbcd0335ccb2ffe1299. This is not live-AWS or human acceptance.",
+      "human_signoff": "NOT_RUN"
+    },
+    {
+      "id": "LT-COCKPIT",
+      "persona": "1st AD and keyboard/mobile user",
+      "requirement": "Persistent executive wrap state remains separate from selected finding decisions.",
+      "preconditions": "Current candidate built in GitHub Actions; real Python HTTP backend for offline CI or exact-SHA released AWS surface for live acceptance.",
+      "steps": [
+        "Select finding and inspect right pane status without page scrolling",
+        "Jump between script/evidence/decision panels",
+        "Review pending pickup or wrap in place",
+        "Attempt wrong-role, stale, missing-interrupt and ineligible approvals",
+        "Inspect reduced-motion desktop/mobile screenshots"
+      ],
+      "expected_outcome": "Eligibility, recorded approval and pending interrupt remain distinct. Only exact unchanged eligible wrap request offers approval for 1st AD.",
+      "negative_recovery_case": "Unknown or stale selections disable finding decisions; no creative, legal, audio or savings claim is inferred.",
+      "automation_mapping": [
+        "tests/e2e/workspaces.spec.ts",
+        "tests/e2e/journeys.spec.ts: LT03",
+        "tests/workspaces.test.tsx"
+      ],
+      "observed_result_evidence": "AUTOMATION_PASS for implementation 896442b1359893f571dd0fbcd0335ccb2ffe1299 in https://github.com/upgradedev/lasttake-aws/actions/runs/34357735501. Real Python HTTP, Chromium desktop/mobile CI only; see frontend-evidence-896442b1359893f571dd0fbcd0335ccb2ffe1299 and ui-screenshots-896442b1359893f571dd0fbcd0335ccb2ffe1299. This is not live-AWS or human acceptance.",
+      "human_signoff": "NOT_RUN"
     }
   ],
   "verification_checkpoint": {
@@ -222,6 +311,18 @@
       "full": 0,
       "runtime": 0,
       "artifact_url": "https://github.com/upgradedev/lasttake-aws/actions/runs/34327163715/artifacts/10094244265"
-    }
+    },
+    "scope": "HISTORICAL_RELEASE_ONLY"
+  },
+  "current_workspace_revision": {
+    "status": "AUTOMATION_PASS",
+    "scope": "CI_REAL_HTTP_ONLY",
+    "implementation_sha": "896442b1359893f571dd0fbcd0335ccb2ffe1299",
+    "ci_run_url": "https://github.com/upgradedev/lasttake-aws/actions/runs/34357735501",
+    "evidence_artifact": "frontend-evidence-896442b1359893f571dd0fbcd0335ccb2ffe1299",
+    "screenshots_artifact": "ui-screenshots-896442b1359893f571dd0fbcd0335ccb2ffe1299",
+    "observed_result_evidence": "185 Python tests, 56 frontend unit/component tests, 3 functional contracts and 16 real-HTTP desktop/mobile journeys passed for the implementation SHA above. This later documentation/contract revision does not claim to validate itself. Final candidate CI artifacts remain authoritative; parent owns main release and exact-SHA live AWS acceptance.",
+    "live_aws_acceptance": "NOT_RUN",
+    "human_signoff": "NOT_RUN"
   }
 }

@@ -11,7 +11,7 @@ async function fresh(page:Page){
   await expect(page.getByRole('button',{name:'Refresh saved state'})).toBeEnabled();
   await expect(page.getByText(/Of 34 required beats/).first()).toBeVisible();
 }
-async function navigate(page:Page,name:string){await page.getByRole('navigation').getByRole('link',{name,exact:true}).click();}
+async function navigate(page:Page,name:string){const labels:Record<string,string>={'Scene workspace':'Workspace','My actions':'Workspace','Overview':'Dashboard','Turnovers & history':'History'};await page.getByRole('navigation').getByRole('link',{name:labels[name] ?? name,exact:true}).click();}
 async function sample(page:Page,kind:'take'|'rights_record'){
   await navigate(page,'Scene workspace');
   if(await page.getByRole('button',{name:'Open guided demo'}).isVisible())await page.getByRole('button',{name:'Open guided demo'}).click();
@@ -23,6 +23,7 @@ async function sample(page:Page,kind:'take'|'rights_record'){
 }
 async function decide(page:Page,name:string,role:string){
   await page.getByLabel('Demo role').selectOption(role);
+  await page.locator('.finding-picker a').filter({hasText:name.replace(' ',' · ')}).click();
   const card=page.getByRole('article',{name,exact:true});
   await card.getByLabel('Your name in this demo').fill('Synthetic reviewer');
   await card.getByLabel('Decision',{exact:true}).selectOption('accept_exception');
@@ -45,6 +46,7 @@ test('LT01 intake validates, persists through reload and refuses duplicate recor
   await expect(page.getByRole('alert').first()).toContainText('does not match');
   await expect(page.getByLabel('Document JSON')).toHaveValue('{"take_id":"T-900"}');
   await page.getByRole('button',{name:'Close form'}).click();
+  await expect(page.getByRole('button',{name:'Add take or release'})).toBeEnabled();
   await sample(page,'take');
   await expect(page.getByText('Slate 42L/1',{exact:true})).toBeVisible();
   await page.reload();

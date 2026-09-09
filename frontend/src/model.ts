@@ -1,21 +1,23 @@
-import type { Beat, Decision, Finding, Page, Role } from './types';
+import type { Beat, Decision, Finding, Page, Role, Selection } from './types';
 export const roles: Record<Role,string> = {script_supervisor:'Script supervisor', first_ad:'1st AD', dit:'DIT / data manager', production_coordinator:'Production coordinator', editorial:'Assistant editor'};
-export const pages: Record<Page,string> = {overview:'Overview', scene:'Scene workspace', actions:'My actions', history:'Turnovers & history'};
+export const pages: Record<Page,string> = {overview:'Dashboard', scene:'Workspace', records:'Records', history:'History', actions:'My actions'};
 export function readRoute() {
   const [raw, query] = location.hash.slice(1).split('?');
-  const page = Object.hasOwn(pages, raw) ? raw as Page : 'overview';
+  const page = raw==='dashboard'?'overview':raw==='workspace'?'scene':Object.hasOwn(pages, raw) ? raw as Page : 'overview';
   const params = new URLSearchParams(query);
-  return {page, run:params.get('run'), beat:params.get('beat')};
+  return {page, run:params.get('run'), beat:params.get('beat'), finding:params.get('finding'),filter:params.get('filter'),record:params.get('record'),q:params.get('q')};
 }
-export function link(page:Page, run?:string|null, beat?:string) {
+export function link(page:Page, run?:string|null, beat?:string, selection:Selection={}) {
   const params = new URLSearchParams();
   if (run) params.set('run',run);
   if (beat) params.set('beat',beat);
+  for(const [key,value] of Object.entries(selection))if(value)params.set(key,value);
   return `#${page}${params.size ? `?${params}` : ''}`;
 }
 export function aboutBeat(finding:Finding, beat:Beat) {
   const id=finding.requirement_id;
-  return id !== null && (id===beat.beat_id || id===beat.continuity_ref || beat.takes.some(t=>t.take_id===id || t.visible_people.includes(id) || t.visible_assets.includes(id)));
+  if(typeof id!=='string' || !id.trim())return false;
+  return id===beat.beat_id || (Boolean(beat.continuity_ref) && id===beat.continuity_ref) || beat.takes.some(t=>t.take_id===id || t.visible_people.includes(id) || t.visible_assets.includes(id)) || finding.locators.some(l=>l.kind==='take' && Boolean(l.value) && beat.takes.some(t=>t.take_id===l.value));
 }
 export function decisionFor(finding:Finding, decisions:Decision[]) {
   const decision=[...decisions].reverse().find(d=>d.finding_id===finding.finding_id);
