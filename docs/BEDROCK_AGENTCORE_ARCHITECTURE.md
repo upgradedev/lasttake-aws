@@ -1,6 +1,8 @@
-# LastTake: Enterprise Amazon Bedrock AgentCore Alignment Architecture
+# LastTake: optional AgentCore design notes
 
-> **Status: a design proposal. None of it is deployed.**
+For a script supervisor and the 1st AD, the running application is [LastTake on AWS](https://d3kf6hquzlli8g.cloudfront.net/). Create a run, start a checkpoint, review sources and answer the saved approval. History exports evidence and limits. The current browser is an offline synthetic demo using real Strands tool replay and S3 sessions; it does not analyze footage/audio. Pre-existing component disclosures are in the README.
+
+> **Status: a design proposal. None of the AgentCore migration below is deployed, validated or part of the current reliability implementation.**
 >
 > LastTake does not run on Amazon Bedrock AgentCore today. What is deployed is described in
 > the README under "What is deployed, and what it costs": one Lambda behind an HTTP API, one
@@ -77,7 +79,7 @@ Were it deployed onto Amazon Bedrock AgentCore, LastTake would coordinate multi-
 | **`lasttake.checks`** | **Deterministic Action Groups** | Four rule engines operating with OpenAPI schemas: Coverage (beats vs takes), Continuity (eyeline/wardrobe), Metadata (checksums/reel IDs), and Rights (cast/SAG-AFTRA releases). |
 | **`lasttake.domain.turnover`** | **Bedrock Return-of-Control (ROC)** | Enforces human sign-off from the 1st AD or Unit Production Manager before authorizing wrap seals or scheduling pickups. |
 | **`lasttake.adapters.aws.dsql`** | **AgentCore Memory Engine** | Distributed SQL (Aurora DSQL) / transactional state store allowing state resumption after Lambda container restarts. |
-| **`lasttake.domain.sealing`** | **Cryptographic Audit Action Group** | Mints tamper-proof cryptographic certificates (SHA-256 state chain) over exact shoot-day evidence. |
+| **`lasttake.domain.sealing`** | **Cryptographic Audit Action Group** | Would retain byte-identifying record digests; hashes do not establish authenticity, truth or legal sufficiency. |
 
 ---
 
@@ -96,4 +98,4 @@ Film sets operate under strict legal, labor, and financial constraints that cann
 LastTake is architected for serverless deployments where compute instances may be recycled during overnight pauses:
 - **State Invariance:** Complete shoot-day state is serialized with SHA-256 cryptographic hashes.
 - **Idempotency Tokens:** Prevent duplicate gate evaluations or spurious pickups during web retry events.
-- **Cold-Start Resume:** An incoming webhook or human approval call deserializes the verified state and continues orchestration seamlessly.
+- **Cold-Start Resume:** An incoming webhook or human approval call deserializes the verified state and continues orchestration subject to current evidence and delivery guards.

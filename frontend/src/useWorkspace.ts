@@ -12,6 +12,7 @@ export function useWorkspace() {
   const [state,setState]=useState<RunState|null>(null);
   const [scene,setScene]=useState<Scene|null>(null);
   const [events,setEvents]=useState<EventRow[]>([]);
+  const [progress,setProgress]=useState('');
   const [working,setWorking]=useState(false);
   const [loading,setLoading]=useState(true);
   const [error,setError]=useState('');
@@ -22,9 +23,9 @@ export function useWorkspace() {
   const generation=useRef(0);
   const handle=useCallback(async (work:()=>Promise<void>)=>{
     if(lock.current) return false;
-    lock.current=true;setWorking(true);setError('');setMessage('');
+    lock.current=true;setWorking(true);setProgress('Sending request…');setError('');setMessage('');
     try {await work();setRequiresRefresh(false);return true;}catch(e){setError(errorMessage(e));setRequiresRefresh(!(e instanceof ApiError && e.status===400));return false;}
-    finally{lock.current=false;setWorking(false);}
+    finally{lock.current=false;setWorking(false);setProgress('');}
   },[]);
   const loadSession=useCallback(async(newSession=false)=>{
     const saved=newSession ? null : readPreference('lasttake.session');
@@ -64,13 +65,13 @@ export function useWorkspace() {
     if(!state || !session || readRoute().run!==state.run_id)throw new Error('The selected run changed. Wait for its saved state before acting.');
     const run=state.run_id;
     const result=await request<RunState>(path,{session_id:session.session_id,run_id:run,...extra});
-    await loadRun(run,session.session_id);
-    await loadSession();
+    setProgress('Reading saved evidence and delivery outcomes…');
+    await Promise.all([loadRun(run,session.session_id),loadSession()]);
     if(readRoute().run===run)setMessage(result.message ?? 'Saved.');
   });
   const recover=()=>handle(async()=>{
     generation.current++;await loadSession(true);setState(null);setScene(null);setEvents([]);location.hash='#overview';
   });
-  return {route,session,state,scene,events,busy:loading||working,error,requiresRefresh,message,create,act,handle,
+  return {route,session,state,scene,events,busy:loading||working,error,requiresRefresh,message,progress,create,act,handle,
     refresh:()=>route.run && session ? handle(()=>loadRun(route.run!,session.session_id)) : bootstrap(),recover};
 }

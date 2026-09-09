@@ -26,6 +26,7 @@ from enum import Enum
 
 from .findings import CheckType, Finding, TruthState
 from .package import ScenePackage, Take
+from .policy import latest_decision, decision_applies, decision_from_dict
 
 
 class EvidenceBasis(str, Enum):
@@ -174,11 +175,12 @@ def roll_up(
 ) -> list[BeatOutcome]:
     """One outcome per required beat, in script order, and what each rests on."""
     index = _Index(findings)
-    confirmed = {
-        d["finding_id"]
-        for d in (decisions or [])
-        if d.get("action") in ("confirm", "accept_exception")
-    }
+    reviewed = [decision_from_dict(d) for d in (decisions or [])]
+    confirmed = set()
+    for finding in findings:
+        decision = latest_decision(finding, reviewed)
+        if decision_applies(finding, decision) and decision.action.value in ("confirm", "accept_exception"):
+            confirmed.add(finding.finding_id)
     outcomes: list[BeatOutcome] = []
 
     for beat in package.required_beats:

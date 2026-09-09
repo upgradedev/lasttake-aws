@@ -119,6 +119,7 @@ class OfflineOrchestratorModel(_StrandsModel):
         **kwargs: Any,
     ) -> AsyncIterable[dict]:
         called: list[str] = []
+        instructed_calls: list[str] = []
         last_user = ""
         for message in messages:
             for block in message.get("content", []):
@@ -126,17 +127,19 @@ class OfflineOrchestratorModel(_StrandsModel):
                     continue
                 if "toolUse" in block:
                     called.append(block["toolUse"].get("name", ""))
+                    instructed_calls.append(block["toolUse"].get("name", ""))
                 if message.get("role") == "user" and "text" in block:
                     last_user = block["text"]
+                    instructed_calls = []
 
         instructed = self._route(last_user)
-        if instructed and instructed[0] not in called:
+        if instructed and instructed[0] not in instructed_calls:
             name, args = instructed
             async for event in self._emit_tool_use(name, args, len(called)):
                 yield event
             return
 
-        remaining = [step for step in self.plan if step not in called]
+        remaining = [] if instructed else [step for step in self.plan if step not in instructed_calls]
         if remaining:
             name = remaining[0]
             async for event in self._emit_tool_use(name, {}, len(called)):
@@ -149,8 +152,8 @@ class OfflineOrchestratorModel(_StrandsModel):
             "contentBlockDelta": {
                 "delta": {
                     "text": (
-                        "Checkpoint complete. Every check has a current result and the "
-                        "eligibility packet is on file."
+                        "Tool sequence complete. Review the saved findings, eligibility "
+                        "and delivery outcomes."
                     )
                 }
             }

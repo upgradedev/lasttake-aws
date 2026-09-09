@@ -12,7 +12,7 @@ function server(options:{empty?:boolean;unchecked?:boolean}={}) {
     if(url==='/api/reset'){created=true;return {ok:true,json:async()=>({run_id:state.run_id})};}
     if(url==='/api/checkpoint')checked=true;
     const body=JSON.parse(init.body as string);
-    return {ok:true,json:async()=>url==='/api/scene'?scene:url==='/api/events'?{events:[]}:{...state,run_id:body.run_id,counts:checked?state.counts:null,headline:checked?state.headline:null,message:'Checkpoint saved.'}};
+    return {ok:true,json:async()=>url==='/api/scene'?scene:url==='/api/events'?{events:[]}:{...state,run_id:body.run_id,pending_approval:checked?state.pending_approval:null,counts:checked?state.counts:null,headline:checked?state.headline:null,message:'Checkpoint saved.'}};
   });vi.stubGlobal('fetch',fetcher);return fetcher;
 }
 

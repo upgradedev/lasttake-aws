@@ -368,6 +368,9 @@ def cmd_resolve(args) -> int:
         return 0
 
     # A human decision, not new evidence. The finding stays exactly as written.
+    current = next((from_dict(f) for f in run.load_findings() if f["finding_id"] == args.finding_id), None)
+    if current is None:
+        raise SystemExit(f"No finding {args.finding_id} on this run.")
     decision = policy.HumanDecision(
         decision_id=f"dec-{uuid.uuid4().hex[:8]}",
         finding_id=args.finding_id,
@@ -375,6 +378,7 @@ def cmd_resolve(args) -> int:
         actor=args.actor,
         role=policy.Role(args.role),
         reason=args.reason,
+        finding_sha256=current.record_sha256,
     )
     if not policy.authority_check(
         _check_type_of(run, args.finding_id), decision.action, decision.role

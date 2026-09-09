@@ -198,9 +198,12 @@ def check(base: str) -> list[str]:
     )
     if status != 200 or not isinstance(resumed, dict):
         raise CheckFailed(f"approve returned {status}: {resumed}")
-    if "Pickup approved" not in str(resumed.get("message", "")):
-        raise CheckFailed(f"the resume did not route the pickup: {resumed.get('message')}")
-    lines.append("- a separate request resumed the run and routed the pickup")
+    if "Pickup approved" not in str(resumed.get("message", "")) or "Bus accepted" not in str(resumed.get("message", "")):
+        raise CheckFailed(f"the resume has no accepted pickup receipt: {resumed.get('message')}")
+    deliveries = [d for d in resumed.get("delivery_outcomes", []) if d["event_type"] == "pickup.requested"]
+    if len(deliveries) != 1 or deliveries[0]["status"] != "accepted" or not deliveries[0]["reference"]:
+        raise CheckFailed("No saved bus-acceptance receipt for the pickup")
+    lines.append("- a separate request resumed the run; the bus accepted the pickup request, not proof of downstream completion")
 
     # 7. Eligibility is still refused, because a release is still missing.
     if resumed.get("eligible"):

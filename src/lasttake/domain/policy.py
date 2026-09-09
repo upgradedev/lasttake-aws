@@ -34,7 +34,7 @@ from .sealing import seal, utc_now_iso
 #: Bumped whenever the rules below change. Every finding and every packet
 #: records the version that judged it, so an old decision stays explainable
 #: after the policy moves on.
-POLICY_VERSION = "1.0.0"
+POLICY_VERSION = "1.1.0"
 
 
 class DecisionAction(str, Enum):
@@ -385,6 +385,22 @@ def _role_for(check_type: CheckType) -> Role:
     }[check_type]
 
 
+def latest_decision(finding: Finding, decisions: list[HumanDecision]) -> Optional[HumanDecision]:
+    """Latest authorised record, ordered identically across storage adapters.
+
+    Select before checking its digest: a stale later review must never revive
+    an earlier acceptance. Legacy unbound decisions remain explicitly unbound.
+    """
+    candidates = [d for d in decisions if d.finding_id == finding.finding_id
+                  and d.role in AUTHORITY.get(finding.check_type, set())]
+    return max(candidates, key=lambda d: (d.at, d.decision_id), default=None)
+
+
+def decision_applies(finding: Finding, decision: Optional[HumanDecision]) -> bool:
+    return bool(decision and decision.finding_sha256 and finding.record_sha256 and
+                decision.finding_sha256 == finding.record_sha256)
+
+
 def _resolution(finding: Finding, decisions: list[HumanDecision]) -> Optional[bool]:
     """Has an authorised human closed this exception?
 
@@ -393,27 +409,13 @@ def _resolution(finding: Finding, decisions: list[HumanDecision]) -> Optional[bo
     decisions are ignored entirely rather than downgraded, because a decision
     taken by the wrong role is not weak evidence, it is no evidence.
     """
-    looked = False
-    for decision in decisions:
-        allowed = AUTHORITY.get(finding.check_type, set())
-        if decision.role not in allowed:
-            continue
-        # A decision taken about a different reading of this requirement is not
-        # a decision about this one. It is withdrawn rather than downgraded, for
-        # the same reason an unauthorised decision is: it is no evidence about
-        # the thing in front of us.
-        if decision.finding_sha256 and decision.finding_sha256 != finding.record_sha256:
-            continue
-        looked = True
-        if decision.action is DecisionAction.REJECT_FALSE_POSITIVE:
-            return True
-        if decision.action is DecisionAction.ACCEPT_EXCEPTION:
-            if decision.role in MAY_ACCEPT_EXCEPTION.get(finding.check_type, set()):
-                return True
-            # An accept from a role that may confirm but may not accept counts
-            # only as having looked.
-            continue
-    return False if looked else None
+    decision = latest_decision(finding, decisions)
+    if not decision_applies(finding, decision):
+        return None
+    if decision.action is DecisionAction.REJECT_FALSE_POSITIVE:
+        return True
+    return (decision.action is DecisionAction.ACCEPT_EXCEPTION and
+            decision.role in MAY_ACCEPT_EXCEPTION.get(finding.check_type, set()))
 
 
 def authority_check(check_type: CheckType, action: DecisionAction, role: Role) -> bool:

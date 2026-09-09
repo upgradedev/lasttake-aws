@@ -2,8 +2,7 @@
 # .github/workflows/submission-video.yml. Pristine copy at
 # video/upstream/archon-datahub/submission-video.yml.
 #
-# Every line the kit changed, and every line a new project must change, is marked
-# "KIT:". Grep for it before the first dispatch, and read the table in the kit README.
+# LastTake adaptation: owner-gated source only; no candidate recording exists.
 name: Generate exact-release submission video
 
 on:
@@ -13,15 +12,12 @@ on:
         description: Exact deployed SHA to record
         required: true
         type: string
-      # KIT: these two bound the video to two DataHub-specific proof workflows. They are
-      # optional now. Leave them empty if the project has no equivalent, or point them at
-      # your own proof runs and edit the two workflow paths asserted below.
       hosted_run_id:
-        description: Successful hosted-demo run for the release, optional
+        description: Successful LastTake frontend release and live acceptance run, optional
         required: false
         type: string
       governed_run_id:
-        description: Successful write and rollback proof run for the release, optional
+        description: Successful LastTake backend deployment proof for the release, optional
         required: false
         type: string
 
@@ -39,61 +35,57 @@ jobs:
     permissions:
       actions: read
       contents: read
-      id-token: write
-    # KIT: set the repository and the default branch. While this is unedited the job is
-    # SKIPPED, which produces no video and no error, so fix it first.
-    if: github.repository == 'upgradedev/<REPO>' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
-      ARCHON_RELEASE_SHA: ${{ inputs.release_sha }}
-      ARCHON_HOSTED_RUN_ID: ${{ inputs.hosted_run_id }}
-      ARCHON_GOVERNED_RUN_ID: ${{ inputs.governed_run_id }}
+      LASTTAKE_RELEASE_SHA: ${{ inputs.release_sha }}
+      LASTTAKE_HOSTED_RUN_ID: ${{ inputs.hosted_run_id }}
+      LASTTAKE_GOVERNED_RUN_ID: ${{ inputs.governed_run_id }}
     steps:
       - name: Bind media to successful exact-release evidence
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          test "${GITHUB_SHA}" = "${ARCHON_RELEASE_SHA}"
-          [[ "${ARCHON_RELEASE_SHA}" =~ ^[a-f0-9]{40}$ ]]
-          # KIT: the run-id bindings run only when the ids are supplied. The two asserted
-          # workflow paths are DataHub's; change them to your own proof workflows.
-          if [[ -n "${ARCHON_HOSTED_RUN_ID}" ]]; then
-            [[ "${ARCHON_HOSTED_RUN_ID}" =~ ^[1-9][0-9]*$ ]]
-            test "$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${ARCHON_HOSTED_RUN_ID}" --jq .head_sha)" = "${ARCHON_RELEASE_SHA}"
-            test "$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${ARCHON_HOSTED_RUN_ID}" --jq .conclusion)" = success
-            test "$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${ARCHON_HOSTED_RUN_ID}" --jq .path)" = ".github/workflows/hosted-demo.yml"
+          test "${GITHUB_REPOSITORY}" = "upgradedev/lasttake-aws"
+          test "${GITHUB_REF}" = "refs/heads/main"
+          test "${GITHUB_SHA}" = "${LASTTAKE_RELEASE_SHA}"
+          [[ "${LASTTAKE_RELEASE_SHA}" =~ ^[a-f0-9]{40}$ ]]
+          # Optional proof IDs must name the exact successful release workflows.
+          if [[ -n "${LASTTAKE_HOSTED_RUN_ID}" ]]; then
+            [[ "${LASTTAKE_HOSTED_RUN_ID}" =~ ^[1-9][0-9]*$ ]]
+            test "$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${LASTTAKE_HOSTED_RUN_ID}" --jq .head_sha)" = "${LASTTAKE_RELEASE_SHA}"
+            test "$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${LASTTAKE_HOSTED_RUN_ID}" --jq .conclusion)" = success
+            test "$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${LASTTAKE_HOSTED_RUN_ID}" --jq .path)" = ".github/workflows/frontend-deploy.yml"
           fi
-          if [[ -n "${ARCHON_GOVERNED_RUN_ID}" ]]; then
-            [[ "${ARCHON_GOVERNED_RUN_ID}" =~ ^[1-9][0-9]*$ ]]
-            test "$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${ARCHON_GOVERNED_RUN_ID}" --jq .head_sha)" = "${ARCHON_RELEASE_SHA}"
-            test "$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${ARCHON_GOVERNED_RUN_ID}" --jq .conclusion)" = success
-            test "$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${ARCHON_GOVERNED_RUN_ID}" --jq .path)" = ".github/workflows/live-governed-proof.yml"
+          if [[ -n "${LASTTAKE_GOVERNED_RUN_ID}" ]]; then
+            [[ "${LASTTAKE_GOVERNED_RUN_ID}" =~ ^[1-9][0-9]*$ ]]
+            test "$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${LASTTAKE_GOVERNED_RUN_ID}" --jq .head_sha)" = "${LASTTAKE_RELEASE_SHA}"
+            test "$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${LASTTAKE_GOVERNED_RUN_ID}" --jq .conclusion)" = success
+            test "$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${LASTTAKE_GOVERNED_RUN_ID}" --jq .path)" = ".github/workflows/deploy.yml"
           fi
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Fail closed until the owner configures narration and verifies this capture
+        run: |
+          python3 - <<'PY'
+          import json
+          spec=json.load(open("video/narration.json"))
+          assert spec.get("recording_status") == "READY_OWNER_VERIFIED", (
+              "NOT_CONFIGURED: owner must supply narration credentials, verify the exact live release, "
+              "review the current capture and timing, then explicitly set recording_status to READY_OWNER_VERIFIED. "
+              "No recording exists for this candidate; no media provider was called."
+          )
+          PY
       - name: Create one runner-temp media root
         run: |
           set -euo pipefail
-          root="${RUNNER_TEMP}/archon-submission-video"
+          root="${RUNNER_TEMP}/lasttake-submission-video"
           test ! -e "${root}"
           mkdir -m 0700 "${root}"
-          echo "ARCHON_VIDEO_ROOT=${root}" >>"${GITHUB_ENV}"
-      # KIT: these two steps exist only for the Google Cloud TTS provider and are skipped
-      # unless the repository variable is set. With provider "elevenlabs" in
-      # video/narration.json, delete them and set the ELEVENLABS_API_KEY secret instead.
-      - if: vars.GCP_WORKLOAD_IDENTITY_PROVIDER != ''
-        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
-        with:
-          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ vars.GCP_VIDEO_SERVICE_ACCOUNT }}
-      - if: vars.GCP_WORKLOAD_IDENTITY_PROVIDER != ''
-        uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
-        with:
-          # KIT: your Google Cloud project, if you use the Google provider.
-          project_id: upgradegr-challenges
+          echo "LASTTAKE_VIDEO_ROOT=${root}" >>"${GITHUB_ENV}"
+      # Non-AWS cloud authentication from the original kit is not configured here.
       - name: Install ephemeral media tooling
         run: |
           set -euo pipefail
@@ -102,9 +94,7 @@ jobs:
           echo "FFMPEG=$(command -v ffmpeg)" >>"${GITHUB_ENV}"
           echo "FFPROBE=$(command -v ffprobe)" >>"${GITHUB_ENV}"
       - name: Generate measured narration and captions
-        # KIT: the ElevenLabs key. Set this repository secret, or delete the env block if
-        # you narrate with the Google provider. The script also accepts XI_API_KEY and
-        # ELEVEN_LABS_KEY, which older repositories here use.
+        # Owner-provided credentials are required after explicit preflight approval.
         env:
           ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
         run: python3 video/generate-narration.py
@@ -125,16 +115,15 @@ jobs:
       - name: Validate the upload package
         run: |
           set -euo pipefail
-          output="${ARCHON_VIDEO_ROOT}/output"
-          # KIT: this filename is set in video/build-video.py. Change both together.
-          mp4="archon-datahub-demo.mp4"
+          output="${LASTTAKE_VIDEO_ROOT}/output"
+          # Must match video/build-video.py.
+          mp4="lasttake-demo.mp4"
           test -s "${output}/${mp4}"
           test -s "${output}/captions.en.srt"
-          # KIT: sceneCount must equal the number of segments in video/narration.json.
-          # The shipped template has 7. Change this literal when you change the beats.
+          # Scene count matches the seven narration/capture beats.
           jq -e \
-            --arg sha "${ARCHON_RELEASE_SHA}" \
-            '.schemaVersion == "archon.submission-video-receipt/v1"
+            --arg sha "${LASTTAKE_RELEASE_SHA}" \
+            '.schemaVersion == "lasttake.submission-video-receipt/v1"
              and .releaseSha == $sha
              and .durationSeconds >= 90
              and .durationSeconds < 179
@@ -144,44 +133,29 @@ jobs:
              and (.sha256 | test("^[a-f0-9]{64}$"))
              and .bytes > 1000000' \
             "${output}/video-receipt.json" >/dev/null
-          if [[ -n "${ARCHON_HOSTED_RUN_ID}" ]]; then
-            jq -e --argjson hosted "${ARCHON_HOSTED_RUN_ID}" '.hostedRunId == $hosted' \
+          if [[ -n "${LASTTAKE_HOSTED_RUN_ID}" ]]; then
+            jq -e --argjson hosted "${LASTTAKE_HOSTED_RUN_ID}" '.hostedRunId == $hosted' \
               "${output}/video-receipt.json" >/dev/null
           fi
-          if [[ -n "${ARCHON_GOVERNED_RUN_ID}" ]]; then
-            jq -e --argjson governed "${ARCHON_GOVERNED_RUN_ID}" '.governedRunId == $governed' \
+          if [[ -n "${LASTTAKE_GOVERNED_RUN_ID}" ]]; then
+            jq -e --argjson governed "${LASTTAKE_GOVERNED_RUN_ID}" '.governedRunId == $governed' \
               "${output}/video-receipt.json" >/dev/null
           fi
           test "$(sha256sum "${output}/${mp4}" | awk '{print $1}')" = \
             "$(jq -er .sha256 "${output}/video-receipt.json")"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          # KIT: rename to your project.
-          name: archon-datahub-submission-video-${{ inputs.release_sha }}-${{ github.run_id }}
-          path: ${{ runner.temp }}/archon-submission-video/output/
+          name: lasttake-submission-video-${{ inputs.release_sha }}-${{ github.run_id }}
+          path: ${{ runner.temp }}/lasttake-submission-video/output/
           if-no-files-found: error
-          retention-days: 7
+          retention-days: 90
           compression-level: 0
       - name: Remove runner media
-        if: always()
+        if: always() && env.LASTTAKE_VIDEO_ROOT != ''
         run: |
           set -euo pipefail
-          test "${ARCHON_VIDEO_ROOT}" = "${RUNNER_TEMP}/archon-submission-video"
-          rm -rf -- "${ARCHON_VIDEO_ROOT}"
-      - name: Remove the runner-only Google credential before source verification
-        if: always()
-        run: |
-          set -euo pipefail
-          case "${GOOGLE_GHA_CREDS_PATH:-}" in
-            "${GITHUB_WORKSPACE}"/gha-creds-*.json)
-              rm -f -- "${GOOGLE_GHA_CREDS_PATH}"
-              ;;
-            "") ;;
-            *)
-              echo "::error::Unexpected Google credential path"
-              exit 1
-              ;;
-          esac
+          test "${LASTTAKE_VIDEO_ROOT}" = "${RUNNER_TEMP}/lasttake-submission-video"
+          rm -rf -- "${LASTTAKE_VIDEO_ROOT}"
       - name: Require a clean source checkout
         if: always()
         run: test -z "$(git status --porcelain)"

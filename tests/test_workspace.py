@@ -97,6 +97,8 @@ def test_stale_pending_wrap_rejected_and_decline_is_available():
     assert W.guard_action('/api/wrap',{'approve':True,'role':'first_ad'},changed,True)[0]==409
     assert W.guard_action('/api/wrap',{'approve':False,'role':'first_ad'},changed,True) is None
     run.audit('wrap.approved',{'package_revision_digest':run.package.revision_digest()})
+    assert not run.wrap_approved(), "a legacy unbound approval remains history, not authority for a new handoff"
+    run.audit('wrap.approved',{**run.review_binding(),'accepted':True})
     assert run.wrap_approved()
     assert not changed.wrap_approved()
 

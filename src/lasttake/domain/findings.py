@@ -129,6 +129,7 @@ class Finding:
     #: None on a finding that has never been stored.
     record_sha256: Optional[str] = None
     created_at: str = field(default_factory=utc_now_iso)
+    model_id: Optional[str] = None
 
     def to_dict(self) -> dict:
         return {
@@ -150,6 +151,7 @@ class Finding:
             "policy_version": self.policy_version,
             "package_revision": self.package_revision,
             "created_at": self.created_at,
+            **({"model_id": self.model_id} if self.model_id is not None else {}),
         }
 
     def sealed(self) -> dict:
@@ -238,4 +240,5 @@ def from_dict(data: dict) -> Finding:
         recommended_action=data.get("recommended_action"),
         created_at=data["created_at"],
         record_sha256=data.get(SEAL_KEY),
+        model_id=data.get("model_id"),
     )

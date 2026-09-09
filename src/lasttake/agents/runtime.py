@@ -8,12 +8,16 @@ call rather than eight tool bodies.
 from __future__ import annotations
 
 import json
+import time
 from dataclasses import dataclass, field
 from typing import Optional
 
 from ..domain.events import Event, EventType
 from ..domain.findings import Finding
 from ..domain.package import ScenePackage
+from ..domain import policy
+from ..domain.findings import from_dict
+from ..domain.sealing import digest_of, utc_now_iso
 from ..ports.infrastructure import ArtifactStore, EventBus, Receipt, RunStore
 from ..ports.interpreter import Interpreter
 
@@ -47,44 +51,145 @@ class WrapRun:
         )
 
     def publish(
-        self, event_type: EventType, payload: dict, idempotent: bool = False
+        self, event_type: EventType, payload: dict, idempotent: bool = False,
+        delivery_batch: Optional[list[dict]] = None,
     ) -> Receipt:
-        """Publish one event on this run's correlation.
+        """Persist accepted receipts; retain ambiguous claims and retry rejections.
 
-        ``idempotent`` guards effects that must not happen twice. A tool that
-        replays after an interrupt calls this again with the same payload; the
-        derived key matches, and the second call returns the first receipt
-        rather than firing a second pickup request at a tired 1st AD.
+        A claim excludes concurrent publishers. It says nothing about delivery.
+        The bus may accept a request without any downstream consumer completing it.
         """
+        if delivery_batch is not None and (idempotent or event_type is not EventType.FINDING_RECORDED):
+            raise ValueError("Only non-consequential finding notifications may batch receipts")
+        started = time.perf_counter()
         event = self.build_event(event_type, payload)
-        if not idempotent:
-            return self.bus.publish(event)
-
-        # Claim, then publish, then give the claim back if the publish failed.
-        #
-        # The previous version asked `already_handled` and then `mark_handled`,
-        # which is a check-then-set: two Lambdas resuming the same approval can
-        # both read false and a real assistant director gets the pickup request
-        # twice. It also marked the key *before* publishing, so a bus failure
-        # left the key on file with nothing on the bus and no retry able to send
-        # it. One lost event is worse than two duplicates on a set.
-        #
-        # This is at-most-once *claiming*. EventBridge delivery itself is
-        # at-least-once and nothing here changes that, so a consumer still has
-        # to be idempotent. What this guarantees is that exactly one caller
-        # publishes a given event, and that a failure leaves the system able to
-        # try again rather than silently short of one event.
-        if not self.runs.claim(event.idempotency_key, self.run_id):
-            return Receipt(
-                accepted=True,
-                reference=event.idempotency_key[:16],
-                detail="already handled; not republished",
-            )
+        key = event.idempotency_key
+        saved_key = f"delivery/{self.run_id.replace(':', '_')}/{key}.json"
+        effect_key = self.effect_key(event_type, payload)
+        if idempotent:
+            if self.artifacts.exists(saved_key):
+                return Receipt(**json.loads(self.artifacts.get(saved_key)))
+            unresolved = next((d for d in self.delivery_states() if d.get("retry_supported") and
+                d["status"] in {"pending", "unknown"} and
+                self.effect_key(EventType(d["event_type"]), d["payload"]) == effect_key), None)
+            # Covers historical attempts recorded before logical-effect claims.
+            if unresolved:
+                return Receipt(False, unresolved["reference"], "An earlier attempt for this logical action remains unresolved. Reconcile before a new approval can send it.", unresolved["status"])
+            if not self.runs.claim(effect_key, self.run_id):
+                return Receipt(False, effect_key, "Another attempt for this logical action is pending. A new approval cannot resend it.", "pending")
+        if idempotent and not self.runs.claim(key, self.run_id):
+            if self.artifacts.exists(saved_key):
+                return Receipt(**json.loads(self.artifacts.get(saved_key)))
+            previous = next((d for d in self.delivery_states() if d["idempotency_key"] == key), None)
+            status = "unknown" if previous and previous["status"] == "unknown" else "pending"
+            return Receipt(False, key, "No saved acceptance receipt. Do not resend; reconcile this attempt.", status)
+        detail = {"idempotency_key": key, "effect_key": effect_key, "event_id": event.event_id,
+                  "event_type": event_type.value, "payload": payload,
+                  "package_revision_digest": self.package.revision_digest(),
+                  "retry_supported": idempotent}
+        if idempotent:
+            self.audit("event.delivery", {**detail, "status": "pending", "accepted": False,
+                                           "reference": event.event_id})
         try:
-            return self.bus.publish(event)
+            receipt = self.bus.publish(event)
         except Exception:
-            self.runs.release(event.idempotency_key)
-            raise
+            receipt = Receipt(False, event.event_id,
+                              "External outcome unknown after an interrupted publish. Reconcile before any resend.", "unknown")
+        if receipt.accepted and idempotent:
+            try:
+                self.artifacts.put(saved_key, json.dumps(receipt.to_dict(), sort_keys=True).encode())
+            except Exception:
+                receipt = Receipt(False, receipt.reference,
+                                  "Bus response received but its receipt could not be saved. Reconcile before any resend.", "unknown")
+        outcome = {**detail, **receipt.to_dict(),
+                   "elapsed_ms": round((time.perf_counter() - started) * 1000, 2)}
+        if delivery_batch is not None:
+            delivery_batch.append(outcome)
+        else:
+            self.audit("event.delivery", outcome)
+        if idempotent and receipt.outcome == "rejected":
+            self.runs.release(key)
+        if idempotent and receipt.outcome in {"accepted", "rejected"}:
+            self.runs.release(effect_key)
+        return receipt
+
+    def effect_key(self, event_type: EventType, payload: dict) -> str:
+        """Approval identity is not permission to duplicate an unresolved effect.
+
+        A run has one wrap and one handoff; pickups are additionally beat-scoped.
+        Accepted/rejected outcomes release this exclusion, not ambiguous ones.
+        """
+        return digest_of({"logical_effect": event_type.value, "run": self.run_id,
+                          "beat": payload.get("beat_id")})
+
+    def delivery_states(self) -> list[dict]:
+        current = {}
+        for entry in self.runs.load_audit(self.run_id):
+            if entry.get("kind") == "event.delivery":
+                current[entry["idempotency_key"]] = entry
+            elif entry.get("kind") == "event.delivery.batch":
+                for outcome in entry["outcomes"]:
+                    current[outcome["idempotency_key"]] = {"at": entry["at"], **outcome}
+        return list(current.values())
+
+    def retry_delivery(self, key: str) -> Receipt:
+        previous = next((row for row in self.delivery_states() if row["idempotency_key"] == key), None)
+        if not previous or not previous.get("retry_supported"):
+            raise ValueError("No retryable consequential attempt with that key on this run")
+        if previous["status"] not in {"rejected", "accepted"}:
+            raise ValueError("Pending or unknown delivery must be reconciled; do not resend")
+        event_type = EventType(previous["event_type"])
+        payload = previous["payload"]
+        if event_type in {EventType.WRAP_READY, EventType.PICKUP_REQUESTED}:
+            return self.publish_approved(event_type, payload)
+        if event_type is EventType.TURNOVER_GENERATED:
+            if not self.wrap_approved() or not self.wrap_guard(self.current_wrap_approval() or {}):
+                raise ValueError("The current wrap approval is required before retrying a handoff")
+            if not self.handoff_current(payload):
+                raise ValueError("The saved handoff belongs to a historical review. Start a new run.")
+            return self.publish(event_type, payload, idempotent=True)
+        raise ValueError("This event does not support explicit retry")
+
+    def handoff_current(self, manifest: dict) -> bool:
+        approval = self.current_wrap_approval()
+        return bool(approval and manifest.get("approval_id") == approval.get("approval_id") and
+                    all(manifest.get(key) == value for key, value in self.review_binding().items()))
+
+    def review_binding(self) -> dict:
+        """The package, findings and decisions actually presented for review."""
+        package_digest = self.package.revision_digest()
+        return {"package_revision_digest": package_digest, "review_digest": digest_of({
+            "package": package_digest, "policy": policy.POLICY_VERSION,
+            "findings": sorted(self.load_findings(), key=lambda f: f["finding_id"]),
+            "decisions": sorted(self.load_decisions(), key=lambda d: (d["at"], d["decision_id"])),
+        })}
+
+    def wrap_guard(self, reviewed: dict) -> bool:
+        if reviewed.get("required_role") != policy.Role.FIRST_AD.value:
+            return False
+        binding = self.review_binding()
+        if any(reviewed.get(key) != value for key, value in binding.items()):
+            return False
+        return policy.evaluate(self.run_id, self.package,
+                               [from_dict(f) for f in self.load_findings()],
+                               [policy.decision_from_dict(d) for d in self.load_decisions()]).eligible
+
+    def publish_approved(self, event_type: EventType, payload: dict) -> Receipt:
+        """Shared last check for a resumed tool and an explicit rejected retry."""
+        if payload.get("approved_by_role") != policy.Role.FIRST_AD.value:
+            return Receipt(False, "", "Only the 1st AD may answer this approval.", "refused")
+        if event_type is EventType.WRAP_READY and not self.wrap_guard(payload):
+            return Receipt(False, "", "Evidence changed. Decline the stale request and obtain a fresh review.", "refused")
+        if event_type is EventType.WRAP_READY:
+            latest = self.latest_wrap_review()
+            if latest and (latest.get("kind") == "wrap.declined" or
+                           latest.get("approval_id") != payload.get("approval_id")):
+                return Receipt(False, "", "A later wrap review superseded this approval. Request a fresh review.", "refused")
+        receipt = self.publish(event_type, payload, idempotent=True)
+        if receipt.accepted:
+            kind = "wrap.approved" if event_type is EventType.WRAP_READY else "pickup.approved"
+            self.audit(kind, {**payload, "receipt": receipt.reference, "accepted": True})
+        return receipt
 
     # -- findings and decisions --------------------------------------------
 
@@ -116,19 +221,28 @@ class WrapRun:
         return key
 
     def audit(self, kind: str, detail: dict) -> None:
-        self.runs.append_audit(self.run_id, {"kind": kind, **detail})
+        self.runs.append_audit(self.run_id, {"kind": kind, "at": utc_now_iso(), **detail})
 
     def wrap_approved(self) -> bool:
-        return any(e.get("kind") == "wrap.approved" and
-                   (not e.get("package_revision_digest") or
-                    e["package_revision_digest"] == self.package.revision_digest())
-                   for e in self.runs.load_audit(self.run_id))
+        return self.current_wrap_approval() is not None
+
+    def current_wrap_approval(self) -> Optional[dict]:
+        binding = self.review_binding()
+        entry = self.latest_wrap_review()
+        # Pending and declined reviews supersede authority, never history.
+        if entry and entry.get("kind") == "wrap.approved":
+            if all(entry.get(key) == value for key, value in binding.items()) and entry.get("accepted") is True:
+                return entry
+        return None
+
+    def latest_wrap_review(self) -> Optional[dict]:
+        for entry in reversed(self.runs.load_audit(self.run_id)):
+            if entry.get("kind") in {"wrap.requested", "wrap.approved", "wrap.declined"}:
+                return entry
+        return None
 
     def wrap_approver(self) -> str:
-        for entry in self.runs.load_audit(self.run_id):
-            if entry.get("kind") == "wrap.approved":
-                return entry.get("actor", "1st AD")
-        return "1st AD"
+        return (self.current_wrap_approval() or {}).get("actor", "1st AD")
 
     def with_package(self, package: ScenePackage) -> "WrapRun":
         """A run over a new package revision, keeping the same correlation."""

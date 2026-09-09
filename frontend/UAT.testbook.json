@@ -281,6 +281,63 @@
       ],
       "observed_result_evidence": "AUTOMATION_PASS for implementation 896442b1359893f571dd0fbcd0335ccb2ffe1299 in https://github.com/upgradedev/lasttake-aws/actions/runs/34357735501. Real Python HTTP, Chromium desktop/mobile CI only; see frontend-evidence-896442b1359893f571dd0fbcd0335ccb2ffe1299 and ui-screenshots-896442b1359893f571dd0fbcd0335ccb2ffe1299. This is not live-AWS or human acceptance.",
       "human_signoff": "NOT_RUN"
+    },
+    {
+      "id": "LT-RELIABLE-INTAKE",
+      "persona": "Script supervisor, 1st AD and evidence recipient",
+      "requirement": "Invalid date leaves no state changes; correction persists; absent camera report stays missing.",
+      "preconditions": "Owned synthetic run; real Python HTTP service; offline planner with real Strands.",
+      "steps": [
+        "Exercise original trigger",
+        "Exercise alternate route or malformed input",
+        "Reload and apply legitimate correction",
+        "Inspect saved receipt and history"
+      ],
+      "expected_outcome": "Invalid date leaves no state changes; correction persists; absent camera report stays missing.",
+      "negative_recovery_case": "No false approval, fabricated evidence, mutated refused intake, or blind resend.",
+      "automation_mapping": [
+        "tests/e2e/reliability.spec.ts: LT-RELIABLE-INTAKE"
+      ],
+      "observed_result_evidence": "AUTOMATION_PASS for implementation 59844080b768993d67821fd6fb55db9049c998db in https://github.com/upgradedev/lasttake-aws/actions/runs/34377650942. Python/unit controls cover explicit rejection, unknown outcomes, concurrency and fresh-process recovery; desktop/mobile real HTTP covers intake refusal/correction and wrap review. No real AWS fault injection or human signoff.",
+      "human_signoff": "NOT_RUN"
+    },
+    {
+      "id": "LT-RELIABLE-WRAP",
+      "persona": "Script supervisor, 1st AD and evidence recipient",
+      "requirement": "All approval routes enforce reviewed evidence and latest wrap decision; historical receipt never authorizes after renewed decline.",
+      "preconditions": "Owned synthetic run; real Python HTTP service; offline planner with real Strands.",
+      "steps": [
+        "Exercise original trigger",
+        "Exercise alternate route or malformed input",
+        "Reload and apply legitimate correction",
+        "Inspect saved receipt and history"
+      ],
+      "expected_outcome": "All approval routes enforce reviewed evidence and latest wrap decision; historical receipt never authorizes after renewed decline.",
+      "negative_recovery_case": "No false approval, fabricated evidence, mutated refused intake, or blind resend.",
+      "automation_mapping": [
+        "tests/e2e/reliability.spec.ts: LT-RELIABLE-WRAP"
+      ],
+      "observed_result_evidence": "AUTOMATION_PASS for implementation 59844080b768993d67821fd6fb55db9049c998db in https://github.com/upgradedev/lasttake-aws/actions/runs/34377650942. Python/unit controls cover explicit rejection, unknown outcomes, concurrency and fresh-process recovery; desktop/mobile real HTTP covers intake refusal/correction and wrap review. No real AWS fault injection or human signoff.",
+      "human_signoff": "NOT_RUN"
+    },
+    {
+      "id": "LT-RELIABLE-DELIVERY",
+      "persona": "Script supervisor, 1st AD and evidence recipient",
+      "requirement": "Definite rejection may retry; pending/unknown may not resend; accepted replay returns actual receipt.",
+      "preconditions": "Owned synthetic run; real Python HTTP service; offline planner with real Strands.",
+      "steps": [
+        "Exercise original trigger",
+        "Exercise alternate route or malformed input",
+        "Reload and apply legitimate correction",
+        "Inspect saved receipt and history"
+      ],
+      "expected_outcome": "Definite rejection may retry; pending/unknown may not resend; accepted replay returns actual receipt.",
+      "negative_recovery_case": "No false approval, fabricated evidence, mutated refused intake, or blind resend.",
+      "automation_mapping": [
+        "tests/reliability.test.tsx; ../tests/test_reliable_workflows.py"
+      ],
+      "observed_result_evidence": "AUTOMATION_PASS for implementation 59844080b768993d67821fd6fb55db9049c998db in https://github.com/upgradedev/lasttake-aws/actions/runs/34377650942. Python/unit controls cover explicit rejection, unknown outcomes, concurrency and fresh-process recovery; desktop/mobile real HTTP covers intake refusal/correction and wrap review. No real AWS fault injection or human signoff.",
+      "human_signoff": "NOT_RUN"
     }
   ],
   "verification_checkpoint": {
@@ -324,5 +381,16 @@
     "observed_result_evidence": "185 Python tests, 56 frontend unit/component tests, 3 functional contracts and 16 real-HTTP desktop/mobile journeys passed for the implementation SHA above. This later documentation/contract revision does not claim to validate itself. Final candidate CI artifacts remain authoritative; parent owns main release and exact-SHA live AWS acceptance.",
     "live_aws_acceptance": "NOT_RUN",
     "human_signoff": "NOT_RUN"
+  },
+  "current_reliability_revision": {
+    "status": "AUTOMATION_PASS",
+    "scope": "CI_REAL_HTTP_ONLY",
+    "implementation_sha": "59844080b768993d67821fd6fb55db9049c998db",
+    "ci_run_url": "https://github.com/upgradedev/lasttake-aws/actions/runs/34377650942",
+    "evidence_artifact": "frontend-evidence-59844080b768993d67821fd6fb55db9049c998db",
+    "screenshots_artifact": "ui-screenshots-59844080b768993d67821fd6fb55db9049c998db",
+    "observed_result_evidence": "Passed Python, component, functional and desktop/mobile real-HTTP reliability cases at the implementation SHA above. The later documentation, video preflight and history-scan fix do not claim to validate themselves; final candidate CI artifacts remain authoritative.",
+    "human_signoff": "NOT_RUN",
+    "live_aws_acceptance": "NOT_RUN"
   }
 }

@@ -90,7 +90,7 @@ jobs:
         with:
           name: codeql-sarif
           path: sarif
-          retention-days: 30
+          retention-days: 90
 
       - name: Fail on any finding, since nothing is reading the Security tab
         if: steps.entitlement.outputs.entitled == 'false'

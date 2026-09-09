@@ -19,6 +19,9 @@ export async function request<T>(path:string, body:Document = {}):Promise<T> {
 }
 export function errorMessage(error:unknown) { return error instanceof Error ? error.message : 'The service is unavailable. Refresh saved state before retrying.'; }
 export function saveJson(name:string,data:unknown) {
-  const url=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));
+  saveText(name,JSON.stringify(data,null,2),'application/json');
+}
+export function saveText(name:string,text:string,type='text/plain') {
+  const url=URL.createObjectURL(new Blob([text],{type}));
   const anchor=document.createElement('a'); anchor.href=url; anchor.download=name; anchor.click(); URL.revokeObjectURL(url);
 }

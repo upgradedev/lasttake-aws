@@ -561,6 +561,7 @@ A_TAKE = {
     "usable": True,
     "note": "Pickup on the reaction. Clean single.",
     "visible_people": ["DELPHINE"],
+    "camera_report_row": {"take_id": "T-900", "media_id": "A007R2G01", "lens_mm": 50, "camera_roll": "A007"},
 }
 
 
@@ -819,7 +820,8 @@ def test_an_identifier_already_in_the_package_cannot_be_reused():
     post("/api/checkpoint", {"run_id": RUN})
     shadow = post(
         "/api/ingest",
-        {"run_id": RUN, "kind": "take", "document": {**A_TAKE, "take_id": "T-001"}},
+        {"run_id": RUN, "kind": "take", "document": {**A_TAKE, "take_id": "T-001",
+            "camera_report_row": {**A_TAKE["camera_report_row"], "take_id": "T-001"}}},
     )
     assert shadow["status"] == 400
     assert "already in this scene package" in shadow["error"]

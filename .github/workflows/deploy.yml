@@ -303,7 +303,10 @@ jobs:
           import json,sys
           d=json.load(sys.stdin)
           print(d['message'])
-          assert 'Pickup approved' in d['message'], d['message']
+          assert 'Pickup approved' in d['message'] and 'Bus accepted' in d['message'], d['message']
+          receipts=[r for r in d['delivery_outcomes'] if r['event_type']=='pickup.requested']
+          assert len(receipts)==1 and receipts[0]['status']=='accepted' and receipts[0]['reference'], receipts
+          assert d['run_state_store']=='aurora-dsql', d['run_state_store']
           c1=open('/tmp/c1').read(); c2=d['served_by']['container_id']
           print('container that stopped the run: ', c1)
           print('container that resumed it:      ', c2)
@@ -346,11 +349,9 @@ jobs:
       # bounded interpretations are the only place a language model is allowed,
       # and until this ran they were code written from documentation.
       #
-      # It runs a full checkpoint through `BedrockInterpreter`, so every
-      # coverage and continuity finding on this run carries a real model's
-      # judgement, and asserts the count is the same one the offline
-      # interpreter produces. That equality is the point: the model is allowed
-      # to explain, never to decide, so swapping it must not move the number.
+      # The real interpreter must produce the fixture's 34 interpreted findings,
+      # with serialized Bedrock identity and both bounded check types. Covered
+      # beats may differ from the offline baseline; required beats cannot.
       - name: 'the Strands to Bedrock path, actually run'
         if: steps.gate.outputs.ready == 'true'
         run: |
@@ -374,7 +375,9 @@ jobs:
           )
           interpreted = [f for f in findings if f.get("inference")]
           assert interpreted, "no finding carried a model inference"
-          versions = {f["agent_version"] for f in interpreted}
+          assert len(interpreted) == 34, "model-touched fixture coverage changed"
+          assert {f["check_type"] for f in interpreted} == {"coverage", "continuity"}
+          assert all(str(f.get("model_id", "")).startswith("bedrock:") for f in interpreted)
           print(f"{len(interpreted)} finding(s) carry a Bedrock inference")
           print("one of them, verbatim:")
           sample = interpreted[0]
@@ -424,15 +427,12 @@ jobs:
             --inference-config '{"maxTokens":16}' \
             --query '{reply:output.message.content[0].text,usage:usage}' --output json
 
-      - name: what this costs when nobody is looking
+      - name: Cost and timing limits
         if: steps.gate.outputs.ready == 'true'
         run: |
-          echo "Lambda: billed per request. No requests, no charge."
-          echo "Function URL: no hourly charge."
-          echo "S3: a few hundred KB per run at 0.023 USD per GB-month."
-          echo "EventBridge: 1.00 USD per million custom events."
-          echo "Idle monthly cost is dominated by S3 storage and rounds to under 0.01 USD."
-          echo "Measured from the AWS pricing pages on the date in STATE.md, not estimated here."
+          echo "No measured account invoice, idle-cost estimate or human-time saving is available."
+          echo "Storage and requests may incur charges. Verify account pricing and quotas before use."
+          echo "Deployment timings are not measurements of crew benefit."
 
   # Gate D2 asks for a pipeline that builds from nothing and tears everything
   # down, and asks that it has actually been run end to end. Doing that against

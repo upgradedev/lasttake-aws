@@ -1,18 +1,9 @@
-"""What the architecture is worth, measured by removing it.
+"""Synthetic gate probes: changed records, carried stale inputs and unavailable interpretation.
 
-Every number this repository publishes so far is a count of our own fixture:
-34 required beats, 31 covered, 2 exceptions, 1 without a release. It is a true
-count and it is not an argument, because it has nothing to be compared against.
-
-This script builds the comparison. It runs the same corpus through the same
-pipeline three times, each time with one load-bearing rule removed, and reports
-what the gate concludes in each case. The removed rule is the only thing that
-differs, so the delta is attributable.
-
-Nothing here is a simulation. Each ablation calls the real check modules and the
-real `policy.evaluate`; what changes is one input to it.
-
-Run: PYTHONPATH=src python tools/ablation.py
+Results describe this fixture and these controls, not source authenticity, human
+benefit or model accuracy. Staleness reports actual admission separately from
+carried input records. Output is stdout only; historical artifacts are preserved.
+Run on CI: PYTHONPATH=src python tools/ablation.py
 """
 
 from __future__ import annotations
@@ -86,7 +77,7 @@ def seal_check() -> dict:
     tampered = [copy.deepcopy(f) for f in findings]
     gap = next(f for f in tampered if f.truth_state is TruthState.MISSING)
     gap.truth_state = TruthState.VERIFIED
-    # Not resealed. That is the whole point: an edit nobody had the key to make.
+    # Not resealed. SHA-256 detects changed bytes; it is not a secret signature. Anyone able to rewrite the record can recompute it.
 
     with_seal = policy.evaluate(RUN, package, tampered, [])
 
@@ -176,6 +167,12 @@ def staleness_check() -> dict:
         )
     )
 
+    actual = policy.evaluate(RUN, amended, asserted, [])
+    admissible, _ = policy._admissible(asserted, amended)
+    admitted_stale = sum(1 for f in admissible if any(
+        amended.artifacts[s.artifact_id].sha256 != s.sha256
+        for s in f.sources if s.artifact_id in amended.artifacts))
+
     return {
         "ablation": "staleness is asserted from a table instead of derived from digests",
         "with_the_rule": (
@@ -183,14 +180,16 @@ def staleness_check() -> dict:
             "digest from before the pickup arrived"
         ),
         "without_the_rule": (
-            f"{carried_stale} of those findings are carried forward and re-stamped "
-            "with the new revision, so the gate cannot tell they are stale"
+            f"{carried_stale} stale findings are carried and re-stamped by the shortcut; "
+            f"the actual gate still discards {len(actual.discarded)}"
         ),
-        "delta": f"{carried_stale} stale findings admitted instead of 0",
+        "delta": f"{admitted_stale} stale findings actually admitted; carried is not admitted",
+        "carried_stale": carried_stale,
+        "actually_admitted_stale": admitted_stale,
         "matters_because": (
             "continuity, media identity and rights all read the takes document. A "
             "table that says a new take affects coverage only is wrong about three "
-            "checks, and the gate has no way to notice."
+            "checks. The gate independently notices the unchanged source digests."
         ),
     }
 
@@ -225,7 +224,7 @@ def model_check() -> dict:
 
 def main() -> int:
     rows = [seal_check(), staleness_check(), model_check()]
-    print("# What each rule is worth, measured by removing it")
+    print("# Synthetic gate probes and their limits")
     print()
     print(f"Corpus: {CORPUS.name}, 34 required beats, 40 takes. Run: `PYTHONPATH=src "
           "python tools/ablation.py`")
@@ -238,10 +237,8 @@ def main() -> int:
         print(f"- **delta: {row['delta']}**")
         print(f"- why it matters: {row['matters_because']}")
         print()
-    pathlib.Path("docs/ablation.json").write_text(
-        json.dumps(rows, indent=2), encoding="utf-8"
-    )
-    print("Written to docs/ablation.json.")
+    print(json.dumps(rows, indent=2))
+    print("Historical docs/ablation.json is not overwritten. Capture this run's stdout as a new CI artifact.")
     return 0
 
 

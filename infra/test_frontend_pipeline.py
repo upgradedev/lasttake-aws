@@ -51,13 +51,27 @@ def validate(deploy, uat):
     assert not any("configure-aws-credentials" in step.get("uses", "") for step in steps)
     artifact = next(step for step in steps if step.get("uses", "").startswith("actions/upload-artifact@"))
     assert artifact["if"] == "always()"
-    assert artifact["with"]["retention-days"] == "14"
+    assert artifact["with"]["retention-days"] == "90"
     for path in ("frontend/test-results/", "frontend/artifacts/browser-junit.xml",
                  "frontend/playwright-report/", "frontend/UAT.testbook.*"):
         assert path in artifact["with"]["path"].splitlines()
 
 
 class MainAcceptanceContract(unittest.TestCase):
+    def test_browser_reporting_cannot_silently_narrow_history_scan(self):
+        workflow = read_workflow("frontend-ci.yml")
+        steps = workflow["jobs"]["verify"]["steps"]
+        checkout = next(s for s in steps if s.get("uses", "").startswith("actions/checkout@"))
+        assert checkout["with"]["fetch-depth"] == "0"
+        scan = next(s for s in steps if s.get("name") == "Secret and prose regressions")
+        assert "--unshallow" in scan["run"] and "'+refs/heads/*:refs/remotes/origin/*'" in scan["run"]
+        assert 'test "$(git rev-parse --is-shallow-repository)" = false' in scan["run"]
+        assert 'test "$(git rev-parse HEAD)" = "$scanned_head"' in scan["run"]
+        assert "python tools/secret_scan.py --all-history" in scan["run"]
+        assert "continue-on-error" not in scan
+        config = (ROOT / "frontend/playwright.config.ts").read_text()
+        assert "captureGitInfo:{commit:true,diff:false}" in config
+
     def setUp(self):
         self.deploy = read_workflow("frontend-deploy.yml")
         self.uat = read_workflow("aws-uat.yml")

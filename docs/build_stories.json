@@ -1,4 +1,12 @@
 {
+  "_current_scope": {
+    "persona": "Script supervisor and 1st AD",
+    "live_url": "https://d3kf6hquzlli8g.cloudfront.net/",
+    "try_flow": "Create a run; checkpoint; inspect sources; answer the saved request; export History evidence. Guided intake offers editable success, refusal and correction examples.",
+    "real_vs_demo": "Synthetic records and offline interpretation; real HTTP persistence and Strands tool/session replay. No footage/audio analysis, real email or payment.",
+    "evidence_limits": "Historical entries below are preserved, not exact-current-release acceptance. Hashes identify bytes, not truth; model identity only comes from serialized finding records. Human benefit and active time are unmeasured.",
+    "disclosures": "README.md Pre-existing components; media source remains NOT_CONFIGURED."
+  },
   "schema": "lasttake/build-stories/v1",
   "status": "DRAFT, NOT PUBLISHED",
   "what_this_is": [

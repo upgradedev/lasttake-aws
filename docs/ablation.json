@@ -19,5 +19,17 @@
     "without_the_rule": "0 of 34 beats are covered with evidence",
     "delta": "31 beats lose their evidence, and every one of them becomes unknown rather than a pass",
     "matters_because": "a model outage degrades this product to refusing, never to agreeing. The failure direction is the claim, and this is the measurement of it."
+  },
+  {
+    "ablation": "Correction to the historical stale-admission interpretation",
+    "with_the_rule": "Historical rows above are retained verbatim, not current acceptance evidence.",
+    "without_the_rule": "The earlier shortcut counted carried stale records without evaluating their actual admission. Restamping a revision does not replace cited source hashes; the gate can reject them.",
+    "delta": "No stale-admission claim is supported by the historical carried count. tools/ablation.py now reports actually_admitted_stale from gate-admissible records. Exact-run counter evidence is frontend-evidence/claims/ablation.txt, not the historical carried count.",
+    "matters_because": "A carried record is not an admitted record. Hashes identify bytes, not source authenticity or truth.",
+    "live_url": "https://d3kf6hquzlli8g.cloudfront.net/",
+    "persona": "Script supervisor and 1st AD",
+    "try_flow": "New run, checkpoint, review evidence, answer real Strands request, inspect History receipt.",
+    "mode": "Offline synthetic demo with real HTTP persistence and Strands resume.",
+    "scope": "CORRECTION_SOURCE_TRACED; read the new counter only from an exact-run CI artifact, not this historical JSON."
   }
 ]

@@ -158,6 +158,7 @@ def test_the_wrong_role_cannot_close_an_exception(package, findings):
     decision = policy.HumanDecision(
         decision_id="d1",
         finding_id=rights_exception.finding_id,
+        finding_sha256=rights_exception.record_sha256,
         action=policy.DecisionAction.ACCEPT_EXCEPTION,
         actor="a data manager",
         role=Role.DIT,
@@ -193,6 +194,7 @@ def test_a_supervisor_rejecting_a_false_positive_closes_a_coverage_exception(
     decision = policy.HumanDecision(
         decision_id="d2",
         finding_id=coverage_gap.finding_id,
+        finding_sha256=coverage_gap.record_sha256,
         action=policy.DecisionAction.REJECT_FALSE_POSITIVE,
         actor="the script supervisor",
         role=Role.SCRIPT_SUPERVISOR,
@@ -250,12 +252,8 @@ def test_a_decision_does_not_survive_the_evidence_it_was_made_about(package, fin
     )
 
 
-def test_a_decision_with_no_binding_still_applies(package, findings):
-    """Decisions recorded before content binding existed are not invalidated.
-
-    They are weaker, and the field being absent says so, but silently voiding
-    every historical approval would be its own kind of dishonesty.
-    """
+def test_a_decision_with_no_binding_is_historical_and_requires_new_review(package, findings):
+    """Preserve the record but never imply which evidence an old reviewer saw."""
     gap = next(f for f in findings if f.check_type is CheckType.COVERAGE and f.requirement_id)
     legacy = policy.HumanDecision(
         decision_id="dec-old",
@@ -266,4 +264,7 @@ def test_a_decision_with_no_binding_still_applies(package, findings):
         reason="",
     )
     assert legacy.finding_sha256 is None
-    assert policy._resolution(gap, [legacy]) is True
+    assert policy._resolution(gap, [legacy]) is None
+    bound = policy.HumanDecision(**{**legacy.to_dict(), "role": legacy.role,
+        "action": legacy.action, "finding_sha256": gap.record_sha256})
+    assert policy._resolution(gap, [bound]) is True

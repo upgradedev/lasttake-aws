@@ -3,9 +3,8 @@
 //
 // Adapted from the kit's archon-datahub capture. The pristine copy is at
 // video/upstream/archon-datahub/capture-production.mjs; diff against it to see
-// what changed. What changed is the journey, the origin, and that the two
-// DataHub proof run ids are optional here because this project has no
-// equivalent of them.
+// what changed. The current journey, origin, namespaces and optional proof bindings
+// are LastTake-specific. Narration and release verification remain owner-gated.
 //
 // The holds come from narration/timing.json, which generate-narration.py wrote
 // after measuring each mp3 with ffprobe. So the picture cannot drift from the
@@ -17,10 +16,14 @@ import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
-const root = process.env.ARCHON_VIDEO_ROOT;
-const releaseSha = process.env.ARCHON_RELEASE_SHA;
+const spec = JSON.parse(readFileSync(new URL("../../video/narration.json", import.meta.url), "utf8"));
+if (spec.recording_status !== "READY_OWNER_VERIFIED") {
+  throw new Error("NOT_CONFIGURED: owner must verify release, narration, capture and timing.");
+}
+const root = process.env.LASTTAKE_VIDEO_ROOT;
+const releaseSha = process.env.LASTTAKE_RELEASE_SHA;
 const appOrigin = process.env.LASTTAKE_URL
-  ?? "https://1p6s28nyf0.execute-api.eu-west-1.amazonaws.com";
+  ?? "https://d3kf6hquzlli8g.cloudfront.net";
 if (!root || !/^[a-f0-9]{40}$/u.test(releaseSha ?? "")) {
   throw new Error("The exact video root and release SHA are required.");
 }
@@ -59,9 +62,11 @@ page.on("console", (message) => {
 
 const captureStarted = Date.now();
 const appUrl = `${appOrigin}/?release=${releaseSha}`;
+const release = await (await context.request.get(appOrigin + "/release.json")).json();
+if (release.commit !== releaseSha) throw new Error("Frontend release mismatch before recording");
 await page.goto(appUrl, { waitUntil: "networkidle", timeout: 60_000 });
-// The lined script paints from the package alone, before any check has run.
-await page.locator(".beat").first().waitFor({ timeout: 60_000 });
+await page.getByRole("button", { name: "New shoot-day run", exact: true }).click();
+await page.getByRole("button", { name: "Run wrap checkpoint" }).waitFor();
 const timelineStarted = Date.now();
 
 async function holdScene(id, action) {
@@ -70,81 +75,40 @@ async function holdScene(id, action) {
   await page.waitForTimeout(Math.max(0, holds[id] - (Date.now() - started)));
 }
 
-// The page must never print a clearance. If it does, the recording stops here
-// rather than producing a polished film of the product breaking its own rule.
-const forbidden = ["CLEAR TO SHOOT", "rules verified", "Multi-Agent Evaluation"];
-const body = await page.locator("body").innerText();
-for (const phrase of forbidden) {
-  if (body.toLowerCase().includes(phrase.toLowerCase())) {
-    throw new Error(`The page prints ${phrase}, which this product does not say.`);
-  }
-}
-
 await holdScene("hook", async () => {
-  await page.evaluate(() => window.scrollTo({ top: 0 }));
+  await page.getByRole("heading", { name: "Workspace", exact: true }).scrollIntoViewIfNeeded();
 });
-
 await holdScene("surface", async () => {
-  // Down the lined script, slowly, so the beats and their slates read.
-  await page.locator("#paneLeft").evaluate((pane) => {
-    pane.scrollTo({ top: 900, behavior: "smooth" });
-  });
-  await page.waitForTimeout(1_500);
-  await page.locator('.take[data-take="T-013"]').first().click();
-  await page.locator("#drawer.on").waitFor({ timeout: 15_000 });
-  await page.waitForTimeout(2_500);
-  await page.locator("#scrim").click();
+  await page.locator(".take summary").first().click();
 });
-
 await holdScene("trigger", async () => {
-  // The count, and the exceptions it is made of.
-  await page.locator("#tally").waitFor({ timeout: 60_000 });
-  await page.locator("#paneRight").evaluate((pane) => {
-    pane.scrollTo({ top: 0, behavior: "smooth" });
-  });
-  await page.waitForTimeout(1_500);
-  // The heading, not the card's centre. A card's centre can land on the
-  // evidence disclosure, which the click handler deliberately ignores, so the
-  // link would silently not happen and the recording would show nothing.
-  await page.locator('.card[data-req="B-17"] h3').click();
-  await page.waitForTimeout(1_500);
+  await page.getByRole("button", { name: "Run wrap checkpoint" }).click();
+  await page.getByText(/Of 34 required beats/).first().waitFor({ timeout: 60_000 });
 });
-
 await holdScene("live", async () => {
-  // The pause. The walk moves the visitor into the chair that can answer, and
-  // stops. Nothing here approves on the viewer's behalf.
-  await page.locator("#go").click();
-  await page.locator("#bYes").waitFor({ timeout: 30_000 });
-  await page.waitForTimeout(2_000);
-  await page.locator("#bYes").click();
-  await page.waitForTimeout(3_000);
+  await page.getByLabel("Demo role").selectOption("first_ad");
+  await page.reload();
+  await page.getByRole("button", { name: "Decline pickup" }).waitFor({ timeout: 30_000 });
+  await page.getByRole("button", { name: "Decline pickup" }).click();
+  await page.getByText(/did not approve a pickup/).waitFor();
 });
-
 await holdScene("sponsor", async () => {
-  // The process boundary, and the query object storage cannot answer.
-  await page.locator(".proof").scrollIntoViewIfNeeded();
-  await page.waitForTimeout(1_500);
-  await page.locator("#paneRight").evaluate((pane) => {
-    pane.scrollTo({ top: pane.scrollHeight, behavior: "smooth" });
-  });
-  await page.locator(".xrun").waitFor({ timeout: 30_000 });
-  await page.waitForTimeout(2_000);
+  await page.getByText("Run details & execution labels").click();
+  await page.getByText("Strands Agents SDK", { exact: true }).scrollIntoViewIfNeeded();
 });
-
 await holdScene("evidence", async () => {
-  // Sources and digests, under the finding they belong to.
-  await page.locator("#paneRight").evaluate((pane) => {
-    pane.scrollTo({ top: 0, behavior: "smooth" });
-  });
-  await page.waitForTimeout(1_000);
-  await page.locator(".card details.ev summary").first().click();
-  await page.waitForTimeout(2_500);
+  await page.getByRole("navigation").getByRole("link", { name: "History", exact: true }).click();
+  await page.getByRole("button", { name: "Prepare receipt" }).click();
+  await page.getByRole("button", { name: "Download evidence summary" }).waitFor();
 });
-
 await holdScene("close", async () => {
-  await page.goto(appUrl, { waitUntil: "networkidle", timeout: 60_000 });
-  await page.locator(".beat").first().waitFor({ timeout: 60_000 });
+  await page.getByRole("navigation").getByRole("link", { name: "Workspace", exact: true }).click();
+  await page.getByRole("button", { name: "Open guided demo" }).click();
+  await page.getByRole("button", { name: "Add take or release" }).click();
+  await page.getByRole("button", { name: "Try refused date" }).click();
 });
+const after = await (await context.request.get(appOrigin + "/release.json")).json();
+if (after.commit !== releaseSha) throw new Error("Frontend release changed during recording");
 
 await context.close();
 await browser.close();
@@ -153,7 +117,7 @@ const finalPath = path.join(captureDir, "production.webm");
 renameSync(rawPath, finalPath);
 const bytes = readFileSync(finalPath);
 const receipt = {
-  schemaVersion: "archon.submission-video-capture/v1",
+  schemaVersion: "lasttake.submission-video-capture/v1",
   releaseSha,
   appOrigin,
   sceneCount: expectedScenes.length,
