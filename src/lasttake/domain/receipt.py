@@ -27,7 +27,7 @@ from typing import Optional
 
 from .findings import Finding, TruthState
 from .package import ScenePackage
-from .policy import HumanDecision, latest_decision, decision_applies
+from .policy import HumanDecision, latest_decision, decision_applies, evaluate
 from .sealing import seal, utc_now_iso, verify_seal
 from .turnover import RIGHTS_DISCLAIMER, SYNTHETIC_NOTICE
 
@@ -50,6 +50,8 @@ LIMITS = (
     "that a named person signed for, not a resolved one.",
     "The counts describe the records that were read. Anything nobody wrote down "
     "cannot appear here.",
+    "SHA-256 identifies bytes. It does not prove source authenticity, human identity or factual truth.",
+    "Bus acceptance is not downstream delivery or completion. An S3 event copy alone proves only storage.",
 )
 
 #: The next action for each kind of exception, phrased for the person who has to
@@ -120,7 +122,9 @@ def _open_items(
                         "role": decision.role.value,
                         "reason": decision.reason,
                         "still_open_because": (
-                            "the original finding is retained alongside the current human review"
+                            "an accepted exception is a known problem, not a fixed one"
+                            if decision.action.value == "accept_exception"
+                            else "the original finding is retained alongside the current human review"
                         ),
                     }
                     if applies and decision
@@ -145,12 +149,35 @@ def build(
     approved_by: Optional[str] = None,
     approved_role: Optional[str] = None,
     subject: Optional[dict] = None,
+    execution: Optional[dict] = None,
+    deliveries: Optional[list[dict]] = None,
+    recovery: Optional[dict] = None,
 ) -> dict:
     """A sealed, portable receipt. ``kind`` is ``pickup`` or ``wrap``."""
     if kind not in ("pickup", "wrap"):
         raise ValueError(f"a receipt is about a pickup or a wrap, not {kind!r}")
 
     still_open = _open_items(findings, decisions)
+    packet = evaluate(run_id, package, findings, decisions)
+    sources = [{"artifact_id": aid, "kind": art.kind, "sha256": art.sha256}
+               for aid, art in sorted(package.artifacts.items())]
+    provenance = [{"finding_id": f.finding_id, "model_id": f.model_id,
+                   "has_interpretation": f.inference is not None,
+                   "record_sha256": f.record_sha256}
+                  for f in sorted(findings, key=lambda f: f.finding_id)]
+    lines = [f"LastTake evidence review: {package.scene_id} / {run_id}",
+             f"Revision {package.revision}; package SHA-256 {package.revision_digest()}",
+             f"Policy {policy_version}; current gate {'eligible' if packet.eligible else 'blocked'}; {len(packet.causes)} cause(s).",
+             "Synthetic role selection; no authenticated staff identity.",
+             "Sources: " + ", ".join(s["artifact_id"] for s in sources)]
+    for row in still_open:
+        decision = row["a_human_decided"]
+        review = f"{decision['action']} by {decision['actor']}" if decision else "current decision absent"
+        lines.append(f"{row['finding_id']}: {row['truth_state']}; {row['responsible_role']}; {review}. Next: {row['next_action']}")
+    for delivery in deliveries or []:
+        if delivery.get("event_type") in ("pickup.requested", "wrap.ready", "turnover.generated") or delivery.get("status") != "accepted":
+            lines.append(f"Delivery {delivery['event_type']}: {delivery['status']}; receipt {delivery['reference']}.")
+    lines.extend(LIMITS)
     return seal(
         {
             "schema": RECEIPT_SCHEMA,
@@ -176,6 +203,17 @@ def build(
             "still_open_count": len(still_open),
             "what_this_does_not_say": list(LIMITS),
             "rights_disclaimer": RIGHTS_DISCLAIMER,
+            "human_readable": "\n".join(lines),
+            "source_manifest": sources,
+            "finding_provenance": provenance,
+            "execution": execution or {"mode": "not_recorded", "backend_revision": None},
+            "provenance_limit": "Only serialized model identifiers are attributed. Missing identifiers remain unknown; no model is inferred from current configuration.",
+            "gate": {"eligible": packet.eligible, "cause_count": len(packet.causes),
+                     "discarded_findings": packet.discarded},
+            "delivery_outcomes": deliveries or [],
+            "recovery": recovery or {},
+            "human_active_seconds": None,
+            "measured_benefit": None,
         }
     )
 

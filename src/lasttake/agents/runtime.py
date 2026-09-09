@@ -8,6 +8,7 @@ call rather than eight tool bodies.
 from __future__ import annotations
 
 import json
+import time
 from dataclasses import dataclass, field
 from typing import Optional
 
@@ -50,13 +51,17 @@ class WrapRun:
         )
 
     def publish(
-        self, event_type: EventType, payload: dict, idempotent: bool = False
+        self, event_type: EventType, payload: dict, idempotent: bool = False,
+        delivery_batch: Optional[list[dict]] = None,
     ) -> Receipt:
         """Persist accepted receipts; retain ambiguous claims and retry rejections.
 
         A claim excludes concurrent publishers. It says nothing about delivery.
         The bus may accept a request without any downstream consumer completing it.
         """
+        if delivery_batch is not None and (idempotent or event_type is not EventType.FINDING_RECORDED):
+            raise ValueError("Only non-consequential finding notifications may batch receipts")
+        started = time.perf_counter()
         event = self.build_event(event_type, payload)
         key = event.idempotency_key
         saved_key = f"delivery/{self.run_id.replace(':', '_')}/{key}.json"
@@ -70,8 +75,9 @@ class WrapRun:
                   "event_type": event_type.value, "payload": payload,
                   "package_revision_digest": self.package.revision_digest(),
                   "retry_supported": idempotent}
-        self.audit("event.delivery", {**detail, "status": "pending", "accepted": False,
-                                       "reference": event.event_id})
+        if idempotent:
+            self.audit("event.delivery", {**detail, "status": "pending", "accepted": False,
+                                           "reference": event.event_id})
         try:
             receipt = self.bus.publish(event)
         except Exception:
@@ -83,7 +89,12 @@ class WrapRun:
             except Exception:
                 receipt = Receipt(False, receipt.reference,
                                   "Bus response received but its receipt could not be saved. Reconcile before any resend.", "unknown")
-        self.audit("event.delivery", {**detail, **receipt.to_dict()})
+        outcome = {**detail, **receipt.to_dict(),
+                   "elapsed_ms": round((time.perf_counter() - started) * 1000, 2)}
+        if delivery_batch is not None:
+            delivery_batch.append(outcome)
+        else:
+            self.audit("event.delivery", outcome)
         if idempotent and receipt.outcome == "rejected":
             self.runs.release(key)
         return receipt
@@ -93,7 +104,28 @@ class WrapRun:
         for entry in self.runs.load_audit(self.run_id):
             if entry.get("kind") == "event.delivery":
                 current[entry["idempotency_key"]] = entry
+            elif entry.get("kind") == "event.delivery.batch":
+                for outcome in entry["outcomes"]:
+                    current[outcome["idempotency_key"]] = {"at": entry["at"], **outcome}
         return list(current.values())
+
+    def retry_delivery(self, key: str) -> Receipt:
+        previous = next((row for row in self.delivery_states() if row["idempotency_key"] == key), None)
+        if not previous or not previous.get("retry_supported"):
+            raise ValueError("No retryable consequential attempt with that key on this run")
+        if previous["status"] not in {"rejected", "accepted"}:
+            raise ValueError("Pending or unknown delivery must be reconciled; do not resend")
+        event_type = EventType(previous["event_type"])
+        payload = previous["payload"]
+        if event_type in {EventType.WRAP_READY, EventType.PICKUP_REQUESTED}:
+            return self.publish_approved(event_type, payload)
+        if event_type is EventType.TURNOVER_GENERATED:
+            if not self.wrap_approved() or not self.wrap_guard(self.current_wrap_approval() or {}):
+                raise ValueError("The current wrap approval is required before retrying a handoff")
+            if previous["package_revision_digest"] != self.package.revision_digest():
+                raise ValueError("The saved handoff belongs to a historical revision")
+            return self.publish(event_type, payload, idempotent=True)
+        raise ValueError("This event does not support explicit retry")
 
     def review_binding(self) -> dict:
         """The package, findings and decisions actually presented for review."""
@@ -120,6 +152,11 @@ class WrapRun:
             return Receipt(False, "", "Only the 1st AD may answer this approval.", "refused")
         if event_type is EventType.WRAP_READY and not self.wrap_guard(payload):
             return Receipt(False, "", "Evidence changed. Decline the stale request and obtain a fresh review.", "refused")
+        if event_type is EventType.WRAP_READY:
+            latest = self.latest_wrap_review()
+            if latest and (latest.get("kind") == "wrap.declined" or
+                           latest.get("approval_id") != payload.get("approval_id")):
+                return Receipt(False, "", "A later wrap review superseded this approval. Request a fresh review.", "refused")
         receipt = self.publish(event_type, payload, idempotent=True)
         if receipt.accepted:
             kind = "wrap.approved" if event_type is EventType.WRAP_READY else "pickup.approved"
@@ -163,12 +200,16 @@ class WrapRun:
 
     def current_wrap_approval(self) -> Optional[dict]:
         binding = self.review_binding()
-        for entry in reversed(self.runs.load_audit(self.run_id)):
-            if entry.get("kind") != "wrap.approved":
-                continue
-            # Older records remain in history. An unbound approval cannot
-            # authorise a new handoff after this policy changed.
+        entry = self.latest_wrap_review()
+        # Pending and declined reviews supersede authority, never history.
+        if entry and entry.get("kind") == "wrap.approved":
             if all(entry.get(key) == value for key, value in binding.items()) and entry.get("accepted") is True:
+                return entry
+        return None
+
+    def latest_wrap_review(self) -> Optional[dict]:
+        for entry in reversed(self.runs.load_audit(self.run_id)):
+            if entry.get("kind") in {"wrap.requested", "wrap.approved", "wrap.declined"}:
                 return entry
         return None
 

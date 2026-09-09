@@ -136,3 +136,57 @@ def test_ambiguous_publish_exception_does_not_blindly_resend(monkeypatch):
     again = run.publish(EventType.PICKUP_REQUESTED, {"beat_id": "B-17"}, idempotent=True)
     assert not first.accepted and not again.accepted
     assert len(attempts) == 1
+
+
+def test_renewed_wrap_review_supersedes_old_authority_without_deleting_receipt():
+    body = {**owned(), "role": "first_ad"}
+    eligible(body)
+    first = post("/api/wrap", body)["pending_approval"]
+    assert post("/api/approve", {**body, "interrupt_id": first["id"], "approve": True})["wrap_approved"]
+    run = H.build_run(body["run_id"])
+    saved_approval = run.current_wrap_approval()
+    second = post("/api/wrap", body)
+    assert not second["wrap_approved"] and second["pending_approval"]["id"] != first["id"]
+    assert "Refusing" in post("/api/turnover", body)["message"]
+    declined = post("/api/approve", {**body, "interrupt_id": second["pending_approval"]["id"], "approve": False})
+    assert not declined["wrap_approved"]
+    assert "Refusing" in post("/api/turnover", body)["message"]
+    assert saved_approval in run.runs.load_audit(run.run_id)
+    assert run.publish_approved(EventType.WRAP_READY, {k:v for k,v in saved_approval.items()
+        if k not in {"kind", "at", "receipt", "accepted"}}).outcome == "refused"
+    third = post("/api/wrap", body)["pending_approval"]
+    assert post("/api/wrap", {**body, "interrupt_id": third["id"], "approve": True})["wrap_approved"]
+    accepted = [d for d in run.delivery_states() if d["event_type"] == "wrap.ready" and d["accepted"]]
+    assert len(accepted) == 2
+    assert len({d["idempotency_key"] for d in accepted}) == 2
+    assert post("/api/turnover", body)["turnover"]
+
+
+def test_old_policy_findings_require_explicit_checkpoint_without_history_loss():
+    body = owned()
+    state = post("/api/checkpoint", body)
+    run = H.build_run(body["run_id"])
+    historical = run.load_findings()
+    for finding in historical:
+        finding["policy_version"] = "1.0.0"
+    run.runs.save_findings(run.run_id, historical)
+    restored = post("/api/state", body)
+    assert restored["needs_checkpoint"] and restored["counts"] is None
+    assert "1.0.0" in restored["recovery_reason"] and "fresh checkpoint" in restored["recovery_reason"]
+    assert not restored["eligible"]
+    assert post("/api/approve", {**body, "role": "first_ad", "approve": False,
+        "interrupt_id": state["pending_approval"]["id"]})["status"] == 200
+    fresh = post("/api/checkpoint", body)
+    assert fresh["counts"] and not fresh["needs_checkpoint"]
+
+
+def test_finding_delivery_batch_preserves_outcomes_without_per_finding_audit(monkeypatch):
+    from lasttake.agents.tools import build_tools
+    run = H.build_run(owned()["run_id"])
+    monkeypatch.setattr(run.bus, "publish", lambda event: Receipt(False, event.event_id, "Explicit rejection"))
+    assert "need review" in str(build_tools(run)[2]())
+    audits = run.runs.load_audit(run.run_id)
+    assert len([a for a in audits if a["kind"] == "event.delivery.batch"]) == 1
+    assert not any(a["kind"] == "event.delivery" for a in audits)
+    assert len(run.delivery_states()) == len(run.load_findings())
+    assert all(d["status"] == "rejected" and d["elapsed_ms"] >= 0 for d in run.delivery_states())

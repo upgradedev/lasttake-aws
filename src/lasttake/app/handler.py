@@ -211,7 +211,9 @@ def _page() -> dict:
 def _state(run: WrapRun) -> dict:
     findings = [from_dict(f) for f in run.load_findings()]
     decisions = run.load_decisions()
-    outcomes = rollup.roll_up(run.package, findings, decisions)
+    recovery = workspace.recovery_state(run)
+    current = bool(findings) and not recovery["needs_checkpoint"]
+    outcomes = rollup.roll_up(run.package, findings if current else [], decisions)
     packet = workspace.current_eligibility(run).to_dict() if findings else None
     turnover_key = f"turnover/{run.run_id.replace(':', '_')}.json"
     return {
@@ -219,8 +221,11 @@ def _state(run: WrapRun) -> dict:
         "scene_id": run.package.scene_id,
         "production_id": run.package.production_id,
         "revision": run.package.revision,
-        "headline": rollup.sentence(outcomes) if findings else None,
-        "counts": rollup.headline(outcomes) if findings else None,
+        "headline": rollup.sentence(outcomes) if current else None,
+        "counts": rollup.headline(outcomes) if current else None,
+        **recovery,
+        "execution": workspace.execution_record(run),
+        "delivery_outcomes": run.delivery_states(),
         "beats": [o.to_dict() for o in outcomes],
         # The seal travels with the finding, because the page has to tell a live
         # approval from a withdrawn one. A decision carries the digest of the
@@ -598,6 +603,18 @@ def route_receipt(body: dict, request_id: str) -> dict:
     return workspace.receipt_response(body, request_id, build_run, _json)
 
 
+def route_retry_delivery(body: dict, request_id: str) -> dict:
+    from ..agents.tools import _delivery_message
+    run = build_run(body["run_id"])
+    try:
+        delivery = run.retry_delivery(body.get("idempotency_key", ""))
+    except ValueError as exc:
+        return _json(409, {"error": str(exc)}, request_id)
+    return _json(200 if delivery.accepted else 409,
+                 {**_state(run), "delivery": delivery.to_dict(),
+                  "message": _delivery_message(delivery)}, request_id)
+
+
 def route_events(body: dict, request_id: str) -> dict:
     run = build_run(body["run_id"])
     rows = run.bus.replay(run.correlation_id)
@@ -675,6 +692,7 @@ ROUTES = {
     "/api/wrap": route_wrap,
     "/api/turnover": route_turnover,
     "/api/receipt": route_receipt,
+    "/api/retry-delivery": route_retry_delivery,
     "/api/events": route_events,
     "/api/ingest": route_ingest,
     "/api/scene": route_scene,

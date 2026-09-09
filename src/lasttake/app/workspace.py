@@ -108,6 +108,22 @@ def current_eligibility(run):
                            [policy.decision_from_dict(d) for d in run.load_decisions()])
 
 
+def recovery_state(run):
+    versions = sorted({f.get("policy_version", "unrecorded") for f in run.load_findings()})
+    needs_checkpoint = bool(versions and versions != [policy.POLICY_VERSION])
+    return {"needs_checkpoint": needs_checkpoint, "current_policy_version": policy.POLICY_VERSION,
+            "finding_policy_versions": versions,
+            "recovery_reason": (f"Saved findings use policy {', '.join(versions)}; current policy is {policy.POLICY_VERSION}. "
+                "Historical counts are not current eligibility. Decline any saved pending request, then run a fresh checkpoint and review. "
+                "Existing decisions and receipts remain in history." if needs_checkpoint else None)}
+
+
+def execution_record(run):
+    return {"mode": "offline-demo", "planner": "offline-scripted/1.0.0",
+            "backend_revision": run.candidate_sha, "identity_mode": "synthetic-role-selection",
+            "note": "Current HTTP runtime configuration, not attribution for historical findings. Finding model IDs come only from serialized records."}
+
+
 def receipt_response(body, request_id, build_run, json_response):
     """Build a portable record without importing unchecked subject assertions."""
     run = build_run(body["run_id"])
@@ -126,6 +142,7 @@ def receipt_response(body, request_id, build_run, json_response):
         approved_by=approved_by if kind == "wrap" else None,
         approved_role=policy.Role.FIRST_AD.value if approved_by else None,
         subject=receipt_subject(body, run.package),
+        execution=execution_record(run), deliveries=run.delivery_states(), recovery=recovery_state(run),
     )
     return json_response(200, {"run_id": run.run_id, "receipt": manifest}, request_id)
 
@@ -136,6 +153,8 @@ def guard_action(path, body, run, owned):
             return 400, "approve must be a boolean"
     if owned and path in ("/api/approve", "/api/wrap") and body.get("role") != "first_ad":
         return 403, "Only the 1st AD may answer a pickup or wrap approval."
+    if path == "/api/retry-delivery" and body.get("role") != "first_ad":
+        return 403, "Only the 1st AD may explicitly retry a consequential delivery."
     if owned and path == "/api/decide" and not body.get("finding_sha256"):
         return 400, "The reviewed finding digest is required. Refresh the scene."
     if path in ("/api/approve", "/api/wrap") and body.get("approve") is True:

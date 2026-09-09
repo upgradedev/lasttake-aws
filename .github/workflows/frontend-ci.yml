@@ -8,6 +8,63 @@ on:
 permissions:
   contents: read
 jobs:
+  archive-previous-acceptance:
+    # One fixed source artifact, once while this implementation branch is active.
+    # The immutable archive is looked up before copying; later pushes skip it.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/codex/reliable-workflows-20260909'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read
+    concurrency:
+      group: lasttake-evidence-archive-10107569851
+      cancel-in-progress: false
+    steps:
+      - name: Preserve the fixed accepted artifact as inert bytes
+        id: archive
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('node:fs');
+            const path = require('node:path');
+            const crypto = require('node:crypto');
+            const repo = context.repo;
+            if (`${repo.owner}/${repo.repo}` !== 'upgradedev/lasttake-aws') throw new Error('Unexpected repository');
+            const name = 'preserved-aws-acceptance-34359050749-10107569851';
+            const previous = await github.paginate(github.rest.actions.listArtifactsForRepo, {...repo, name, per_page: 100});
+            if (previous.some(a => a.name === name && !a.expired)) {
+              core.notice('Fixed source artifact already archived; intentionally skipping repeated archival.');
+              core.setOutput('needed', 'false');
+              return;
+            }
+            const run = (await github.rest.actions.getWorkflowRun({...repo, run_id: 34359050749})).data;
+            const source = (await github.rest.actions.getArtifact({...repo, artifact_id: 10107569851})).data;
+            if (run.head_sha !== '78e91cbad29f1511c4e7be2b5eac4f55e308acd6' || run.conclusion !== 'success' ||
+                source.workflow_run?.id !== run.id || source.expired || source.name !== 'aws-acceptance-34359050749' ||
+                source.size_in_bytes > 300000000) throw new Error('Fixed source provenance or size check failed');
+            const downloaded = await github.rest.actions.downloadArtifact({...repo, artifact_id: source.id, archive_format: 'zip'});
+            const bytes = Buffer.from(downloaded.data);
+            const root = path.join(process.env.RUNNER_TEMP, 'lasttake-previous-acceptance');
+            fs.mkdirSync(root, {recursive: false});
+            fs.writeFileSync(path.join(root, 'original-artifact.zip'), bytes, {flag: 'wx'});
+            fs.writeFileSync(path.join(root, 'manifest.json'), JSON.stringify({
+              schema: 'lasttake/evidence-archive/v1', repository: 'upgradedev/lasttake-aws',
+              original_run_id: run.id, original_artifact_id: source.id, original_artifact_name: source.name,
+              original_head_sha: run.head_sha, original_created_at: source.created_at,
+              source_artifact_digest: source.digest ?? null, archive_sha256: crypto.createHash('sha256').update(bytes).digest('hex'),
+              archive_bytes: bytes.length, preserved_by_run_id: context.runId,
+              note: 'Original archive bytes only. No extraction or execution. Hash identifies bytes, not truth of claims.'
+            }, null, 2), {flag: 'wx'});
+            core.setOutput('needed', 'true');
+      - uses: actions/upload-artifact@v4
+        if: steps.archive.outputs.needed == 'true'
+        with:
+          name: preserved-aws-acceptance-34359050749-10107569851
+          path: ${{ runner.temp }}/lasttake-previous-acceptance/
+          retention-days: 90
+          if-no-files-found: error
+          overwrite: false
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 25
@@ -16,6 +73,8 @@ jobs:
       AWS_DEFAULT_REGION: eu-west-1
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -34,6 +93,7 @@ jobs:
         with:
           name: frontend-lock-${{ github.sha }}
           path: frontend/package-lock.json
+          retention-days: 90
       - name: Install locked frontend and Python dependencies in CI
         run: |
           npm ci --prefix frontend
@@ -47,6 +107,7 @@ jobs:
         with:
           name: frontend-dist-${{ github.sha }}
           path: frontend/dist/
+          retention-days: 90
       - name: Capture full audit and enforce zero runtime vulnerabilities
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         working-directory: frontend
@@ -60,10 +121,11 @@ jobs:
         with:
           name: frontend-audit-${{ github.sha }}
           path: frontend/test-results/audit/
+          retention-days: 90
           if-no-files-found: error
       - name: Python regression suite
         if: ${{ !cancelled() }}
-        run: python -m pytest --cov --cov-fail-under=85 --cov-report=xml:frontend/test-results/python-coverage.xml --junitxml=frontend/test-results/python.xml
+        run: python -m pytest --durations=20 --cov --cov-fail-under=85 --cov-report=xml:frontend/test-results/python-coverage.xml --junitxml=frontend/test-results/python.xml
       - name: Unit and component coverage
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         working-directory: frontend
@@ -84,7 +146,7 @@ jobs:
       - name: Secret and prose regressions
         if: ${{ !cancelled() }}
         run: |
-          python tools/secret_scan.py
+          python tools/secret_scan.py --all-history
           python tools/prose_gate.py
       - name: Reviewable UI screenshots
         if: always()
@@ -93,7 +155,7 @@ jobs:
           name: ui-screenshots-${{ github.sha }}
           path: frontend/test-results/**/*.png
           if-no-files-found: warn
-          retention-days: 14
+          retention-days: 90
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -104,4 +166,4 @@ jobs:
             frontend/playwright-report/
             frontend/UAT.testbook.json
             frontend/UAT.testbook.html
-          retention-days: 14
+          retention-days: 90

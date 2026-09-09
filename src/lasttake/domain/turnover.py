@@ -17,7 +17,7 @@ from typing import Optional
 
 from .findings import Finding, TruthState
 from .package import ScenePackage
-from .policy import EligibilityPacket, HumanDecision
+from .policy import EligibilityPacket, HumanDecision, latest_decision, decision_applies, _resolution
 from . import rollup
 from .sealing import seal, utc_now_iso, verify_seal
 
@@ -167,7 +167,9 @@ def generate(
             "truth_state": f.truth_state.value,
             "requirement_id": f.requirement_id,
             "required_role": f.required_role.value,
-            "still_open": not any(d.finding_id == f.finding_id for d in decisions),
+            "still_open": _resolution(f, decisions) is not True,
+            "current_decision": (latest_decision(f, decisions).to_dict()
+                                 if decision_applies(f, latest_decision(f, decisions)) else None),
         }
         for f in sorted(findings, key=lambda f: f.finding_id)
         if f.truth_state is not TruthState.VERIFIED
@@ -188,6 +190,9 @@ def generate(
         "wrap_approved_by": {"actor": approved_by, "role": approved_role},
         "counts": eligibility.counts,
         "source_manifest": _source_manifest(package),
+        "finding_provenance": [{"finding_id": f.finding_id, "model_id": f.model_id,
+                                "record_sha256": f.record_sha256} for f in findings],
+        "provenance_limit": "Missing serialized model identifiers remain unknown. A hash identifies bytes, not factual truth.",
         "beat_to_take_map": _take_map(package),
         "technical_identity_report": _technical_report(package),
         "outstanding_and_accepted_exceptions": outstanding,

@@ -11,6 +11,7 @@ Run: python tools/secret_scan.py
 from __future__ import annotations
 
 import re
+import argparse
 import subprocess
 import sys
 from pathlib import Path
@@ -37,7 +38,47 @@ def tracked_files() -> list[Path]:
     return [Path(p) for p in out.split("\0") if p]
 
 
+def matches(label: str, content: str) -> list[str]:
+    return [f"{label}:{line_no}: {name}" for line_no, line in enumerate(content.splitlines(), 1)
+            for name, pattern in PATTERNS.items() if re.search(pattern, line)]
+
+
+def history_findings() -> tuple[list[str], int]:
+    """Scan every reachable historical blob and commit message, without echoing secrets."""
+    if subprocess.check_output(["git", "rev-parse", "--is-shallow-repository"], text=True).strip() != "false":
+        raise RuntimeError("Full-history scanning requires checkout fetch-depth: 0")
+    objects = subprocess.check_output(["git", "rev-list", "--objects", "--all"], text=True).splitlines()
+    findings = []
+    count = 0
+    with subprocess.Popen(["git", "cat-file", "--batch"], stdin=subprocess.PIPE, stdout=subprocess.PIPE) as reader:
+        for row in objects:
+            oid, _, name = row.partition(" ")
+            if Path(name).name == SELF:
+                continue
+            reader.stdin.write((oid + "\n").encode())
+            reader.stdin.flush()
+            header = reader.stdout.readline().decode().split()
+            if len(header) != 3:
+                raise RuntimeError("Cannot read historical object")
+            data = reader.stdout.read(int(header[2]))
+            reader.stdout.read(1)
+            if header[1] not in ("blob", "commit") or b"\0" in data:
+                continue
+            content = data.decode("utf-8", errors="replace")
+            if header[1] == "commit":
+                content = content.partition("\n\n")[2]
+            findings.extend(matches(f"{oid}:{name or 'commit-message'}", content))
+            count += 1
+        reader.stdin.close()
+        if reader.wait() != 0:
+            raise RuntimeError("Historical object reader failed")
+    return findings, count
+
+
 def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--all-history", action="store_true")
+    args = parser.parse_args()
     findings: list[str] = []
     for path in tracked_files():
         if path.name == SELF:
@@ -48,10 +89,12 @@ def main() -> int:
             text = path.read_text(encoding="utf-8", errors="ignore")
         except OSError:
             continue
-        for line_no, line in enumerate(text.splitlines(), start=1):
-            for label, pattern in PATTERNS.items():
-                if re.search(pattern, line):
-                    findings.append(f"{path}:{line_no}: {label}")
+        findings.extend(matches(str(path), text))
+
+    if args.all_history:
+        historical, count = history_findings()
+        findings.extend(historical)
+        print(f"Full-history scope: {count} textual blobs and commit messages across all fetched refs")
 
     if findings:
         print("possible credentials committed:")

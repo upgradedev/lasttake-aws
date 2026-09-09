@@ -181,6 +181,8 @@ def run(
         )
 
     for finding in findings:
+        if finding.inference is not None:
+            finding.model_id = interpreter.model_id
         validate(finding)
     return findings
 

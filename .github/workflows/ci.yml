@@ -6,7 +6,7 @@ on:
 
   push:
 
-    branches: [main, "build/**"]
+    branches: [main, "build/**", "codex/**"]
 
   pull_request:
 
@@ -23,6 +23,8 @@ jobs:
     steps:
 
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-python@v5
 
@@ -64,13 +66,13 @@ jobs:
 
         run: |
 
-          python -m pytest --cov --cov-report=term-missing --cov-fail-under=85
+          python -m pytest --durations=20 --cov --cov-report=term-missing --cov-fail-under=85
 
 
 
       - name: secret scan
 
-        run: python tools/secret_scan.py
+        run: python tools/secret_scan.py --all-history
 
 
 

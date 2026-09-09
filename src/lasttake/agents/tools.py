@@ -39,6 +39,7 @@ def _record(run: WrapRun, findings: list[Finding]) -> str:
     """Persist findings, publish one event each, and summarise for the model."""
     run.store_findings(findings)
     deliveries = []
+    outcomes = []
     for finding in findings:
         deliveries.append(run.publish(
             EventType.FINDING_RECORDED,
@@ -47,8 +48,11 @@ def _record(run: WrapRun, findings: list[Finding]) -> str:
                 "check_type": finding.check_type.value,
                 "requirement_id": finding.requirement_id,
                 "truth_state": finding.truth_state.value,
-            },
+            }, delivery_batch=outcomes,
         ))
+    # Finding notifications cannot authorize a handoff. One persisted batch
+    # preserves their actual receipts without two DSQL transactions per finding.
+    run.audit("event.delivery.batch", {"outcomes": outcomes})
     exceptions = [f for f in findings if f.truth_state.is_exception]
     lines = [
         f"{len(findings)} finding(s) recorded, {len(exceptions)} raising exceptions."
@@ -87,6 +91,7 @@ def _await_approval(run, tool_context, kind, reason):
     except InterruptException:
         if not saved:
             run.artifacts.put(key, json.dumps(reviewed, sort_keys=True).encode())
+            run.audit(f"{kind}.requested", reviewed)
         raise
     # Never bind today's evidence to an older unbound affirmative response.
     # The old request can still be declined and replaced by a fresh review.
@@ -330,8 +335,10 @@ def build_tools(run: WrapRun) -> list[Callable[..., Any]]:
 
         approved = str(decision).strip().lower() in {"y", "yes", "approve", "approved"}
         if not approved:
-            run.audit("wrap.declined", {"decision": str(decision)})
-            return "The 1st AD did not approve the wrap. Nothing has changed."
+            run.audit("wrap.declined", {"decision": str(decision), **reviewed,
+                "required_role": policy.Role.FIRST_AD.value,
+                "approval_id": _approval_record(run, tool_context, "wrap")["approval_id"]})
+            return "The 1st AD did not approve the wrap. Any earlier wrap approval remains historical, not current authority."
 
         if not reviewed:
             return "Refusing: this older request has no saved evidence binding. Request a fresh approval."
