@@ -22,4 +22,10 @@ test('UAT testbook keeps required evidence and human signoff fields',async()=>{
   const book=JSON.parse(await readFile('UAT.testbook.json','utf8'));
   for(const row of book.cases){for(const key of ['id','persona','requirement','preconditions','steps','expected_outcome','negative_recovery_case','automation_mapping','observed_result_evidence','human_signoff'])assert.ok(Object.hasOwn(row,key),`${row.id}: ${key}`);assert.equal(row.human_signoff,'NOT_RUN');}
   assert.match(await readFile('UAT.testbook.html','utf8'),/NOT_RUN/);
+  assert.equal(book.current_workspace_revision.status,'PENDING_CI');
+  assert.match(book.aws_release.scope,/HISTORICAL_RELEASE_ONLY/);
+  for(const id of ['LT-DASH','LT-SELECT','LT-OFFLINE','LT-COCKPIT']){
+    const row=book.cases.find(item=>item.id===id);
+    assert.ok(row,id);assert.match(row.observed_result_evidence,/PENDING_CI/);
+  }
 });

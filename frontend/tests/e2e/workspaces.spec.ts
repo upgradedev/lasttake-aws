@@ -42,6 +42,8 @@ test('LT-DASH scoped metrics drill into matching evidence, and desktop/mobile co
   await page.emulateMedia({reducedMotion:'reduce'});
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await page.screenshot({path:info.outputPath('workspace-success.png'),fullPage:true});
+  await expect(page.getByTestId('wrap-status')).toContainText('Not approved');
+  await expect(page.getByTestId('wrap-status')).toBeInViewport();
   await info.attach('current-scene-evidence',{body:JSON.stringify({run:body.run_id,scene:scene.scene_id,counts:current.counts,selected_finding:continuity.finding_id}),contentType:'application/json'});
   expect(errors).toEqual([]);
 });
@@ -79,6 +81,7 @@ test('LT-SELECT bidirectional source selection, unmatched advisory and Records s
 
 test('LT-OFFLINE transport outage freezes decisions, preserves the run and recovers without retrying a write',async({page,context})=>{
   await create(page);await page.getByRole('button',{name:'Run wrap checkpoint'}).click();await expect(page.getByRole('button',{name:'Refresh saved state'})).toBeEnabled();
+  await page.locator('.finding-picker a').filter({hasText:'continuity · CR-01'}).click();
   const run=(await saved(page)).run_id;
   let writes=0;page.on('request',request=>{if(/\/api\/(decide|approve|wrap|ingest)$/.test(request.url()))writes++;});
   await context.setOffline(true);

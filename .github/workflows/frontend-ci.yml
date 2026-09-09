@@ -86,6 +86,14 @@ jobs:
         run: |
           python tools/secret_scan.py
           python tools/prose_gate.py
+      - name: Reviewable UI screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-screenshots-${{ github.sha }}
+          path: frontend/test-results/**/*.png
+          if-no-files-found: warn
+          retention-days: 14
       - uses: actions/upload-artifact@v4
         if: always()
         with:

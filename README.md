@@ -16,16 +16,21 @@ Before you wrap the set, know whether you truly have the scene.
 ### React workspace usage
 
 Live AWS application: [LastTake React workspace](https://d3kf6hquzlli8g.cloudfront.net/).
-[Live AWS acceptance](https://github.com/upgradedev/lasttake-aws/actions/runs/34327806494)
+Historical release evidence only: [Live AWS acceptance](https://github.com/upgradedev/lasttake-aws/actions/runs/34327806494)
 passed all 8 desktop/mobile journeys on 2026-09-09 against CloudFront, Lambda, S3 and Aurora DSQL.
 This is automated synthetic acceptance, not a practising supervisor's signoff.
 The tested frontend was `1f10d39c8b2b22474f64b1c057851eb2057665e7`; current release identity is
-at `/release.json`, and backend identity at `/healthz`.
+at `/release.json`, and backend identity at `/healthz`. That earlier run does not validate
+the new dashboard and cockpit. Current acceptance comes from the exact-commit CI artifacts
+and, after parent-approved release, the exact-SHA live acceptance workflow.
 
 The React, TypeScript and Tailwind application is in `frontend/`. It builds to
 `frontend/dist/` with hashed `/assets/` files and uses same-origin `/api/*` JSON
-requests. Hash routes open Overview, Scene workspace, My actions and Turnovers &
-history. The static UAT testbook is included as `UAT.testbook.html` and
+requests. Navigation opens Dashboard, Workspace, Records and History. Existing
+`#overview`, `#scene`, `#actions` and `#history` links remain supported;
+`#dashboard` and `#workspace` are also accepted. Run, beat, finding, record and
+search context travel in the hash, and browser back/reload restore the selection.
+The static UAT testbook is included as `UAT.testbook.html` and
 `UAT.testbook.json`; human signoff remains `NOT_RUN` until a person completes it.
 
 Every push to `main`, including a merged pull request, now starts
@@ -45,11 +50,37 @@ and release forms save records through the Python backend. The optional guided
 demo supplies labelled fictional examples. The API reports the offline lexical
 interpreter; real Strands interrupts govern pickup and wrap approvals.
 
+Dashboard metrics describe only the selected run of the single fictional scene.
+Coverage and missing-release counts come from the API assessment; absent or nullable
+assessment is labelled Not assessed. Retained exceptions counts distinct findings,
+including reviewed and accepted exceptions, and is separate from the eligibility
+causes in Priority work. Supplied takes is a record count, not an audio or footage
+quality assessment. No portfolio trends, savings or reshoot costs are inferred.
+
+Workspace connects the lined script and take inspector, source-backed discrepancies,
+and role decision controls in three purposeful panes. The wrap-status strip remains
+visible above the scrolling decision form. Selecting a finding links back to its
+actual beat, continuity reference, take or visible subject. Absent requirement IDs
+never match absent continuity IDs; unmatched advisories keep their source evidence.
+Source locators and artifact digests are displayed as reported. The package SHA-256
+is a fingerprint, not a Merkle proof or independent verification.
+
+Records exposes the scene projection: linked takes, script beats, retained findings
+and visible release subjects. Unlinked takes and full release documents are not
+returned by this endpoint, and the inspector states that limitation. An executed
+ledger flag alone does not establish expiry, scope or legal sufficiency. Sound checks
+use metadata only. History preserves saved turnovers even after evidence changes;
+eligibility and an exact, unchanged pending interrupt remain separate from human
+wrap approval.
+
 The browser stores only a session handle and role preference. Saved runs belong
 to that session; role selection is a synthetic demonstration, not staff login.
 With browser storage blocked the tab remains usable, but a reload may start a
 separate session. Requests time out after 35 seconds and never automatically
 retry writes. Refresh saved state before retrying a write with an uncertain result.
+Known HTTP 400 validation refusals preserve editable input and allow immediate correction
+and resubmission. Stale/conflicting, network, unreadable and server-failure results require
+a saved-state refresh before another write. Closing an intake form remains available.
 
 Dependencies are installed in GitHub Actions. `frontend-ci.yml` generates a lock
 only when absent, uploads it, builds the app, measures unit coverage, runs the
@@ -838,6 +869,7 @@ Required disclosure. Everything else in this repository was written for this sub
 | `src/lasttake/domain/sealing.py` | ClaimScene, MIT, same author, `src/claimscene/provenance.py` | `sha256_bytes`, `canonical_json`, and the sealed-record approach. About thirty lines of primitives, plus the idea of sealing a record with the digest of its own canonical JSON. ClaimScene shares them with Cinemory. |
 | The product thesis | A private research package written 2026-07-28 by the same author, 2,365 lines across 13 files: the problem definition, the user roles, the four truth states, the finding contract, and the event list | Carried as specification, not as code. Every line of implementation here is new. |
 | CI shape, README structure | A private submission toolkit by the same author | Workflow layout and section ordering. |
+| Production workspace visual direction | Kerdon interface and the owner's approved workspace reference | Visual inspiration only: deep navy panels, amber LastTake accents, compact navigation and connected context/evidence/decision panes. Implemented here with existing React, TypeScript and Tailwind dependencies. No Kerdon customer data, tenant configuration, source IDs, assets or dependency code was reused. |
 
 The AWS adapters, the Strands agent definitions, the deterministic gate, the checks, the
 demo corpus and the CLI are all new.

@@ -111,7 +111,7 @@ describe('route focus and snapshot integrity',()=>{
     const search=await screen.findByRole('searchbox',{name:'Search records'});
     await user.type(search,'MEDIA');
     await waitFor(()=>expect(search).toHaveValue('MEDIA'));expect(search).toHaveFocus();expect(location.hash).toContain('q=MEDIA');
-    await user.click(within(screen.getByRole('navigation')).getByRole('link',{name:'Workspace',exact:true}));
+    await user.click(within(screen.getByRole('navigation')).getByRole('link',{name:'Workspace'}));
     expect(await screen.findByRole('heading',{level:1})).toHaveFocus();expect(location.hash).toContain('beat=B-01');
     expect(screen.getByLabelText('Show')).toHaveValue('all');
     expect(document.querySelectorAll('.beat')).toHaveLength(scene.beats.length);
@@ -142,6 +142,21 @@ describe('route focus and snapshot integrity',()=>{
     expect(screen.getByRole('button',{name:'Save evidence & rerun checks'})).toBeDisabled();
     await user.click(screen.getByRole('button',{name:'Close form'}));
     expect(screen.queryByLabelText('Document JSON')).toBeNull();
+  });
+  it('permits immediate correction and resubmission after a known 400 validation refusal',async()=>{
+    const fetcher=api();location.hash=link('scene',state.run_id);
+    const user=userEvent.setup();render(<App/>);await screen.findByText(scene.scene_heading);
+    await user.click(screen.getByRole('button',{name:'Add take or release'}));
+    await user.click(screen.getByLabelText('Advanced JSON entry'));
+    fireEvent.change(screen.getByLabelText('Document JSON'),{target:{value:'{"take_id":"bad"}'}});
+    fetcher.mockImplementationOnce(async()=>({ok:false,status:400,json:async()=>({...state,error:'Missing fields'})}));
+    await user.click(screen.getByRole('button',{name:'Save evidence & rerun checks'}));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Correct the supplied fields');
+    expect(screen.getByRole('button',{name:'Save evidence & rerun checks'})).toBeEnabled();
+    fireEvent.change(screen.getByLabelText('Document JSON'),{target:{value:'{"take_id":"corrected"}'}});
+    await user.click(screen.getByRole('button',{name:'Save evidence & rerun checks'}));
+    await waitFor(()=>expect(screen.queryByLabelText('Document JSON')).toBeNull());
+    expect(fetcher.mock.calls.filter(([url])=>url==='/api/ingest')).toHaveLength(2);
   });
   it('refuses wrap approval with missing request identity, wrong required role or lost eligibility',()=>{
     const pending={id:'wrap',reason:{kind:'wrap' as const,required_role:'first_ad' as const,note:'snapshot'}};
