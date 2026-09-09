@@ -535,6 +535,8 @@ def route_evaluate(body: dict, request_id: str) -> dict:
 
 def route_wrap(body: dict, request_id: str) -> dict:
     run = build_run(body["run_id"])
+    if body.get("interrupt_id") is None:
+        run.store_packet(workspace.current_eligibility(run).sealed())
     agent = build_agent(run, plan=())
     if body.get("interrupt_id") is not None:
         problem = bad_identifier("interrupt_id", body.get("interrupt_id"))

@@ -108,3 +108,20 @@ def test_saved_turnover_retry_returns_the_original_bytes(offline_backends):
     again=post('/api/turnover',{'run_id':RUN})
     assert first['turnover']==again['turnover']
     assert 'already saved' in again['message']
+
+
+def test_request_wrap_refreshes_the_gate_before_asking_the_agent(monkeypatch):
+    from types import SimpleNamespace
+    run = H.build_run(RUN)
+    run.store_packet({'eligible': True})
+
+    class Reader:
+        messages = []
+
+        def __call__(self, prompt):
+            assert run.load_packet()['eligible'] is False
+            assert run.load_packet()['package_revision'] == run.package.revision_digest()
+            return SimpleNamespace(interrupts=[])
+
+    monkeypatch.setattr(H, 'build_agent', lambda *args, **kwargs: Reader())
+    assert post('/api/wrap', {'run_id': RUN})['status'] == 200
