@@ -1,4 +1,4 @@
-import {useEffect,useRef,useState} from 'react';
+import {useLayoutEffect,useRef,useState} from 'react';
 import {ApprovalConsole,DecisionForm} from './Actions';
 import {Evidence,Inspector} from './Inspector';
 import {link,roles,words} from './model';
@@ -12,13 +12,15 @@ export function SceneView({scene,state,selected,selection={},role='script_superv
   const {beat,finding,findings,invalid,related}=selectEvidence(scene,state,{...selection,beat:selected});
   const scriptList=useRef<HTMLDivElement>(null);
   const activeBeat=selected ?? related[0]?.beat_id;
-  useEffect(()=>{
+  useLayoutEffect(()=>{
     const list=scriptList.current;
     const row=activeBeat?document.getElementById('beat-'+activeBeat):null;
     if(list && row && list.contains(row)){
       list.scrollTop=Math.max(0,list.scrollTop+row.getBoundingClientRect().top-list.getBoundingClientRect().top-10);
     }
-  },[activeBeat]);
+  // A filter can replace the rows above the same selected beat. Reposition for
+  // that layout change as well as a new selection, without moving focus.
+  },[activeBeat,filter,search,scene,state.counts]);
   const outcomes=new Map((state.counts ? state.beats : []).map(b=>[b.beat_id,b]));
   const shown=uniqueBy(scene.beats,b=>b.beat_id).filter(b=>beatMatches(b,state,['covered','exceptions','missing-releases'].includes(filter)?filter:'all') && `${b.slug} ${b.beat_id} ${b.description} ${b.page} ${b.line}`.toLowerCase().includes(search.toLowerCase()));
   const updateFilter=(value:string)=>{setLocalFilter(value);if(selection.filter)location.hash=link('scene',state.run_id,undefined,{filter:value});};
