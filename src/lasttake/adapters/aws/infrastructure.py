@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import json
 import os
+from concurrent.futures import ThreadPoolExecutor
 from typing import Callable, Optional
 
 from ...domain.events import Event, EventType
@@ -281,11 +282,22 @@ class EventBridgeBus:
             Bucket=self.bucket, Prefix=f"{self.prefix}{correlation_id}/"
         ):
             keys.extend(obj["Key"] for obj in page.get("Contents", []))
+        keys.sort()
+        if len(keys) < 2:
+            return [self._read_event(key) for key in keys]
         rows = []
-        for key in sorted(keys):
-            body = self._s3.get_object(Bucket=self.bucket, Key=key)["Body"].read()
-            rows.append(json.loads(body.decode("utf-8")))
+        # Bound both concurrent reads and queued work; map preserves key order.
+        with ThreadPoolExecutor(max_workers=8) as reads:
+            for start in range(0, len(keys), 8):
+                rows.extend(reads.map(self._read_event, keys[start:start + 8]))
         return rows
+
+    def _read_event(self, key: str) -> dict:
+        body = self._s3.get_object(Bucket=self.bucket, Key=key)["Body"]
+        try:
+            return json.loads(body.read().decode("utf-8"))
+        finally:
+            body.close()
 
 
 def from_environment():

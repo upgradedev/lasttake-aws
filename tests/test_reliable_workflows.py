@@ -3,6 +3,7 @@ import copy
 import json
 import subprocess
 import sys
+import threading
 
 import pytest
 
@@ -19,6 +20,154 @@ RELEASE = dict(record_id="REL-TEST", subject_id="BG-07", subject_kind="person",
                document_type="background release", scope="all media",
                territory="worldwide", status="executed")
 REPORT = dict(take_id="T-900", media_id="A007R2G01", lens_mm=50, camera_roll="A007")
+
+
+class ReplayS3:
+    """Read-only client double with inspectable bodies and paginated history."""
+
+    def __init__(self, count, *, failure=None, parallel=False):
+        self.keys = [f"events/run/{index:03}.json" for index in range(count)]
+        self.pages = [{"Contents": [{"Key": key} for key in self.keys[1::2][::-1]]},
+                      {}, {"Contents": [{"Key": key} for key in self.keys[::2][::-1]]}]
+        self.failure = failure
+        self.parallel = parallel
+        self.calls = []
+        self.bodies = {}
+        self.completed = []
+        self.active = 0
+        self.peak = 0
+        self.condition = threading.Condition()
+        self.barrier = threading.Barrier(8, timeout=5)
+        self.next_completed = 7
+
+    def get_paginator(self, name):
+        assert name == "list_objects_v2"
+        return self
+
+    def paginate(self, **kwargs):
+        assert kwargs == {"Bucket": "audit-bucket", "Prefix": "events/run/"}
+        yield from self.pages
+        if self.failure == "list":
+            raise OSError("list failed")
+
+    def get_object(self, *, Bucket, Key):
+        assert Bucket == "audit-bucket"
+        index = self.keys.index(Key)
+        with self.condition:
+            assert Key not in self.calls, "replay must not add retries"
+            self.calls.append(Key)
+            if self.parallel and index >= 8:
+                prior_batch_end = (index // 8) * 8
+                assert all(self.bodies[key].closed for key in self.keys[:prior_batch_end])
+            if index == 0 and self.failure == "get":
+                raise OSError("get failed")
+            body = ReplayBody(self, index)
+            self.bodies[Key] = body
+            return {"Body": body}
+
+
+class ReplayBody:
+    def __init__(self, client, index):
+        self.client = client
+        self.index = index
+        self.closed = False
+
+    def read(self):
+        client = self.client
+        with client.condition:
+            client.active += 1
+            client.peak = max(client.peak, client.active)
+        try:
+            if client.parallel and self.index < 8:
+                client.barrier.wait()
+                with client.condition:
+                    assert client.condition.wait_for(
+                        lambda: client.next_completed == self.index, timeout=5
+                    ), "first batch did not complete in controlled reverse order"
+                    client.completed.append(self.index)
+                    client.next_completed -= 1
+                    client.condition.notify_all()
+            if self.index == 0:
+                if client.failure == "read":
+                    raise OSError("read failed")
+                if client.failure == "decode":
+                    return b"\xff"
+                if client.failure == "json":
+                    return b"{"
+            return json.dumps({"event_id": self.index, "payload": {"record": self.index}}).encode()
+        finally:
+            with client.condition:
+                client.active -= 1
+
+    def close(self):
+        assert not self.closed
+        self.closed = True
+
+
+def replay_bus(client):
+    from lasttake.adapters.aws.infrastructure import EventBridgeBus
+
+    # Neither double exposes writes: replay may only list and get objects.
+    return EventBridgeBus("audit-bus", "audit-bucket", events_client=object(), s3_client=client)
+
+
+@pytest.mark.parametrize("count", [0, 1])
+def test_event_replay_empty_and_single_history_do_not_start_workers(monkeypatch, count):
+    from lasttake.adapters.aws import infrastructure
+
+    def unexpected_executor(**kwargs):
+        raise AssertionError("small history must stay synchronous")
+
+    monkeypatch.setattr(infrastructure, "ThreadPoolExecutor", unexpected_executor)
+    client = ReplayS3(count)
+    assert replay_bus(client).replay("run") == [
+        {"event_id": index, "payload": {"record": index}} for index in range(count)
+    ]
+    assert client.calls == client.keys
+    assert all(body.closed for body in client.bodies.values())
+
+
+@pytest.mark.parametrize("count", [2, 7])
+def test_event_replay_preserves_complete_paginated_history(count):
+    client = ReplayS3(count)
+    assert replay_bus(client).replay("run") == [
+        {"event_id": index, "payload": {"record": index}} for index in range(count)
+    ]
+    assert sorted(client.calls) == client.keys
+    assert all(body.closed for body in client.bodies.values())
+
+
+def test_event_replay_parallel_reads_are_bounded_and_return_sorted_complete_history():
+    client = ReplayS3(19, parallel=True)
+    assert replay_bus(client).replay("run") == [
+        {"event_id": index, "payload": {"record": index}} for index in range(19)
+    ]
+    assert client.peak == 8
+    assert client.completed == list(range(7, -1, -1))
+    assert sorted(client.calls) == client.keys
+    assert all(body.closed for body in client.bodies.values())
+
+
+@pytest.mark.parametrize("failure,error", [
+    ("get", OSError), ("read", OSError), ("decode", UnicodeDecodeError),
+    ("json", json.JSONDecodeError),
+])
+@pytest.mark.parametrize("count", [1, 19])
+def test_event_replay_fails_closed_without_retry_and_closes_returned_bodies(failure, error, count):
+    client = ReplayS3(count, failure=failure)
+    with pytest.raises(error):
+        replay_bus(client).replay("run")
+    assert client.keys[0] in client.calls
+    assert set(client.calls) <= set(client.keys[:8])
+    assert len(client.calls) == len(set(client.calls))
+    assert all(body.closed for body in client.bodies.values())
+
+
+def test_event_replay_does_not_read_a_partial_listing_after_pagination_failure():
+    client = ReplayS3(19, failure="list")
+    with pytest.raises(OSError, match="list failed"):
+        replay_bus(client).replay("run")
+    assert client.calls == []
 
 
 def eligible(body):
