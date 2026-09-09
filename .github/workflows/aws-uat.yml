@@ -44,7 +44,7 @@ jobs:
           npm install --global npm@11.19.1 --ignore-scripts
           npm ci
           npm audit --omit=dev --audit-level=low
-          npx playwright install --with-deps chromium
+          python ../.github/scripts/install-playwright-chromium.py
       - name: Real CloudFront API and durable AWS workspace journeys
         id: journeys
         working-directory: frontend

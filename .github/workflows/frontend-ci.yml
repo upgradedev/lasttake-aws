@@ -150,7 +150,7 @@ jobs:
         id: browser
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         working-directory: frontend
-        run: npx playwright install --with-deps chromium
+        run: python ../.github/scripts/install-playwright-chromium.py
       - name: Real Python API and desktop/mobile user journeys
         if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.browser.outcome == 'success' }}
         working-directory: frontend
