@@ -1,6 +1,17 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile,readdir} from 'node:fs/promises';
+import {checkAudit} from '../scripts/check-audit.mjs';
+
+test('audit gate fails closed on runtime findings and unavailable reports',()=>{
+  const clean={auditReportVersion:2,vulnerabilities:{},metadata:{vulnerabilities:{info:0,low:0,moderate:0,high:0,critical:0,total:0}}};
+  assert.doesNotThrow(()=>checkAudit(clean,clean));
+  const low={...clean,vulnerabilities:{example:{severity:'low'}},metadata:{vulnerabilities:{...clean.metadata.vulnerabilities,low:1,total:1}}};
+  assert.throws(()=>checkAudit(clean,low),/zero vulnerabilities/);
+  assert.throws(()=>checkAudit({...clean,error:{code:'EAUDITNOLOCK'}},clean),/unavailable/);
+  assert.throws(()=>checkAudit(clean,{}),/malformed/);
+  assert.throws(()=>checkAudit(clean,{...clean,vulnerabilities:low.vulnerabilities}),/zero vulnerabilities/);
+});
 test('static build is real React with same-origin API and no HTML proxy',async()=>{
   const index=await readFile('dist/index.html','utf8');
   assert.match(index,/\/assets\/.*\.js/);
