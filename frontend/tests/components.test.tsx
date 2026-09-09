@@ -8,6 +8,12 @@ import {SceneView} from '../src/SceneView';
 import {scene,state,receipt,session,take,finding} from './fixtures';
 const act=()=>vi.fn().mockResolvedValue(true);
 describe('scene workspace',()=>{
+  it('does not present preliminary beat classifications as assessed evidence',()=>{
+    render(<SceneView scene={scene} state={{...state,counts:null,beats:[...state.beats,{beat_id:'B-17',status:'media_identity_exception',reason:'preliminary',basis:'unknown'}]}} selected={null}/>);
+    expect(screen.getAllByText('Not assessed',{exact:true})).toHaveLength(scene.beats.length);
+    expect(screen.queryByText('covered with evidence',{exact:true})).not.toBeInTheDocument();
+    expect(screen.queryByText('media identity exception',{exact:true})).not.toBeInTheDocument();
+  });
   it('filters script, opens evidence, inspects conflicting camera metadata',async()=>{const user=userEvent.setup();render(<SceneView scene={scene} state={state} selected={null}/>);expect(screen.getByText('Shot plan advisory')).toBeVisible();await user.click(screen.getByText('Slate 42A/1'));expect(screen.getByRole('table')).toContainHTML('OTHER');await user.selectOptions(screen.getByLabelText('Show'),'exceptions');expect(screen.queryByText('Delphine reacts')).not.toBeInTheDocument();await user.type(screen.getByRole('searchbox'),'missing');expect(screen.getByText(/No beats match/)).toBeVisible();});
   it('keeps unassessed, optional, empty and supplied flags honest',()=>{render(<SceneView scene={{...scene,beats:[{...scene.beats[0],takes:[{...take,preferred:false,usable:false,note:'',camera_report:null}]}]}} state={{...state,counts:null,beats:[]}} selected={'B-01'}/>);expect(screen.getByText(/Run a checkpoint to reconcile/)).toBeVisible();fireEvent.click(screen.getByText('Slate 42A/1'));expect(screen.getByText(/No supervisor note/)).toBeVisible();expect(screen.getAllByText('Missing')).toHaveLength(3);});
   it('shows selected beat context without claiming scene clearance',()=>{render(<SceneView scene={scene} state={state} selected="B-17"/>);expect(screen.getByText(/No exception is associated/)).toBeVisible();expect(screen.getByRole('link',{name:'Show all'})).toHaveAttribute('href',`#scene?run=${state.run_id}`);});
