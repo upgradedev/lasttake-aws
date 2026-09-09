@@ -20,6 +20,7 @@ import json
 from typing import Any, Callable
 
 from strands import tool
+from strands.interrupt import InterruptException
 from strands.types.tools import ToolContext
 
 from ..checks import continuity as continuity_check
@@ -30,14 +31,16 @@ from ..domain import policy, rollup
 from ..domain.events import Event, EventType
 from ..domain.findings import Finding, from_dict
 from ..domain.turnover import generate as generate_turnover
+from ..domain.sealing import digest_of
 from .runtime import WrapRun
 
 
 def _record(run: WrapRun, findings: list[Finding]) -> str:
     """Persist findings, publish one event each, and summarise for the model."""
     run.store_findings(findings)
+    deliveries = []
     for finding in findings:
-        run.publish(
+        deliveries.append(run.publish(
             EventType.FINDING_RECORDED,
             {
                 "finding_id": finding.finding_id,
@@ -45,7 +48,7 @@ def _record(run: WrapRun, findings: list[Finding]) -> str:
                 "requirement_id": finding.requirement_id,
                 "truth_state": finding.truth_state.value,
             },
-        )
+        ))
     exceptions = [f for f in findings if f.truth_state.is_exception]
     lines = [
         f"{len(findings)} finding(s) recorded, {len(exceptions)} raising exceptions."
@@ -57,7 +60,47 @@ def _record(run: WrapRun, findings: list[Finding]) -> str:
         )
     if len(exceptions) > 8:
         lines.append(f"  ... and {len(exceptions) - 8} more.")
+    failed = [r for r in deliveries if not r.accepted]
+    if failed:
+        lines.append(f"{len(failed)} event delivery outcome(s) need review; findings are saved. No downstream completion is established.")
     return "\n".join(lines)
+
+
+def _approval_record(run, tool_context, kind):
+    """Persist the first review, then reload those exact bytes on tool replay."""
+    tool_id = tool_context.tool_use["toolUseId"]
+    approval_id = digest_of({"run": run.run_id, "tool": tool_id, "kind": kind})
+    key = f"approvals/{run.run_id.replace(':', '_')}/{approval_id}.json"
+    if run.artifacts.exists(key):
+        return json.loads(run.artifacts.get(key))
+    record = {"approval_id": approval_id, "required_role": policy.Role.FIRST_AD.value,
+              **run.review_binding()}
+    return record
+
+
+def _await_approval(run, tool_context, kind, reason):
+    reviewed = _approval_record(run, tool_context, kind)
+    key = f"approvals/{run.run_id.replace(':', '_')}/{reviewed['approval_id']}.json"
+    saved = run.artifacts.exists(key)
+    try:
+        answer = tool_context.interrupt(f"first-ad-{kind}-approval", reason={**reason, **reviewed})
+    except InterruptException:
+        if not saved:
+            run.artifacts.put(key, json.dumps(reviewed, sort_keys=True).encode())
+        raise
+    # Never bind today's evidence to an older unbound affirmative response.
+    # The old request can still be declined and replaced by a fresh review.
+    return answer, reviewed if saved else {}
+
+
+def _delivery_message(receipt):
+    if receipt.accepted:
+        return f"Bus accepted. Receipt {receipt.reference}. Downstream completion is not established."
+    if receipt.outcome == "rejected":
+        return "Bus rejected the request. A safe explicit retry is available in delivery status."
+    if receipt.outcome == "refused":
+        return f"Refusing: {receipt.detail}"
+    return f"Delivery {receipt.outcome}. No success is recorded. Reconcile the saved attempt before any resend."
 
 
 def _split(csv: str) -> tuple[str, ...] | None:
@@ -158,9 +201,9 @@ def build_tools(run: WrapRun) -> list[Callable[..., Any]]:
         sentence = rollup.sentence(outcomes)
 
         if packet.eligible:
-            run.publish(EventType.WRAP_ELIGIBLE, {"counts": packet.counts})
+            delivery = run.publish(EventType.WRAP_ELIGIBLE, {"counts": packet.counts})
         else:
-            run.publish(
+            delivery = run.publish(
                 EventType.APPROVAL_REQUESTED,
                 {"causes": [c.to_dict() for c in packet.causes]},
             )
@@ -177,6 +220,7 @@ def build_tools(run: WrapRun) -> list[Callable[..., Any]]:
             )
         if len(packet.causes) > 10:
             lines.append(f"  ... and {len(packet.causes) - 10} more causes.")
+        lines.append(_delivery_message(delivery))
         return "\n".join(lines)
 
     @tool(context=True)
@@ -198,10 +242,12 @@ def build_tools(run: WrapRun) -> list[Callable[..., Any]]:
 
         # Everything above this line runs again on resume. Nothing above it
         # touches the outside world, and nothing below it may run twice.
-        decision = tool_context.interrupt(
-            "first-ad-pickup-approval",
+        reviewed = _approval_record(run, tool_context, "pickup")
+        decision, reviewed = _await_approval(
+            run, tool_context, "pickup",
             reason={
                 "kind": "pickup",
+                **reviewed,
                 "scene_id": run.package.scene_id,
                 "beat_id": beat_id,
                 "slug": beat.slug,
@@ -223,23 +269,22 @@ def build_tools(run: WrapRun) -> list[Callable[..., Any]]:
             )
 
         # The external effect, once, keyed so a duplicate delivery is harmless.
-        receipt = run.publish(
+        if not reviewed:
+            return "Refusing: this older request has no saved evidence binding. Request a fresh approval."
+        receipt = run.publish_approved(
             EventType.PICKUP_REQUESTED,
             {
                 "beat_id": beat_id,
                 "scene_id": run.package.scene_id,
                 "justification": justification,
                 "approved_by_role": policy.Role.FIRST_AD.value,
+                **reviewed,
             },
-            idempotent=True,
         )
-        run.audit(
-            "pickup.approved",
-            {"beat_id": beat_id, "receipt": receipt.reference, "accepted": receipt.accepted},
-        )
+        if not receipt.accepted:
+            return _delivery_message(receipt)
         return (
-            f"Pickup approved for {beat_id} by the 1st AD and routed to the assistant "
-            f"director's board. Receipt {receipt.reference}. The beat stays an "
+            f"Pickup approved for {beat_id} by the 1st AD. {_delivery_message(receipt)} The beat stays an "
             "exception until a take arrives for it."
         )
 
@@ -253,7 +298,10 @@ def build_tools(run: WrapRun) -> list[Callable[..., Any]]:
         packet = run.load_packet()
         if packet is None:
             return "No eligibility packet yet. Run evaluate_wrap_eligibility first."
-        if not packet.get("eligible"):
+        # A resumed stale request still reaches interrupt() so it can be declined.
+        approval_key = f"approvals/{run.run_id.replace(':', '_')}/{digest_of({'run': run.run_id, 'tool': tool_context.tool_use['toolUseId'], 'kind': 'wrap'})}.json"
+        replay = run.artifacts.exists(approval_key)
+        if not replay and not packet.get("eligible"):
             causes = packet.get("causes", [])
             return (
                 f"Not eligible: {len(causes)} unresolved cause(s). Asking the 1st AD "
@@ -261,10 +309,14 @@ def build_tools(run: WrapRun) -> list[Callable[..., Any]]:
                 "system exists to prevent. Resolve the causes first."
             )
 
-        decision = tool_context.interrupt(
-            "first-ad-wrap-approval",
+        reviewed = _approval_record(run, tool_context, "wrap")
+        if not replay and not run.wrap_guard(reviewed):
+            return "Refusing: current evidence is not eligible. Run a fresh checkpoint and review."
+        decision, reviewed = _await_approval(
+            run, tool_context, "wrap",
             reason={
                 "kind": "wrap",
+                **reviewed,
                 "scene_id": run.package.scene_id,
                 "counts": packet.get("counts"),
                 "required_role": policy.Role.FIRST_AD.value,
@@ -281,15 +333,16 @@ def build_tools(run: WrapRun) -> list[Callable[..., Any]]:
             run.audit("wrap.declined", {"decision": str(decision)})
             return "The 1st AD did not approve the wrap. Nothing has changed."
 
-        receipt = run.publish(
+        if not reviewed:
+            return "Refusing: this older request has no saved evidence binding. Request a fresh approval."
+        receipt = run.publish_approved(
             EventType.WRAP_READY,
-            {"scene_id": run.package.scene_id, "approved_by_role": policy.Role.FIRST_AD.value},
-            idempotent=True,
+            {"scene_id": run.package.scene_id, "approved_by_role": policy.Role.FIRST_AD.value, **reviewed},
         )
-        run.audit("wrap.approved", {"receipt": receipt.reference,
-                                    "package_revision_digest": run.package.revision_digest()})
+        if not receipt.accepted:
+            return _delivery_message(receipt)
         return (
-            f"Wrap approved by the 1st AD. Receipt {receipt.reference}. "
+            f"Wrap approved by the 1st AD. {_delivery_message(receipt)} "
             "Publish the turnover now."
         )
 
@@ -310,25 +363,35 @@ def build_tools(run: WrapRun) -> list[Callable[..., Any]]:
         eligibility = policy.evaluate(run.run_id, run.package, findings, decisions)
         if not eligibility.eligible:
             return "Refusing: current evidence is not eligible. Review the changed findings first."
-        turnover = generate_turnover(
-            run_id=run.run_id,
-            package=run.package,
-            findings=findings,
-            decisions=decisions,
-            eligibility=eligibility,
-            approved_by=run.wrap_approver(),
-            approved_role=policy.Role.FIRST_AD.value,
-            candidate_sha=run.candidate_sha,
-        )
-        key = run.store_turnover(turnover.manifest)
-        run.publish(
+        key = f"turnover/{run.run_id.replace(':', '_')}.json"
+        if run.artifacts.exists(key):
+            manifest = json.loads(run.artifacts.get(key))
+            if manifest.get("package_revision_digest") != run.package.revision_digest():
+                return "Refusing: the saved turnover is historical. Start a new run for a changed handoff."
+            digest = manifest["record_sha256"]
+        else:
+            turnover = generate_turnover(
+                run_id=run.run_id,
+                package=run.package,
+                findings=findings,
+                decisions=decisions,
+                eligibility=eligibility,
+                approved_by=run.wrap_approver(),
+                approved_role=policy.Role.FIRST_AD.value,
+                candidate_sha=run.candidate_sha,
+            )
+            key = run.store_turnover(turnover.manifest)
+            digest = turnover.digest
+        delivery = run.publish(
             EventType.TURNOVER_GENERATED,
-            {"artifact_key": key, "digest": turnover.digest},
+            {"artifact_key": key, "digest": digest},
             idempotent=True,
         )
+        if not delivery.accepted:
+            return f"Turnover saved as {key}. {_delivery_message(delivery)}"
         return (
-            f"Turnover published as {key}, sealed with {turnover.digest[:12]}. "
-            "Editorial can re-hash it and tell whether anything has moved since."
+            f"Turnover published as {key}, sealed with {digest[:12]}. {_delivery_message(delivery)} "
+            "The hash checks bytes, not the truth of the supplied records."
         )
 
     return [

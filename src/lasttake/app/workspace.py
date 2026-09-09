@@ -77,7 +77,10 @@ def pending_for(run):
         if entry.get("kind") == "ui.pending":
             pending = entry.get("pending")
             if pending:
-                return {**pending, "evidence_changed": entry["package_digest"] != run.package.revision_digest()}
+                changed = entry["package_digest"] != run.package.revision_digest()
+                if pending["reason"].get("kind") == "wrap":
+                    changed = changed or pending["reason"].get("review_digest") != run.review_binding()["review_digest"]
+                return {**pending, "evidence_changed": changed}
             return None
     return None
 
@@ -135,9 +138,9 @@ def guard_action(path, body, run, owned):
         return 403, "Only the 1st AD may answer a pickup or wrap approval."
     if owned and path == "/api/decide" and not body.get("finding_sha256"):
         return 400, "The reviewed finding digest is required. Refresh the scene."
-    if path == "/api/wrap" and body.get("approve") is True:
+    if path in ("/api/approve", "/api/wrap") and body.get("approve") is True:
         pending = pending_for(run)
         if pending and pending["reason"].get("kind") == "wrap":
-            if pending["evidence_changed"] or not current_eligibility(run).eligible:
+            if pending["evidence_changed"] or not run.wrap_guard(pending["reason"]):
                 return 409, "Evidence changed after this wrap request. Decline it and request a fresh approval after review."
     return None

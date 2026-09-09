@@ -15,11 +15,20 @@ from ..domain.events import Event, EventType
 
 @dataclass(frozen=True)
 class Receipt:
-    """Proof that something happened outside this process."""
+    """A bus response, never proof that a downstream target completed work."""
 
     accepted: bool
     reference: str
     detail: str = ""
+    status: str = ""
+
+    @property
+    def outcome(self) -> str:
+        return self.status or ("accepted" if self.accepted else "rejected")
+
+    def to_dict(self) -> dict:
+        return {"accepted": self.accepted, "reference": self.reference,
+                "detail": self.detail, "status": self.outcome}
 
 
 class EventBus(Protocol):

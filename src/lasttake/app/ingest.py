@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 import re
+from datetime import date
 from typing import Optional
 
 from ..domain import policy
@@ -77,7 +78,7 @@ def apply_amendments(package, amendments: list[dict]):
             package = with_extra_take(
                 package,
                 Take(**amendment["take"]),
-                CameraReportRow(**amendment["camera_report_row"]),
+                CameraReportRow(**amendment["camera_report_row"]) if amendment.get("camera_report_row") is not None else None,
             )
         elif amendment["kind"] == "rights_record":
             package = with_rights_record(package, RightsRecord(**amendment["record"]))
@@ -214,6 +215,15 @@ def shape_error(kind: object, document: object) -> Optional[dict]:
             "given": document["status"],
         }
 
+    expiry = document.get("expires_on")
+    if expiry is not None:
+        if not isinstance(expiry, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", expiry):
+            return {"error": "expires_on must be a calendar date in YYYY-MM-DD format or null"}
+        try:
+            date.fromisoformat(expiry)
+        except ValueError:
+            return {"error": "expires_on must be a valid calendar date in YYYY-MM-DD format"}
+
     row = document.get("camera_report_row")
     if row is not None:
         if not isinstance(row, dict):
@@ -228,6 +238,12 @@ def shape_error(kind: object, document: object) -> Optional[dict]:
                 "given": row.get("take_id"),
                 "expected": document.get("take_id"),
             }
+        fields = {"take_id": str, "media_id": str, "lens_mm": int, "camera_roll": str}
+        if set(row) != set(fields):
+            return {"error": "camera_report_row requires take_id, media_id, lens_mm and camera_roll only"}
+        for field, expected in fields.items():
+            if type(row[field]) is not expected or (expected is str and not 0 < len(row[field]) <= 128):
+                return {"error": f"camera_report_row.{field} must be a bounded {expected.__name__}"}
     return None
 
 
@@ -245,6 +261,9 @@ def perform_ingest(run, kind, document, rebuild, base_package, state_of) -> dict
     # one id, an ambiguous camera report lookup, and a beat covered by whichever
     # the iteration reached first. A correction replaces a document; it does not
     # arrive as a duplicate with the same name.
+    problem = shape_error(kind, document)
+    if problem:
+        raise ValueError(problem["error"])
     existing = (
         {t.take_id for t in run.package.takes}
         if kind == "take"
@@ -271,15 +290,10 @@ def perform_ingest(run, kind, document, rebuild, base_package, state_of) -> dict
             payload.setdefault("visible_assets", [])
             payload.setdefault("captured_at", "")
             take = Take(**payload)
-            row_doc = document.get("camera_report_row") or {
-                "take_id": take.take_id,
-                "media_id": take.media_id,
-                "lens_mm": take.lens_mm,
-                "camera_roll": take.camera_roll,
-            }
-            row = CameraReportRow(**row_doc)
+            row_doc = document.get("camera_report_row")
+            row = CameraReportRow(**row_doc) if row_doc is not None else None
             amendment = {"kind": "take", "take": take.__dict__,
-                         "camera_report_row": row.__dict__}
+                         "camera_report_row": row.__dict__ if row is not None else None}
             event_type, event_payload = EventType.TAKE_CAPTURED, {
                 "take_id": take.take_id, "beat_ids": list(take.beat_ids)}
         else:
@@ -290,11 +304,11 @@ def perform_ingest(run, kind, document, rebuild, base_package, state_of) -> dict
     except TypeError as exc:
         raise ValueError(f"the document is not a valid {kind}: {exc}") from exc
 
-    record_amendment(run.artifacts, run.run_id, amendment)
-    package = apply_amendments(base_package(), load_amendments(run.artifacts, run.run_id))
+    # Validate the complete candidate and run every affected check before the
+    # first write. A 400 must leave the original package and its record intact.
+    package = apply_amendments(run.package, [amendment])
     new_run = rebuild(run.run_id, package)
     event = new_run.build_event(event_type, event_payload)
-    new_run.bus.publish(event)
 
     affected = list(affected_by(event))
     fresh = []
@@ -306,7 +320,9 @@ def perform_ingest(run, kind, document, rebuild, base_package, state_of) -> dict
         fresh += metadata_check.run(package, new_run.run_id, policy.POLICY_VERSION)
     if "rights" in affected:
         fresh += rights_check.run(package, new_run.run_id, policy.POLICY_VERSION)
+    record_amendment(run.artifacts, run.run_id, amendment)
     new_run.store_findings(fresh)
+    delivery = new_run.publish(event_type, event_payload)
 
     # Which approvals no longer apply, because the reading they were about has
     # been replaced. Derived by comparing digests, never asserted.
@@ -329,11 +345,14 @@ def perform_ingest(run, kind, document, rebuild, base_package, state_of) -> dict
     state["affected_checks"] = affected
     state["ingested"] = {"kind": kind, "amendments": len(load_amendments(run.artifacts, run.run_id))}
     state["withdrawn_decisions"] = withdrawn
+    state["delivery"] = delivery.to_dict()
     state["message"] = (
         f"Ingested one {kind.replace('_', ' ')}. {len(affected)} check(s) reran, because "
         f"that is which artifact digests moved, and {len(before)} finding(s) were on file "
         f"before. {len(withdrawn)} human decision(s) no longer apply."
     )
+    if not delivery.accepted:
+        state["message"] += f" Event delivery {delivery.outcome}; the evidence is saved. Review delivery status before retrying."
     return state
 
 

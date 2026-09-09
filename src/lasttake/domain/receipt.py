@@ -27,7 +27,7 @@ from typing import Optional
 
 from .findings import Finding, TruthState
 from .package import ScenePackage
-from .policy import HumanDecision
+from .policy import HumanDecision, latest_decision, decision_applies
 from .sealing import seal, utc_now_iso, verify_seal
 from .turnover import RIGHTS_DISCLAIMER, SYNTHETIC_NOTICE
 
@@ -91,24 +91,12 @@ def _open_items(
     same rule the gate applies: an approval is bound to the digest of the
     finding it was taken about, and evidence that has moved since outran it.
     """
-    by_finding: dict[str, HumanDecision] = {}
-    for decision in decisions:
-        current = by_finding.get(decision.finding_id)
-        if current is None:
-            by_finding[decision.finding_id] = decision
-
     rows = []
     for finding in sorted(findings, key=lambda f: f.finding_id):
         if finding.truth_state is TruthState.VERIFIED:
             continue
-        decision = by_finding.get(finding.finding_id)
-        applies = bool(
-            decision
-            and (
-                decision.finding_sha256 is None
-                or decision.finding_sha256 == finding.record_sha256
-            )
-        )
+        decision = latest_decision(finding, decisions)
+        applies = decision_applies(finding, decision)
         rows.append(
             {
                 "finding_id": finding.finding_id,
@@ -125,11 +113,14 @@ def _open_items(
                 "a_human_decided": (
                     {
                         "action": decision.action.value,
+                        "decision_id": decision.decision_id,
+                        "finding_sha256": decision.finding_sha256,
+                        "at": decision.at,
                         "actor": decision.actor,
                         "role": decision.role.value,
                         "reason": decision.reason,
                         "still_open_because": (
-                            "an accepted exception is a known problem, not a fixed one"
+                            "the original finding is retained alongside the current human review"
                         ),
                     }
                     if applies and decision

@@ -20,7 +20,7 @@ export function aboutBeat(finding:Finding, beat:Beat) {
   return id===beat.beat_id || (Boolean(beat.continuity_ref) && id===beat.continuity_ref) || beat.takes.some(t=>t.take_id===id || t.visible_people.includes(id) || t.visible_assets.includes(id)) || finding.locators.some(l=>l.kind==='take' && Boolean(l.value) && beat.takes.some(t=>t.take_id===l.value));
 }
 export function decisionFor(finding:Finding, decisions:Decision[]) {
-  const decision=[...decisions].reverse().find(d=>d.finding_id===finding.finding_id);
+  const decision=decisions.filter(d=>d.finding_id===finding.finding_id && d.role===finding.required_role).sort((a,b)=>a.at.localeCompare(b.at)||a.decision_id.localeCompare(b.decision_id)).at(-1);
   return {decision, stale:!!decision?.finding_sha256 && decision.finding_sha256!==finding.record_sha256};
 }
 export function words(value:string) { return value.replaceAll('_',' '); }

@@ -247,7 +247,7 @@ def load_package(directory: Path) -> ScenePackage:
     )
 
 
-def with_extra_take(package: ScenePackage, take: Take, row: CameraReportRow) -> ScenePackage:
+def with_extra_take(package: ScenePackage, take: Take, row: Optional[CameraReportRow] = None) -> ScenePackage:
     """Return a new package revision that includes one late take.
 
     Used by the targeted rerun path. It builds a *new* package rather than
@@ -257,15 +257,17 @@ def with_extra_take(package: ScenePackage, take: Take, row: CameraReportRow) -> 
     takes_doc = dict(package.artifacts["takes"].payload)
     takes_doc["takes"] = takes_doc["takes"] + [take.__dict__]
     report_doc = dict(package.artifacts["camera_report"].payload)
-    report_doc["rows"] = report_doc["rows"] + [row.__dict__]
+    if row is not None:
+        report_doc["rows"] = report_doc["rows"] + [row.__dict__]
 
     artifacts = dict(package.artifacts)
     artifacts["takes"] = Artifact.from_bytes(
         "takes", "takes", json.dumps(takes_doc, sort_keys=True).encode("utf-8")
     )
-    artifacts["camera_report"] = Artifact.from_bytes(
-        "camera_report", "report", json.dumps(report_doc, sort_keys=True).encode("utf-8")
-    )
+    if row is not None:
+        artifacts["camera_report"] = Artifact.from_bytes(
+            "camera_report", "report", json.dumps(report_doc, sort_keys=True).encode("utf-8")
+        )
     return ScenePackage(
         production_id=package.production_id,
         scene_id=package.scene_id,
@@ -273,7 +275,7 @@ def with_extra_take(package: ScenePackage, take: Take, row: CameraReportRow) -> 
         beats=list(package.beats),
         shots=list(package.shots),
         takes=list(package.takes) + [take],
-        camera_report=list(package.camera_report) + [row],
+        camera_report=list(package.camera_report) + ([row] if row is not None else []),
         continuity_refs=list(package.continuity_refs),
         rights_records=list(package.rights_records),
         script_notes=dict(package.script_notes),

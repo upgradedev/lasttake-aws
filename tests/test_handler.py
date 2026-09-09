@@ -561,6 +561,7 @@ A_TAKE = {
     "usable": True,
     "note": "Pickup on the reaction. Clean single.",
     "visible_people": ["DELPHINE"],
+    "camera_report_row": {"take_id": "T-900", "media_id": "A007R2G01", "lens_mm": 50, "camera_roll": "A007"},
 }
 
 

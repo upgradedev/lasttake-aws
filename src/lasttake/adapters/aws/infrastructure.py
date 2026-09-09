@@ -125,6 +125,22 @@ class S3RunStore:
         seen[idempotency_key] = run_id
         self._write(self._handled_key(), seen)
 
+    def claim(self, idempotency_key: str, run_id: str) -> bool:
+        if self.already_handled(idempotency_key):
+            return False
+        try:
+            self._s3.put_object(Bucket=self.bucket,
+                Key=f"{self.prefix}claims/{idempotency_key}.json",
+                Body=json.dumps({"run_id": run_id}).encode(), IfNoneMatch="*")
+            return True
+        except self._s3.exceptions.ClientError as exc:
+            if exc.response.get("Error", {}).get("Code") in ("PreconditionFailed", "ConditionalRequestConflict", "412", "409"):
+                return False
+            raise
+
+    def release(self, idempotency_key: str) -> None:
+        self._s3.delete_object(Bucket=self.bucket, Key=f"{self.prefix}claims/{idempotency_key}.json")
+
     # -- run state ----------------------------------------------------------
 
     def save_findings(self, run_id: str, findings: list[dict]) -> None:
@@ -219,25 +235,30 @@ class EventBridgeBus:
             return Receipt(
                 accepted=False,
                 reference=event.event_id,
-                detail=f"stored in S3; EventBridge refused: {type(exc).__name__}: {exc}",
+                detail="Attempt stored in S3; EventBridge outcome unknown after an interrupted request.",
+                status="unknown",
             )
 
         failed = response.get("FailedEntryCount", 0)
-        if failed:
-            entry = response.get("Entries", [{}])[0]
+        entries = response.get("Entries", [])
+        entry = entries[0] if len(entries) == 1 else {}
+        if failed or entry.get("ErrorCode"):
             return Receipt(
                 accepted=False,
                 reference=event.event_id,
-                detail=f"stored in S3; EventBridge rejected: {entry.get('ErrorMessage')}",
+                detail=f"Attempt stored in S3; EventBridge rejected entry ({entry.get('ErrorCode', 'entry-failed')}).",
             )
+
+        if not entry.get("EventId"):
+            return Receipt(False, event.event_id, "Attempt stored in S3; no EventBridge acceptance identifier returned.", "unknown")
 
         for types, handler in self._handlers:
             if event.event_type in types:
                 handler(event)
         return Receipt(
             accepted=True,
-            reference=response["Entries"][0].get("EventId", event.event_id),
-            detail=f"on bus {self.bus_name}",
+            reference=entry["EventId"],
+            detail=f"Accepted by bus {self.bus_name}; downstream completion is not established.",
         )
 
     def subscribe(

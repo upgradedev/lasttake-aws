@@ -289,7 +289,7 @@ def test_a_publish_that_fails_can_be_retried(tmp_path):
         def publish(self, event):
             self.attempts += 1
             if not self.working:
-                raise RuntimeError("the bus is down")
+                return Receipt(accepted=False, reference=event.event_id, detail="entry explicitly rejected")
             return Receipt(accepted=True, reference=event.event_id, detail="published")
 
     bus = BrokenBus()
@@ -304,8 +304,8 @@ def test_a_publish_that_fails_can_be_retried(tmp_path):
         interpreter=OfflineInterpreter(),
     )
 
-    with pytest.raises(RuntimeError):
-        run.publish(EventType.PICKUP_REQUESTED, {"beat_id": "B-17"}, idempotent=True)
+    refused = run.publish(EventType.PICKUP_REQUESTED, {"beat_id": "B-17"}, idempotent=True)
+    assert refused.outcome == "rejected" and not refused.accepted
     assert bus.attempts == 1
 
     bus.working = True
@@ -314,5 +314,5 @@ def test_a_publish_that_fails_can_be_retried(tmp_path):
     assert "already handled" not in receipt.detail, "the failure was never released"
 
     again = run.publish(EventType.PICKUP_REQUESTED, {"beat_id": "B-17"}, idempotent=True)
-    assert "already handled" in again.detail
+    assert again.to_dict() == receipt.to_dict(), "return the saved bus receipt, not a fabricated one"
     assert bus.attempts == 2, "a successful publish was repeated"
