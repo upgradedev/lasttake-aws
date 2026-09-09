@@ -212,7 +212,7 @@
         "tests/projection.test.ts",
         "tests/workspaces.test.tsx"
       ],
-      "observed_result_evidence": "PENDING_CI for this new/changed UX. Exact candidate workflow artifacts are the evidence source; earlier PASS results apply only to their named releases.",
+      "observed_result_evidence": "AUTOMATION_PASS for implementation 896442b1359893f571dd0fbcd0335ccb2ffe1299 in https://github.com/upgradedev/lasttake-aws/actions/runs/34357735501. Real Python HTTP, Chromium desktop/mobile CI only; see frontend-evidence-896442b1359893f571dd0fbcd0335ccb2ffe1299 and ui-screenshots-896442b1359893f571dd0fbcd0335ccb2ffe1299. This is not live-AWS or human acceptance.",
       "human_signoff": "NOT_RUN"
     },
     {
@@ -234,7 +234,7 @@
         "tests/projection.test.ts",
         "tests/workspaces.test.tsx"
       ],
-      "observed_result_evidence": "PENDING_CI for this new/changed UX. Exact candidate workflow artifacts are the evidence source; earlier PASS results apply only to their named releases.",
+      "observed_result_evidence": "AUTOMATION_PASS for implementation 896442b1359893f571dd0fbcd0335ccb2ffe1299 in https://github.com/upgradedev/lasttake-aws/actions/runs/34357735501. Real Python HTTP, Chromium desktop/mobile CI only; see frontend-evidence-896442b1359893f571dd0fbcd0335ccb2ffe1299 and ui-screenshots-896442b1359893f571dd0fbcd0335ccb2ffe1299. This is not live-AWS or human acceptance.",
       "human_signoff": "NOT_RUN"
     },
     {
@@ -257,7 +257,7 @@
         "tests/workspaces.test.tsx",
         "tests/model.test.ts"
       ],
-      "observed_result_evidence": "PENDING_CI for this new/changed UX. Exact candidate workflow artifacts are the evidence source; earlier PASS results apply only to their named releases.",
+      "observed_result_evidence": "AUTOMATION_PASS for implementation 896442b1359893f571dd0fbcd0335ccb2ffe1299 in https://github.com/upgradedev/lasttake-aws/actions/runs/34357735501. Real Python HTTP, Chromium desktop/mobile CI only; see frontend-evidence-896442b1359893f571dd0fbcd0335ccb2ffe1299 and ui-screenshots-896442b1359893f571dd0fbcd0335ccb2ffe1299. This is not live-AWS or human acceptance.",
       "human_signoff": "NOT_RUN"
     },
     {
@@ -279,7 +279,7 @@
         "tests/e2e/journeys.spec.ts: LT03",
         "tests/workspaces.test.tsx"
       ],
-      "observed_result_evidence": "PENDING_CI for this new/changed UX. Exact candidate workflow artifacts are the evidence source; earlier PASS results apply only to their named releases.",
+      "observed_result_evidence": "AUTOMATION_PASS for implementation 896442b1359893f571dd0fbcd0335ccb2ffe1299 in https://github.com/upgradedev/lasttake-aws/actions/runs/34357735501. Real Python HTTP, Chromium desktop/mobile CI only; see frontend-evidence-896442b1359893f571dd0fbcd0335ccb2ffe1299 and ui-screenshots-896442b1359893f571dd0fbcd0335ccb2ffe1299. This is not live-AWS or human acceptance.",
       "human_signoff": "NOT_RUN"
     }
   ],
@@ -315,8 +315,14 @@
     "scope": "HISTORICAL_RELEASE_ONLY"
   },
   "current_workspace_revision": {
-    "status": "PENDING_CI",
-    "observed_result_evidence": "No current acceptance is embedded here. Inspect frontend-ci artifacts for the exact candidate SHA. Main release automatically runs exact-SHA AWS preflight, desktop/mobile journeys and postflight. Historical PASS entries below must not be reused as evidence for this revision.",
+    "status": "AUTOMATION_PASS",
+    "scope": "CI_REAL_HTTP_ONLY",
+    "implementation_sha": "896442b1359893f571dd0fbcd0335ccb2ffe1299",
+    "ci_run_url": "https://github.com/upgradedev/lasttake-aws/actions/runs/34357735501",
+    "evidence_artifact": "frontend-evidence-896442b1359893f571dd0fbcd0335ccb2ffe1299",
+    "screenshots_artifact": "ui-screenshots-896442b1359893f571dd0fbcd0335ccb2ffe1299",
+    "observed_result_evidence": "185 Python tests, 56 frontend unit/component tests, 3 functional contracts and 16 real-HTTP desktop/mobile journeys passed for the implementation SHA above. This later documentation/contract revision does not claim to validate itself. Final candidate CI artifacts remain authoritative; parent owns main release and exact-SHA live AWS acceptance.",
+    "live_aws_acceptance": "NOT_RUN",
     "human_signoff": "NOT_RUN"
   }
 }
