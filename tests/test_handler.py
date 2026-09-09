@@ -841,3 +841,37 @@ def test_a_rights_status_has_to_be_one_the_check_knows():
     )
     assert invented["status"] == 400
     assert "status must be one of" in invented["error"]
+
+
+def test_a_withdrawn_approval_is_visible_rather_than_silently_gone():
+    """The page has to tell a live approval from one the evidence outran.
+
+    The gate already ignores a decision whose bound digest no longer matches.
+    Without the finding's current seal in the payload the interface cannot make
+    the same distinction, so it would keep printing "accepted" beside a finding
+    nobody has looked at since it changed.
+    """
+    state = post("/api/checkpoint", {"run_id": RUN})
+    conflict = next(f for f in state["exceptions"] if f["check_type"] == "continuity")
+    assert conflict["record_sha256"], "the seal has to travel with the finding"
+
+    accepted = post(
+        "/api/decide",
+        {
+            "run_id": RUN, "finding_id": conflict["finding_id"],
+            "action": "accept_exception", "role": "script_supervisor",
+            "actor": "the supervisor", "reason": "Reviewed on the floor.",
+        },
+    )
+    bound = next(d for d in accepted["decisions"] if d["finding_id"] == conflict["finding_id"])
+    assert bound["finding_sha256"] == conflict["record_sha256"]
+
+    after = post("/api/ingest", {"run_id": RUN, "kind": "take", "document": A_TAKE})
+    assert conflict["finding_id"] in [w["finding_id"] for w in after["withdrawn_decisions"]]
+
+    reread = next(f for f in after["exceptions"] if f["finding_id"] == conflict["finding_id"])
+    assert reread["record_sha256"] != conflict["record_sha256"], (
+        "the reading has to have changed, or there is nothing to withdraw"
+    )
+    # The decision is still on the record. It is not deleted, it stopped applying.
+    assert any(d["finding_id"] == conflict["finding_id"] for d in after["decisions"])

@@ -140,6 +140,8 @@ h2.sec{font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:var(--
   border-radius:4px;padding:7px 9px}
 .withheld{margin-top:9px;font-size:12px;background:var(--legal-bg);color:#40297d;
   border-radius:4px;padding:7px 9px}
+.withdrawn{margin-top:9px;font-size:12px;background:var(--warn-bg);color:#7a4f00;
+  border-radius:4px;padding:7px 9px}
 details.ev{margin-top:9px;border-top:1px dashed var(--rule);padding-top:8px}
 details.ev summary{cursor:pointer;font-size:12px;color:var(--mute);list-style:none}
 details.ev summary::-webkit-details-marker{display:none}
@@ -823,17 +825,50 @@ function paintVerdict() {
 
 /* ---------- the exceptions --------------------------------------------- */
 
+/* The decision that still applies to this reading of this finding.
+ *
+ * Matching on finding_id alone would keep showing an approval after the evidence
+ * moved, because ids are deterministic and survive a rerun. The gate already
+ * ignores such a decision; the page has to as well, or a supervisor reads
+ * "accepted" beside a finding nobody has looked at since it changed. */
 function decidedBy(f) {
   var list = (STATE && STATE.decisions) || [];
   for (var i = 0; i < list.length; i++) {
-    if (list[i].finding_id === f.finding_id) return list[i];
+    var d = list[i];
+    if (d.finding_id !== f.finding_id) continue;
+    if (d.finding_sha256 && f.record_sha256 && d.finding_sha256 !== f.record_sha256) {
+      continue;  // taken about a different reading
+    }
+    return d;
+  }
+  return null;
+}
+
+/* And a decision that used to apply, so the page can say so rather than simply
+   losing it. Silence after an approval disappears is its own confusion. */
+function withdrawnFor(f) {
+  var list = (STATE && STATE.decisions) || [];
+  for (var i = 0; i < list.length; i++) {
+    var d = list[i];
+    if (d.finding_id !== f.finding_id) continue;
+    if (d.finding_sha256 && f.record_sha256 && d.finding_sha256 !== f.record_sha256) {
+      return d;
+    }
   }
   return null;
 }
 
 function decided(f) {
   var d = decidedBy(f);
-  if (!d) return '';
+  if (!d) {
+    var gone = withdrawnFor(f);
+    if (!gone) return '';
+    return '<div class="withdrawn">' + esc(gone.actor) + ' (' + esc(gone.role) +
+      ') recorded ' + esc(String(gone.action).replace(/_/g, ' ')) + ' at ' +
+      esc(String(gone.at).replace('T', ' ').slice(0, 19)) + ', and that no longer ' +
+      'applies: the evidence has been read again since. Somebody has to look at ' +
+      'what it says now.</div>';
+  }
   return '<div class="decided">' + esc(d.actor) + ' (' + esc(d.role) + ') recorded ' +
     esc(String(d.action).replace(/_/g, ' ')) + ' at ' +
     esc(String(d.at).replace('T', ' ').slice(0, 19)) +
@@ -981,7 +1016,7 @@ function decide(yes) {
   var isWrap = (PENDING.reason || {}).kind === 'wrap';
   return call(isWrap ? '/api/wrap' : '/api/approve',
     {interrupt_id: PENDING.id, approve: yes}).then(function (d) {
-    if (d && !isWrap && yes) PICKUP_APPROVED = true;
+    if (d && !isWrap && yes) { PICKUP_APPROVED = true; remember({pickup_approved: true}); }
     if (d && isWrap && yes) return call('/api/turnover').then(showTurnover);
     paint();
     return d;
@@ -1341,19 +1376,16 @@ $('bEvents').onclick = function () {
 };
 
 $('bReset').onclick = function () {
-  fetch('/api/reset', {
-    method: 'POST', headers: {'content-type': 'application/json'}, body: '{}'
-  }).then(function (r) { return r.json(); }).then(function (d) {
-    RUN = d.run_id;
-    STATE = null; PENDING = null; LINKED = null; PICKUP_APPROVED = false;
-    $('turnbox').innerHTML = ''; $('events').innerHTML = ''; $('tally').innerHTML = '';
-    $('vhead').className = 'skel';
-    $('vhead').textContent = 'Reconciling the scene…';
-    $('verdict').className = 'verdict';
-    ROLE = 'script_supervisor';
-    $('role').value = ROLE;
-    return start();
-  });
+  STATE = null; PENDING = null; LINKED = null; PICKUP_APPROVED = false;
+  $('turnbox').innerHTML = ''; $('events').innerHTML = ''; $('tally').innerHTML = '';
+  $('vhead').className = 'skel';
+  $('vhead').textContent = 'Reconciling the scene…';
+  $('verdict').className = 'verdict';
+  ROLE = 'script_supervisor';
+  $('role').value = ROLE;
+  banner('', false);
+  forget();
+  return freshRun();
 };
 
 function start() {
@@ -1367,12 +1399,103 @@ function start() {
   });
 }
 
-fetch('/api/reset', {
-  method: 'POST', headers: {'content-type': 'application/json'}, body: '{}'
-}).then(function (r) { return r.json(); }).then(function (d) {
-  RUN = d.run_id;
-  start();
-});
+/* Coming back to the run you left, and only your own.
+ *
+ * Every page load used to mint a new run id, so a reload threw away whatever you
+ * had ingested and re-ran the checkpoint against the untouched corpus. That made
+ * the one thing this product is for, watching a supplied document change the
+ * findings, unobservable the moment anybody pressed refresh.
+ *
+ * The run id lives in localStorage, which is per browser and per origin. It is
+ * never shared between visitors and never read from the server's idea of "the
+ * last run", because two judges opening the same URL must not land in each
+ * other's shoot day. Storage can throw outright in a private window, so every
+ * read and write is guarded and a failure just means a fresh run.
+ */
+var RUN_KEY = 'lasttake.run';
+
+function remembered() {
+  try {
+    var raw = window.localStorage.getItem(RUN_KEY);
+    if (!raw) return null;
+    var saved = JSON.parse(raw);
+    if (!saved || !/^[a-z0-9-]{8,64}$/.test(saved.run_id || '')) return null;
+    return saved;
+  } catch (e) {
+    return null;
+  }
+}
+
+function remember(patch) {
+  try {
+    var saved = remembered() || {};
+    for (var k in patch) saved[k] = patch[k];
+    saved.run_id = RUN;
+    window.localStorage.setItem(RUN_KEY, JSON.stringify(saved));
+  } catch (e) {
+    // A browser that refuses storage still works; it just cannot resume.
+  }
+}
+
+function forget() {
+  try { window.localStorage.removeItem(RUN_KEY); } catch (e) { /* nothing to do */ }
+}
+
+function freshRun() {
+  return fetch('/api/reset', {
+    method: 'POST', headers: {'content-type': 'application/json'}, body: '{}'
+  }).then(function (r) { return r.json(); }).then(function (d) {
+    RUN = d.run_id;
+    PICKUP_APPROVED = false;
+    remember({});
+    return start();
+  });
+}
+
+function boot() {
+  var saved = remembered();
+  if (!saved) return freshRun();
+
+  // Ask the server whether that run still holds anything. A run id in storage
+  // is a claim; findings on the server are the evidence for it.
+  RUN = saved.run_id;
+  return fetch('/api/state', {
+    method: 'POST',
+    headers: {'content-type': 'application/json'},
+    body: JSON.stringify({run_id: RUN})
+  }).then(function (r) {
+    return r.ok ? r.json() : null;
+  }).then(function (d) {
+    if (!d || !d.counts) {
+      forget();
+      return freshRun();
+    }
+    STATE = d;
+    PENDING = d.pending_approval || null;
+    PICKUP_APPROVED = !!saved.pickup_approved;
+    served(d.served_by);
+    return call('/api/scene').then(function (scene) {
+      SCENE = scene;
+      paint();
+      loadBlocked();
+      if (d.wrap_approved) {
+        call('/api/turnover').then(showTurnover);
+      }
+      banner(
+        'Resumed run ' + RUN + '. This is the same shoot day you left, read back ' +
+        'from the record. Nothing was recomputed and nothing you ingested was ' +
+        'discarded. Use "Fresh shoot day" below to start a different one.',
+        false
+      );
+      return d;
+    });
+  }).catch(function () {
+    forget();
+    return freshRun();
+  });
+}
+
+boot();
 </script>
 </body>
 </html>

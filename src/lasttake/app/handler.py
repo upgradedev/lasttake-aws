@@ -220,8 +220,14 @@ def _state(run: WrapRun) -> dict:
         "headline": rollup.sentence(outcomes) if findings else None,
         "counts": rollup.headline(outcomes) if findings else None,
         "beats": [o.to_dict() for o in outcomes],
+        # The seal travels with the finding, because the page has to tell a live
+        # approval from a withdrawn one. A decision carries the digest of the
+        # reading it was taken about; without the current digest beside it the
+        # interface would keep showing an approval the gate has already stopped
+        # honouring, which is the exact confusion this rule exists to remove.
         "exceptions": [
-            f.to_dict() for f in sorted(findings, key=lambda f: f.finding_id)
+            {**f.to_dict(), "record_sha256": f.record_sha256}
+            for f in sorted(findings, key=lambda f: f.finding_id)
             if f.truth_state.is_exception
         ],
         # What a human already decided about a finding, so the page can say so
