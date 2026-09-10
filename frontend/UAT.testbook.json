@@ -1,5 +1,12 @@
 {
   "schema": "lasttake/uat/v1",
+  "current_public_proof": {
+    "url": "https://d3kf6hquzlli8g.cloudfront.net/acceptance.html",
+    "latest_receipt": "/acceptance.json",
+    "scope": "Dynamic automated product-journey evidence for the exact observed frontend/backend pair. Missing, malformed, changed or older-than-24-hour evidence never establishes a current pass. Earlier entries below remain historical.",
+    "automation_mapping": "infra/test_frontend_acceptance.py; frontend/proof-tests/renderer.spec.ts (source-only fixtures); frontend/acceptance-tests/live.spec.ts (actual published proof)",
+    "human_uat": "NOT_RUN"
+  },
   "scope": "Synthetic React production cockpit and current scene dashboard. Existing evidence entries are historical and release-scoped; the new UX requires exact-commit CI and subsequent parent-approved AWS acceptance.",
   "aws_release": {
     "url": "https://d3kf6hquzlli8g.cloudfront.net/",

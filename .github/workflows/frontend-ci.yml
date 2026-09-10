@@ -155,6 +155,13 @@ jobs:
         if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.browser.outcome == 'success' }}
         working-directory: frontend
         run: npm run test:e2e
+      - name: Anonymous acceptance page and refusal cases in desktop/mobile browsers
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.browser.outcome == 'success' }}
+        working-directory: frontend
+        run: npx playwright test --config playwright.proof.config.ts --forbid-only
+      - name: Exercise receipt parser on actual source-run product JUnit without publishing
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.browser.outcome == 'success' }}
+        run: python infra/frontend_acceptance.py inspect-junit
       - name: Secret and prose regressions
         if: ${{ !cancelled() }}
         run: |
@@ -184,6 +191,7 @@ jobs:
             frontend/test-results/
             frontend/coverage/
             frontend/playwright-report/
+            frontend/proof-report/
             frontend/UAT.testbook.json
             frontend/UAT.testbook.html
           retention-days: 90

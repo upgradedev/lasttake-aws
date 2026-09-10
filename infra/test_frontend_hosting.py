@@ -120,6 +120,15 @@ class PublishContract(unittest.TestCase):
                 publisher.build_release(self.dist, COMMIT)
             path.unlink()
 
+    def test_frontend_build_cannot_replace_current_or_historical_acceptance(self):
+        for key in ("acceptance.json", "acceptance/runs/12345-2.json"):
+            path = self.dist / key
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text('{"untrusted":true}')
+            with self.assertRaisesRegex(ValueError, "separate create-only publisher"):
+                publisher.build_release(self.dist, COMMIT)
+            path.unlink()
+
     def test_index_is_last_and_only_exact_stack_bucket_is_written(self):
         calls = []
         def command(*args):

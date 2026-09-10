@@ -1,5 +1,6 @@
 """CI-only structural regression checks for main -> deploy -> live UAT."""
 import copy
+from fnmatch import fnmatchcase
 import importlib.util
 import tempfile
 import unittest
@@ -33,7 +34,8 @@ def validate(deploy, uat):
     assert acceptance["needs"] == "release"
     assert acceptance["uses"] == "./.github/workflows/aws-uat.yml"
     assert acceptance["with"]["release_sha"] == "${{ github.sha }}"
-    assert acceptance["permissions"] == {"contents": "read"}
+    # Reusable caller permits OIDC solely for its isolated publisher job.
+    assert acceptance["permissions"] == {"contents": "read", "actions": "read", "id-token": "write"}
     assert "continue-on-error" not in acceptance
     assert "secrets" not in acceptance
     for trigger in ("workflow_call", "workflow_dispatch"):
@@ -44,6 +46,8 @@ def validate(deploy, uat):
     assert uat["concurrency"]["queue"] == "max"
     assert uat["concurrency"]["cancel-in-progress"] == "false"
     job = uat["jobs"]["acceptance"]
+    assert job["permissions"] == {"contents": "read"}
+    assert job["if"] == "github.ref == 'refs/heads/main'"
     assert "continue-on-error" not in job
     assert job["env"]["EXPECTED_RELEASE"] == "${{ inputs.release_sha }}"
     steps = job["steps"]
@@ -56,15 +60,51 @@ def validate(deploy, uat):
     assert steps.index(indexed["preflight"]) < steps.index(indexed["journeys"])
     assert steps.index(indexed["postflight"]) > steps.index(indexed["journeys"])
     assert not any("configure-aws-credentials" in step.get("uses", "") for step in steps)
+    assert not any("AWS_" in str(step.get("env", {})) for step in steps)
     artifact = next(step for step in steps if step.get("uses", "").startswith("actions/upload-artifact@"))
     assert artifact["if"] == "always()"
     assert artifact["with"]["retention-days"] == "90"
     for path in ("frontend/test-results/", "frontend/artifacts/browser-junit.xml",
                  "frontend/playwright-report/", "frontend/UAT.testbook.*"):
         assert path in artifact["with"]["path"].splitlines()
+    publisher = uat["jobs"]["publish"]
+    assert publisher["needs"] == "acceptance"
+    assert publisher["if"] == "github.ref == 'refs/heads/main' && needs.acceptance.result == 'success'"
+    assert publisher["permissions"] == {"contents": "read", "actions": "read", "id-token": "write"}
+    assert publisher["concurrency"] == jobs["release"]["concurrency"]
+    assert publisher["concurrency"]["group"] == "lasttake-frontend-write"
+    assert publisher["concurrency"]["cancel-in-progress"] == "false"
+    assert publisher["concurrency"]["queue"] == "max"
+    assert not any("npm" in step.get("run", "") or "playwright" in step.get("run", "") for step in publisher["steps"])
+    download = next(s for s in publisher["steps"] if s.get("uses", "").startswith("actions/download-artifact@"))
+    assert download["with"] == {"name": "${{ needs.acceptance.outputs.artifact_name }}", "path": "public-proof"}
+    assert job["outputs"] == {"artifact_name": "${{ steps.proof.outputs.artifact_name }}", "run_attempt": "${{ steps.proof.outputs.run_attempt }}"}
+    assert publisher["env"]["PRODUCER_RUN_ATTEMPT"] == "${{ needs.acceptance.outputs.run_attempt }}"
+    followup = uat["jobs"]["verify-public-proof"]
+    assert followup["needs"] == ["acceptance", "publish"] and followup["permissions"] == {"contents": "read"}
+    assert followup["env"]["PRODUCER_RUN_ATTEMPT"] == "${{ needs.acceptance.outputs.run_attempt }}"
+    assert not any("configure-aws-credentials" in s.get("uses", "") for s in followup["steps"])
+
+    # Playwright cleans test-results at startup. Identity evidence must survive it.
+    assert "--output frontend/acceptance-observations/preflight.json" in indexed["preflight"]["run"]
+    assert "--output frontend/acceptance-observations/postflight.json" in indexed["postflight"]["run"]
+    assert "playwright.proof.config" not in str(steps)
 
 
 class MainAcceptanceContract(unittest.TestCase):
+    def test_backend_push_paths_cover_shipped_inputs_but_refuse_proof_and_packaging_only_changes(self):
+        deploy = read_workflow("deploy.yml")
+        paths = deploy["on"]["push"]["paths"]
+        assert paths == ["src/**", "corpus/**", "infra/stack.yaml"]
+        assert "workflow_dispatch" in deploy["on"]
+        for path in ("src/lasttake/app/handler.py", "src/lasttake/adapters/aws/dsql.py", "corpus/takes.json", "infra/stack.yaml"):
+            with self.subTest(path=path):
+                assert any(fnmatchcase(path, pattern) for pattern in paths)
+        for path in ("infra/frontend_acceptance.py", "infra/frontend_publish.py", "infra/test_frontend_pipeline.py",
+                     "frontend/public/acceptance.html", "README.md", ".github/workflows/deploy.yml", "pyproject.toml"):
+            with self.subTest(path=path):
+                assert not any(fnmatchcase(path, pattern) for pattern in paths)
+
     def test_shared_browser_preparation_preserves_install_and_journey_contracts(self):
         invocation = "python ../.github/scripts/install-playwright-chromium.py"
         for name, job in (("frontend-ci.yml", "verify"), ("aws-uat.yml", "acceptance")):
@@ -127,6 +167,57 @@ class MainAcceptanceContract(unittest.TestCase):
         self.uat["permissions"]["id-token"] = "write"
         with self.assertRaises(AssertionError):
             validate(self.deploy, self.uat)
+
+    def test_explicit_browser_oidc_or_credential_action_is_rejected(self):
+        for mutate in (lambda job: job["permissions"].update({"id-token": "write"}),
+                       lambda job: job["steps"].append({"uses": "aws-actions/configure-aws-credentials@v4"}),
+                       lambda job: job["steps"].append({"env": {"AWS_ACCESS_KEY_ID": "credential"}})):
+            candidate = copy.deepcopy(self.uat)
+            mutate(candidate["jobs"]["acceptance"])
+            with self.assertRaises(AssertionError):
+                validate(self.deploy, candidate)
+
+    def test_publication_without_acceptance_or_writer_lock_is_rejected(self):
+        for key, value in (("needs", "verify"), ("if", "always()"),
+                           ("concurrency", {"group": "independent", "cancel-in-progress": "false", "queue": "max"})):
+            candidate = copy.deepcopy(self.uat)
+            candidate["jobs"]["publish"][key] = value
+            with self.assertRaises(AssertionError):
+                validate(self.deploy, candidate)
+
+    def test_browser_or_arbitrary_artifact_in_publisher_is_rejected(self):
+        candidate = copy.deepcopy(self.uat)
+        candidate["jobs"]["publish"]["steps"].append({"run": "npx playwright test"})
+        with self.assertRaises(AssertionError):
+            validate(self.deploy, candidate)
+        candidate = copy.deepcopy(self.uat)
+        download = next(s for s in candidate["jobs"]["publish"]["steps"] if "download-artifact" in s.get("uses", ""))
+        download["with"]["name"] = "raw-scenarios"
+        with self.assertRaises(AssertionError):
+            validate(self.deploy, candidate)
+
+    def test_proof_fixture_tests_never_enter_real_aws_journey_totals(self):
+        source = read_workflow("frontend-ci.yml")
+        assert "playwright.proof.config.ts" in str(source["jobs"]["verify"]["steps"])
+        config = (ROOT / "frontend/playwright.proof.config.ts").read_text()
+        assert "testDir: './proof-tests'" in config and "proof-junit.xml" in config
+        product = (ROOT / "frontend/playwright.config.ts").read_text()
+        assert "testDir:'./tests/e2e'" in product and "test-results/e2e.xml" in product
+        assert "test-results/e2e-results.json" in product
+        assert "proof-tests" not in product
+
+    def test_observation_inside_browser_cleanup_directory_is_rejected(self):
+        candidate = copy.deepcopy(self.uat)
+        before = next(s for s in candidate["jobs"]["acceptance"]["steps"] if s.get("id") == "preflight")
+        before["run"] = before["run"].replace("acceptance-observations", "test-results")
+        with self.assertRaises(AssertionError):
+            validate(self.deploy, candidate)
+
+    def test_publisher_retry_must_use_producer_artifact_and_attempt(self):
+        candidate = copy.deepcopy(self.uat)
+        candidate["jobs"]["publish"]["env"]["PRODUCER_RUN_ATTEMPT"] = "${{ github.run_attempt }}"
+        with self.assertRaises(AssertionError):
+            validate(self.deploy, candidate)
 
     def test_missing_postflight_or_failure_artifacts_are_rejected(self):
         for broken in ("postflight", "artifact"):

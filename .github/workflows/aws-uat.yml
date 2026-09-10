@@ -20,8 +20,14 @@ concurrency:
   queue: max
 jobs:
   acceptance:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    permissions:
+      contents: read
+    outputs:
+      artifact_name: ${{ steps.proof.outputs.artifact_name }}
+      run_attempt: ${{ steps.proof.outputs.run_attempt }}
     env:
       LASTTAKE_UI_URL: https://d3kf6hquzlli8g.cloudfront.net/
       EXPECTED_RELEASE: ${{ inputs.release_sha }}
@@ -35,8 +41,11 @@ jobs:
           python-version: '3.12'
       - name: Verify real AWS release before any synthetic action
         id: preflight
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           python -c 'import os,re; assert re.fullmatch("[0-9a-f]{40}", os.environ["EXPECTED_RELEASE"]), "Full release SHA required"'
+          python infra/frontend_acceptance.py observe --output frontend/acceptance-observations/preflight.json
           python infra/frontend_smoke.py --url "$LASTTAKE_UI_URL" --sha "$EXPECTED_RELEASE"
       - name: Install browser tools on CI only
         working-directory: frontend
@@ -52,7 +61,18 @@ jobs:
       - name: Verify the tested release did not change during the journeys
         id: postflight
         if: always() && steps.journeys.outcome != 'skipped'
-        run: python infra/frontend_smoke.py --url "$LASTTAKE_UI_URL" --sha "$EXPECTED_RELEASE"
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python infra/frontend_smoke.py --url "$LASTTAKE_UI_URL" --sha "$EXPECTED_RELEASE"
+          python infra/frontend_acceptance.py observe --output frontend/acceptance-observations/postflight.json
+      - name: Build sanitized aggregate only from successful stages and real current JUnit
+        id: proof
+        env:
+          PREFLIGHT: ${{ steps.preflight.outcome }}
+          JOURNEYS: ${{ steps.journeys.outcome }}
+          POSTFLIGHT: ${{ steps.postflight.outcome }}
+        run: python infra/frontend_acceptance.py build
       - name: Summarize automated evidence without human signoff
         if: always()
         env:
@@ -62,16 +82,99 @@ jobs:
         run: |
           printf '### Live AWS Playwright acceptance\n\n' >> "$GITHUB_STEP_SUMMARY"
           printf 'Frontend commit: %s\n\nPreflight: %s | Playwright: %s | Postflight: %s\n\n' "$EXPECTED_RELEASE" "$PREFLIGHT" "$JOURNEYS" "$POSTFLIGHT" >> "$GITHUB_STEP_SUMMARY"
-          printf 'Evidence: aws-acceptance-%s (HTML report, JUnit, traces, screenshots, testbook).\n\nHuman UAT: NOT_RUN. Backend deployments are managed separately.\n' "$GITHUB_RUN_ID" >> "$GITHUB_STEP_SUMMARY"
+          printf 'Evidence: aws-acceptance-%s-%s (HTML report, JUnit, traces, screenshots, testbook).\n\nHuman UAT: NOT_RUN. Backend deployments are managed separately.\n' "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" >> "$GITHUB_STEP_SUMMARY"
       - name: Keep observed results separate from human acceptance
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: aws-acceptance-${{ github.run_id }}
+          name: aws-acceptance-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             frontend/test-results/
+            frontend/acceptance-observations/
             frontend/artifacts/browser-junit.xml
             frontend/playwright-report/
             frontend/UAT.testbook.*
+          retention-days: 90
+          if-no-files-found: error
+      - name: Export only the sanitized receipt for the separate publisher
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.proof.outputs.artifact_name }}
+          path: frontend/acceptance-observations/acceptance-receipt.json
+          retention-days: 90
+          if-no-files-found: error
+          overwrite: false
+  publish:
+    name: Publish public aggregate proof
+    needs: acceptance
+    if: github.ref == 'refs/heads/main' && needs.acceptance.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # Same writer lock as the release job, including standalone UAT dispatches.
+    concurrency:
+      group: lasttake-frontend-write
+      cancel-in-progress: false
+      queue: max
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
+    env:
+      EXPECTED_RELEASE: ${{ inputs.release_sha }}
+      PRODUCER_RUN_ATTEMPT: ${{ needs.acceptance.outputs.run_attempt }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.acceptance.outputs.artifact_name }}
+          path: public-proof
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.FRONTEND_RELEASE_ROLE_ARN }}
+          aws-region: eu-west-1
+      - name: Validate source, immutable bytes and live pair before conditional publication
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python infra/frontend_acceptance.py publish --output public-proof/acceptance-receipt.json
+  verify-public-proof:
+    name: Read published proof in an anonymous browser
+    needs: [acceptance, publish]
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    env:
+      LASTTAKE_UI_URL: https://d3kf6hquzlli8g.cloudfront.net/
+      EXPECTED_RELEASE: ${{ inputs.release_sha }}
+      PRODUCER_RUN_ATTEMPT: ${{ needs.acceptance.outputs.run_attempt }}
+      VERIFY_PUBLISHED_ACCEPTANCE: 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.18.0'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Prepare credential-free browser in CI
+        working-directory: frontend
+        run: |
+          npm install --global npm@11.19.1 --ignore-scripts
+          npm ci
+          python ../.github/scripts/install-playwright-chromium.py
+      - name: Assert the actual rendered public proof and exact run
+        working-directory: frontend
+        run: npx playwright test --config playwright.acceptance.config.ts --forbid-only
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: acceptance-page-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            frontend/test-results/acceptance-page/
+            frontend/acceptance-report/
           retention-days: 90
           if-no-files-found: error

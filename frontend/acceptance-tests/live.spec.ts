@@ -1,0 +1,31 @@
+import {test, expect} from '@playwright/test';
+
+test('anonymous published proof renders the actual release pair, aggregate and current run', async ({page, request}) => {
+  expect(process.env.VERIFY_PUBLISHED_ACCEPTANCE).toBe('true');
+  expect(process.env.LASTTAKE_UI_URL).toBe('https://d3kf6hquzlli8g.cloudfront.net/');
+  expect(process.env.EXPECTED_RELEASE).toMatch(/^[0-9a-f]{40}$/);
+  const response = await request.get('/acceptance.json');
+  expect(response.status()).toBe(200);
+  expect(response.headers()['cache-control']).toContain('no-store');
+  const receipt = await response.json();
+  expect(receipt.frontend_commit).toBe(process.env.EXPECTED_RELEASE);
+  expect(receipt.run_id).toBe(process.env.GITHUB_RUN_ID);
+  expect(receipt.run_attempt).toBe(process.env.PRODUCER_RUN_ATTEMPT);
+  expect(receipt.receipt_path).toBe(`/acceptance/runs/${receipt.run_id}-${receipt.run_attempt}.json`);
+  const immutable = await request.get(receipt.receipt_path);
+  expect(immutable.status()).toBe(200);
+  expect(await immutable.json()).toEqual(receipt);
+  const errors: string[] = [];
+  page.on('pageerror', error => errors.push(error.message));
+  expect((await page.goto('/acceptance.html'))?.status()).toBe(200);
+  await expect(page.getByTestId('acceptance-status')).toHaveText('CURRENT_AUTOMATED_PASS');
+  await expect(page.locator('#current-frontend')).toHaveText(receipt.frontend_commit);
+  await expect(page.locator('#recorded-frontend')).toHaveText(receipt.frontend_commit);
+  await expect(page.locator('#current-backend')).toHaveText(receipt.backend_commit);
+  await expect(page.locator('#recorded-backend')).toHaveText(receipt.backend_commit);
+  await expect(page.getByTestId('acceptance-counts')).toHaveText(`JUnit browser cases: ${receipt.totals.tests} total; ${receipt.totals.passed} passed; 0 failed; 0 skipped.`);
+  await expect(page.getByRole('link', {name: 'Workflow run and attempt'})).toHaveAttribute('href', receipt.run_url);
+  await expect(page.getByText('NOT_RUN', {exact: true})).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  expect(errors).toEqual([]);
+});
