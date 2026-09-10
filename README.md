@@ -609,6 +609,11 @@ instrument. These are assistant-authored synthetic development cases, not held-o
 research data or practitioner labels. Only supplied notes and text descriptions
 are interpreted. There is no footage/audio analysis or creative/legal judgement.
 
+Future integration must preserve preregistration commit
+`c0593b9e5c464f7b3cdb5574aece7ff8aabb71ba` as an ancestor: use a merge preserving
+history, not squash or rebase. CI checks that ancestry and the frozen input hashes.
+Do not rewrite the preregistration or relax the check to accommodate integration.
+
 Source CI first runs malformed/unsafe-response, missing-slot, interrupted-write,
 wrong/stale request-binding and metric-denominator controls. It then runs:
 
