@@ -1,6 +1,6 @@
 import {test, expect} from '@playwright/test';
 
-test('anonymous published proof renders the actual release pair, aggregate and current run', async ({page, request}) => {
+test('anonymous published proof renders the actual release pair, aggregate and current run', async ({page, request}, testInfo) => {
   expect(process.env.VERIFY_PUBLISHED_ACCEPTANCE).toBe('true');
   expect(process.env.LASTTAKE_UI_URL).toBe('https://d3kf6hquzlli8g.cloudfront.net/');
   expect(process.env.EXPECTED_RELEASE).toMatch(/^[0-9a-f]{40}$/);
@@ -26,6 +26,12 @@ test('anonymous published proof renders the actual release pair, aggregate and c
   await expect(page.getByTestId('acceptance-counts')).toHaveText(`JUnit browser cases: ${receipt.totals.tests} total; ${receipt.totals.passed} passed; 0 failed; 0 skipped.`);
   await expect(page.getByRole('link', {name: 'Workflow run and attempt'})).toHaveAttribute('href', receipt.run_url);
   await expect(page.getByText('NOT_RUN', {exact: true})).toBeVisible();
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  expect(await page.locator('#verdict').evaluate(node => node.scrollWidth <= node.clientWidth)).toBe(true);
+  if (testInfo.project.name === 'compact-mobile') {
+    await page.setViewportSize({width: 320, height: 812});
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    expect(await page.locator('#verdict').evaluate(node => node.scrollWidth <= node.clientWidth)).toBe(true);
+  }
   expect(errors).toEqual([]);
 });

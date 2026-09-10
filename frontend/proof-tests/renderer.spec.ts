@@ -55,15 +55,18 @@ for (const [scenario, status] of cases) {
     } else {
       await expect(page.locator('#details')).toBeHidden();
     }
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
     if (scenario === 'valid' && testInfo.project.name === 'compact-mobile') {
       await page.setViewportSize({width: 320, height: 812});
-      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+      await expect(page.locator('#verdict')).toHaveJSProperty('scrollWidth', await page.locator('#verdict').evaluate(node => node.clientWidth));
       // Deliberately remove the fix in the CI fixture to prove the regression catches it.
+      // Measure the element itself: mobile window.innerWidth can expand with overflowing content.
       const brokenStyle = await page.addStyleTag({content: '#verdict { overflow-wrap: normal !important; }'});
-      expect(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)).toBe(true);
+      expect(await page.locator('#verdict').evaluate(node => node.scrollWidth > node.clientWidth)).toBe(true);
       await brokenStyle.evaluate(node => node.remove());
-      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+      expect(await page.locator('#verdict').evaluate(node => node.scrollWidth <= node.clientWidth)).toBe(true);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
     }
     expect(errors).toEqual([]);
   });
