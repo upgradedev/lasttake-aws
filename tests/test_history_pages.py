@@ -159,6 +159,17 @@ def test_oversized_old_record_is_not_silently_skipped_or_removed():
     with pytest.raises(HistoryUnavailable): array_page(b"x" * (WINDOW_BYTES + 1), 0, 10, "v")
 
 
+@pytest.mark.parametrize("data", [b"", b" \n\t"])
+def test_existing_unreadable_file_is_not_an_empty_history(offline_backends, data, tmp_path):
+    _, artifacts, runs = offline_backends
+    handle, owner = make_history(artifacts, runs, 1)
+    path = tmp_path / "runs" / owner / "audit.json"
+    path.write_bytes(data)
+    with pytest.raises(HistoryUnavailable): runs.registration_page(owner, 10, None)
+    assert post("/api/session", {"session_id":handle})["status"] == 503
+    assert path.read_bytes() == data
+
+
 def make_history(artifacts, runs, count=23):
     handle = "a" * 64
     owner = W.owner_id(handle)

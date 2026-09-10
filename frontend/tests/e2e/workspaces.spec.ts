@@ -9,6 +9,7 @@ test('LT-HISTORY bounded pages retain older owned runs, stale cursors recover wi
   const body=await saved(page);
   for(let i=0;i<11;i++)expect((await page.request.post('/api/reset',{data:{session_id:body.session_id}})).ok()).toBe(true);
   await page.goto(`/#history?run=${body.run_id}`);
+  await page.getByRole('button',{name:'Refresh newest runs'}).click();
   await expect(page.locator('.run-list li')).toHaveCount(10);
   await expect(page.getByRole('button',{name:'Load older runs'})).toBeEnabled();
   const first=await (await page.request.post('/api/session',{data:{session_id:body.session_id}})).json();

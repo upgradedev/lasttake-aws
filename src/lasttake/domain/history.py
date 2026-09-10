@@ -65,6 +65,8 @@ def array_page(data, start, limit, version):
     record larger than the window is refused, never silently skipped or rewritten.
     """
     page_size(limit)
+    if not data.strip():
+        raise HistoryUnavailable("Saved history could not be read.")
     if len(data) > WINDOW_BYTES:
         raise HistoryUnavailable("Saved history exceeded the bounded read.")
     rows, depth, quoted, end, boundary = [], 0, False, None, None
