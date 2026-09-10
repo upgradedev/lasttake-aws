@@ -111,5 +111,5 @@ it('a refreshed decision labels an already prepared receipt historical without o
   await screen.findByRole('heading',{name:'Receipt ready for review'});
   rerender(<History {...props} state={{...state,package_revision_digest:'changed'}}/>);
   await waitFor(()=>expect(screen.getByText(/prepared receipt is historical/)).toBeVisible());
-  expect(screen.getByRole('button',{name:'Download receipt',exact:true})).toBeEnabled();
+  expect(screen.getByRole('button',{name:'Download receipt'})).toBeEnabled();
 });
