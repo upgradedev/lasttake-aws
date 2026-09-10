@@ -93,6 +93,41 @@ jobs:
       - name: judge-facing prose does not read as generated
         run: python tools/prose_gate.py
 
+  lambda-package:
+    name: arm64 Lambda package (source only)
+    # This branch artifact is not a release. No AWS credentials or deploy steps.
+    if: github.ref == 'refs/heads/codex/security-boundaries-20260910'
+    needs: [test, hero]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Resolve the existing deployment recipe for arm64
+        run: |
+          set -euo pipefail
+          mkdir -p build/lambda-deps
+          python -m pip install \
+            --platform manylinux2014_aarch64 \
+            --implementation cp --python-version 3.12 --only-binary=:all: \
+            --target build/lambda-deps --report build/lambda-dependencies.json \
+            "strands-agents>=1.53.0" "pydantic>=2.7" "psycopg[binary]>=3.2" "boto3>=1.34"
+      - name: Package exact source and corpus with checksums
+        run: python tools/package_lambda.py --dependencies build/lambda-deps --report build/lambda-dependencies.json --output build/lambda-artifact
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lasttake-lambda-arm64-${{ github.sha }}-${{ github.run_attempt }}
+          path: build/lambda-artifact/
+          if-no-files-found: error
+          retention-days: 90
+          overwrite: false
+
   hero:
     name: interrupt survives process death
     runs-on: ubuntu-latest

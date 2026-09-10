@@ -19,7 +19,6 @@ runs when nobody is looking.
 
 from __future__ import annotations
 
-import base64
 import json
 import os
 import re
@@ -27,6 +26,8 @@ import time
 import uuid
 from pathlib import Path
 from typing import Any, Optional
+
+from botocore.exceptions import BotoCoreError, ClientError
 
 from ..adapters.aws.infrastructure import from_environment, run_store_kind
 from ..adapters.local.interpreter import OfflineInterpreter
@@ -57,6 +58,7 @@ from .ingest import (
     shape_error,
 )
 from .scene_view import scene_view
+from .request_body import BodyError, parse_body
 from . import workspace
 
 #: Minted when this container boots. Two requests that report different values
@@ -662,6 +664,16 @@ ROUTES = {
 }
 
 
+def _unavailable(exc: Exception, path: str, request_id: str) -> dict:
+    import traceback
+
+    print(f"unavailable {type(exc).__name__} on {path}: {traceback.format_exc()}")
+    return _json(503, {
+        "error": "Saved state is temporarily unavailable.",
+        "detail": "Refresh saved state before retrying any change. Quote the invocation id when reporting this failure.",
+    }, request_id)
+
+
 def handler(event: dict, context: Any) -> dict:
     request_id = getattr(context, "aws_request_id", "local")
     http = event.get("requestContext", {}).get("http", {})
@@ -685,16 +697,19 @@ def handler(event: dict, context: Any) -> dict:
     if method == "GET" and path == "/api/blocked":
         # The query object storage could not answer: every run with an open
         # exception, across scenes, and who each is waiting on.
-        _bus, _artifacts, runs = from_environment()
-        if not hasattr(runs, "blocked_scenes"):
-            return _json(
-                501,
-                {"error": "this deployment stores run state in S3, which cannot answer a cross-run query"},
-                request_id,
-            )
-        visible = [row for row in runs.blocked_scenes()
-                   if not _artifacts.exists(f"owners/{row['run_id']}.json")]
-        return _json(200, {"blocked": visible}, request_id)
+        try:
+            _bus, _artifacts, runs = from_environment()
+            if not hasattr(runs, "blocked_scenes"):
+                return _json(
+                    501,
+                    {"error": "this deployment stores run state in S3, which cannot answer a cross-run query"},
+                    request_id,
+                )
+            visible = [row for row in runs.blocked_scenes()
+                       if not _artifacts.exists(f"owners/{row['run_id']}.json")]
+            return _json(200, {"blocked": visible}, request_id)
+        except Exception as exc:  # no partial list when ownership cannot be read
+            return _unavailable(exc, path, request_id)
 
     route = ROUTES.get(path)
     if path == "/api/session":
@@ -702,16 +717,10 @@ def handler(event: dict, context: Any) -> dict:
     if route is None:
         return _json(404, {"error": f"no route {method} {path}"}, request_id)
 
-    raw = event.get("body") or "{}"
-    if event.get("isBase64Encoded"):
-        raw = base64.b64decode(raw).decode("utf-8")
     try:
-        body = json.loads(raw) if raw.strip() else {}
-    except ValueError:
-        return _json(400, {"error": "body must be JSON"}, request_id)
-
-    if not isinstance(body, dict):
-        return _json(400, {"error": "body must be a JSON object"}, request_id)
+        body = parse_body(event)
+    except BodyError as exc:
+        return _json(exc.status, {"error": str(exc)}, request_id)
 
     if path not in ("/api/reset", "/api/session"):
         run_id = str(body.get("run_id", ""))
@@ -725,12 +734,19 @@ def handler(event: dict, context: Any) -> dict:
     try:
         if path not in ("/api/reset", "/api/session"):
             owned = workspace.authorize(body, from_environment)
+            if path == "/api/ingest":
+                problem = shape_error(body.get("kind"), body.get("document"))
+                if problem:
+                    return _json(400, problem, request_id)
             problem = workspace.guard_action(path, body, build_run(body["run_id"]), owned)
             if problem:
                 return _json(problem[0], {"error": problem[1]}, request_id)
         return route(body, request_id)
     except Exception as exc:  # noqa: BLE001 - logged in full, never returned in full
         import traceback
+
+        if isinstance(exc, (ClientError, BotoCoreError)):
+            return _unavailable(exc, path, request_id)
 
         if resumed_with_a_bad_interrupt(exc):
             return _json(

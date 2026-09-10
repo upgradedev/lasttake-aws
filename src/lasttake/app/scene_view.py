@@ -32,7 +32,16 @@ def scene_view(package: ScenePackage) -> dict:
     }
 
     by_beat: dict[str, list[dict]] = {}
+    known_beats = {beat.beat_id for beat in package.beats}
+    subject_slates: dict[str, list[str]] = {}
     for take in package.takes:
+        # Old immutable amendments may predate uniqueness validation. Collapse
+        # repeated links only in this projection; never change source bytes or
+        # truncate distinct evidence. Build subject membership once per take.
+        people = list(dict.fromkeys(take.visible_people))
+        assets = list(dict.fromkeys(take.visible_assets))
+        for subject in dict.fromkeys([*people, *assets]):
+            subject_slates.setdefault(subject, []).append(take.slate)
         row = {
             "take_id": take.take_id,
             "slate": take.slate,
@@ -47,24 +56,22 @@ def scene_view(package: ScenePackage) -> dict:
             "note": take.note or package.script_notes.get(take.take_id, ""),
             "timecode_out": take.timecode_out,
             "captured_at": take.captured_at,
-            "visible_people": list(take.visible_people),
-            "visible_assets": list(take.visible_assets),
+            "visible_people": people,
+            "visible_assets": assets,
             # What the camera department wrote down about the same take, as
             # written. None means the report has no row for it at all, which is
             # itself something a DIT needs to see.
             "camera_report": reported.get(take.take_id),
         }
-        for beat_id in take.beat_ids:
-            by_beat.setdefault(beat_id, []).append(row)
+        for beat_id in dict.fromkeys(take.beat_ids):
+            if beat_id in known_beats:
+                by_beat.setdefault(beat_id, []).append(row)
 
     planned = {
         beat_id: shot.shot_id for shot in package.shots for beat_id in shot.beat_ids
     }
     released = {r.subject_id for r in package.rights_records if r.status == "executed"}
-    subjects = sorted(
-        {p for take in package.takes for p in take.visible_people}
-        | {a for take in package.takes for a in take.visible_assets}
-    )
+    subjects = sorted(subject_slates)
     # A finding names what it is about by requirement id, and that is a beat for
     # coverage, a continuity reference for continuity, a take for metadata and a
     # subject for rights. The interface has to say "page 44, line 10" for all
@@ -80,8 +87,7 @@ def scene_view(package: ScenePackage) -> dict:
         first = next((beat_at[b] for b in take.beat_ids if b in beat_at), "")
         locations[take.take_id] = f"Slate {take.slate} · {first}" if first else f"Slate {take.slate}"
     for subject in subjects:
-        slates = [t.slate for t in package.takes
-                  if subject in t.visible_people or subject in t.visible_assets]
+        slates = subject_slates[subject]
         if slates:
             shown = ", ".join(slates[:4]) + ("…" if len(slates) > 4 else "")
             noun = "take" if len(slates) == 1 else "takes"
