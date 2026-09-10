@@ -3,7 +3,10 @@ import assert from 'node:assert/strict';
 import {mkdtempSync,readFileSync,readdirSync,rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-import {preallocate,beginSlot,slotPath,readJSON,durableJSON,finalize,quantiles,verifyOffline,summarize,sha256} from '../scripts/hero-measurement.mjs';
+import {spawn} from 'node:child_process';
+import {once} from 'node:events';
+import {setTimeout as delay} from 'node:timers/promises';
+import {preallocate,beginSlot,slotPath,readJSON,durableJSON,finalize,sealSnapshot,quantiles,verifyOffline,summarize,sha256} from '../scripts/hero-measurement.mjs';
 import {supervise,preregistration} from '../scripts/run-hero-benchmark.mjs';
 function fixture(t){const parent=mkdtempSync(join(tmpdir(),'lasttake-measurement-fixture-'));t.after(()=>rmSync(parent,{recursive:true}));return join(parent,'cohort');}
 test('all20 slots exist durably before any attempt, including failures and unrun denominators',t=>{
@@ -36,13 +39,50 @@ test('hard timeout kills a hung child and still finalizes every preallocated slo
   const root=fixture(t);preallocate(root,{});beginSlot(root,3);
   const result=await supervise(process.execPath,['-e','setInterval(()=>{},1000)'],{root,timeoutMs:120,cwd:process.cwd(),env:process.env});
   assert.equal(result.reason,'PROCESS_TIMEOUT');assert.notEqual(result.exit,0);
-  assert.equal(result.summary.denominator,20);assert.equal(result.summary.counts.INCOMPLETE,1);
-  assert.equal(result.summary.counts.NOT_RUN,19);assert.equal(readJSON(slotPath(root,3)).elapsed_ms,null);
+  const summary=sealSnapshot(root,root+'-final',result.reason);
+  assert.equal(summary.denominator,20);assert.equal(summary.counts.INCOMPLETE,1);
+  assert.equal(summary.counts.NOT_RUN,19);assert.equal(readJSON(slotPath(root,3)).status,'RUNNING');
+  assert.equal(readJSON(slotPath(root+'-final',3)).elapsed_ms,null);
 });
 test('failed child launch also preserves all unrun slots',async t=>{
   const root=fixture(t);preallocate(root,{});
   const result=await supervise(join(root,'nonexistent'),[],{root,timeoutMs:500,cwd:root,env:process.env});
-  assert.notEqual(result.exit,0);assert.equal(result.summary.counts.NOT_RUN,20);
+  assert.notEqual(result.exit,0);assert.equal(sealSnapshot(root,root+'-final',result.reason).counts.NOT_RUN,20);
+});
+
+test('killed driver leaves a real detached writer, but captured bytes and final hashes cannot drift',{timeout:10000},async t=>{
+  const parent=mkdtempSync(join(tmpdir(),'lasttake-orphan-fixture-')),root=join(parent,'live'),destination=join(parent,'final');
+  let driver,writerPid;
+  t.after(()=>{try{driver?.kill('SIGKILL');}catch{}try{process.kill(writerPid,'SIGKILL');}catch{}rmSync(parent,{recursive:true,force:true});});
+  preallocate(root,{});beginSlot(root,1);
+  const writer=`const fs=require('node:fs'); const path=${JSON.stringify(slotPath(root,1))}; let revision=0; setInterval(()=>{const slot=JSON.parse(fs.readFileSync(path)); slot.revision=++revision; fs.writeFileSync(path+'.next',JSON.stringify(slot)); fs.renameSync(path+'.next',path);},5);`;
+  const driverSource=`const {spawn}=require('node:child_process'); const child=spawn(process.execPath,['-e',${JSON.stringify(writer)}],{detached:true,stdio:'ignore'}); console.log(child.pid); setInterval(()=>{},1000);`;
+  driver=spawn(process.execPath,['-e',driverSource],{stdio:['ignore','pipe','inherit']});
+  writerPid=Number(String((await once(driver.stdout,'data'))[0]).trim());assert.ok(writerPid>0);
+  const closed=once(driver,'close');driver.kill('SIGKILL');await closed;
+  async function waitRevision(minimum){
+    const deadline=Date.now()+3000;
+    while(Date.now()<deadline){const revision=readJSON(slotPath(root,1)).revision??0;if(revision>minimum)return revision;await delay(10);}
+    assert.fail('Detached writer stopped unexpectedly');
+  }
+  await waitRevision(2);
+  const summary=sealSnapshot(root,destination,'OUTER_DRIVER_KILLED');
+  const captured=readFileSync(join(destination,'captured','slot-01.json'));
+  const manifestBytes=readFileSync(join(destination,'manifest.json'));
+  await waitRevision(JSON.parse(captured).revision+5); // Writer is still alive after publication.
+  assert.equal(summary.counts.INCOMPLETE,1);assert.equal(summary.counts.NOT_RUN,19);
+  assert.equal(readJSON(slotPath(destination,1)).status,'INCOMPLETE');
+  assert.equal(JSON.parse(captured).status,'RUNNING');
+  assert.deepEqual(readFileSync(join(destination,'captured','slot-01.json')),captured);
+  assert.deepEqual(readFileSync(join(destination,'manifest.json')),manifestBytes);
+  for(const [file,hash] of Object.entries(JSON.parse(manifestBytes).sha256))assert.equal(sha256(readFileSync(join(destination,file))),hash);
+  assert.throws(()=>sealSnapshot(root,destination,'REPLACEMENT'));
+});
+
+test('corrupt or missing captured slot refuses publication rather than inventing a denominator',t=>{
+  const root=fixture(t);preallocate(root,{});rmSync(slotPath(root,20));
+  assert.throws(()=>sealSnapshot(root,root+'-final','FIXTURE'),/denominator/);
+  assert.ok(!readdirSync(join(root,'..')).includes('cohort-final'));
 });
 test('p50 and nearest-rank p95 use actual successful_n, without outlier trimming',()=>{
   assert.deepEqual(quantiles([4,1,3,2]),{successful_n:4,p50_ms:2.5,p95_ms:4,max_ms:4});
@@ -90,6 +130,9 @@ test('benchmark is manual-only after source verification and preserves the decla
   assert.match(workflow,/source-hero-benchmark:[\s\S]*needs: verify[\s\S]*if: github.event_name == 'workflow_dispatch' && inputs.run_source_benchmark == true/);
   assert.match(workflow,/timeout --signal=KILL 1200s node scripts\/run-hero-benchmark.mjs/);
   assert.match(workflow,/WORKFLOW_PROCESS_TERMINATED/);
+  assert.match(workflow,/path: frontend\/test-results\/hero-benchmark-final\//);
+  assert.doesNotMatch(workflow,/path: frontend\/test-results\/hero-benchmark\//);
+  assert.match(workflow,/sealSnapshot\('test-results\/hero-benchmark','test-results\/hero-benchmark-final'/);
   const config=readFileSync('playwright.benchmark.config.ts','utf8');
   assert.match(config,/workers:1,retries:0,repeatEach:10/);assert.match(config,/globalTimeout:1140000/);
   assert.match(config,/trace:'off',screenshot:'off',video:'off'/);

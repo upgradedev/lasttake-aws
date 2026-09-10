@@ -52,17 +52,17 @@ jobs:
       - name: One fixed cohort with durable timeout retention, no retries or recordings
         working-directory: frontend
         run: timeout --signal=KILL 1200s node scripts/run-hero-benchmark.mjs
-      - name: Finalize retained slots even if the outer process bound terminated the driver
+      - name: Seal an isolated snapshot even if a detached producer survived the driver
         if: always()
         working-directory: frontend
         run: |
-          node --input-type=module -e "import {existsSync} from 'node:fs'; import {finalize} from './scripts/hero-measurement.mjs'; const root='test-results/hero-benchmark'; if(existsSync(root+'/slot-20.json')) finalize(root,'WORKFLOW_PROCESS_TERMINATED');"
+          node --input-type=module -e "import {sealSnapshot} from './scripts/hero-measurement.mjs'; const summary=sealSnapshot('test-results/hero-benchmark','test-results/hero-benchmark-final','WORKFLOW_PROCESS_TERMINATED'); if(summary.counts.PASSED!==20) process.exitCode=1;"
       - name: Retain every raw slot and source identity even after failure
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: source-hero-measurement-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
-          path: frontend/test-results/hero-benchmark/
+          path: frontend/test-results/hero-benchmark-final/
           retention-days: 90
           if-no-files-found: error
           overwrite: false
@@ -126,6 +126,9 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    permissions:
+      contents: read
+      actions: read
     env:
       AWS_EC2_METADATA_DISABLED: 'true'
       AWS_DEFAULT_REGION: eu-west-1
@@ -196,6 +199,29 @@ jobs:
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         working-directory: frontend
         run: node --test tests/hero-measurement.test.mjs
+      - name: Fetch the fixed already-spent cohort as inert bytes, never remeasure
+        # Branch-scoped review evidence: artifact expiry must not become a mainline dependency.
+        if: github.ref == 'refs/heads/codex/hero-measurement-20260910' || github.head_ref == 'codex/hero-measurement-20260910'
+        uses: actions/download-artifact@v4
+        with:
+          artifact-ids: 10154044857
+          run-id: 34481212393
+          github-token: ${{ github.token }}
+          path: frontend/test-results/hero-benchmark-spent
+          merge-multiple: true
+      - name: Replay original hashes and statistics through isolated snapshot finalization
+        if: github.ref == 'refs/heads/codex/hero-measurement-20260910' || github.head_ref == 'codex/hero-measurement-20260910'
+        working-directory: frontend
+        run: node scripts/replay-hero-measurement.mjs test-results/hero-benchmark-spent test-results/hero-benchmark-replay
+      - name: Retain source-only replay without another measured attempt
+        if: always() && (github.ref == 'refs/heads/codex/hero-measurement-20260910' || github.head_ref == 'codex/hero-measurement-20260910')
+        uses: actions/upload-artifact@v4
+        with:
+          name: source-hero-replay-${{ github.sha }}-${{ github.run_id }}
+          path: frontend/test-results/hero-benchmark-replay/
+          retention-days: 90
+          if-no-files-found: error
+          overwrite: false
       - name: Claim evidence and media-source syntax without provider calls
         if: ${{ !cancelled() }}
         run: |

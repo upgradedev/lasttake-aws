@@ -144,9 +144,27 @@ It runs only on manual opt-in after normal source verification:20 fixed attempts
 hero helper is timed from checkpoint through changed evidence, fresh wrap approval
 and verified handoff downloads. Raw slots, failures, unrun slots, byte counts and
 independent source/runtime identity are retained with p50/nearest-rank p95 methods.
+Byte observations cover request bodies only; response-body bytes are UNKNOWN, not
+captured, so no total-network-byte claim is made. Future failure retention uploads
+only an isolated, once-published snapshot, including captured original bytes and
+derived summary/hashes; per-file observations are not a cross-file transaction.
 This is scripted source-CI completion time, not AWS latency or human time. External
 model cost is0 only with verified offline guards; infrastructure/runner cost is
 unknown. Earlier unmeasured protocol176b58b is explicitly superseded, not rewritten.
+
+Historical source checkpoint,2026-09-10: the single
+[measured run34481212393](https://github.com/upgradedev/lasttake-aws/actions/runs/34481212393)
+at source `faf7f17128549155cda7144fdd1cd560c0f0a5c5` completed20/20 attempts,
+10 per viewport, zero failures/incomplete/unrun slots and no retries. Its
+[raw artifact10154044857](https://github.com/upgradedev/lasttake-aws/actions/runs/34481212393/artifacts/10154044857)
+retains26 hashed files: p50=5662.1155775ms, nearest-rank p95=6547.501716ms,
+process=165481.102184ms/exit0. Within the declared boundary,1540 requests had
+179300 observed request-body bytes and0 unknown request-body sizes; response-body
+sizes were not captured. Reproduce from `slot-*.json`, `summary.json`, `process.json`
+and `manifest.json` in that artifact, not from whole Playwright-test timings.
+These observations belong only to `faf7f1`. Subsequent timeout-retention fixes are
+source-tested with a surviving child writer and replay these already-spent bytes;
+they do not constitute another measured cohort or measure the newer source version.
 
 Dependencies are installed in GitHub Actions. `frontend-ci.yml` generates a lock
 only when absent, uploads it, builds the app, measures unit coverage, runs the

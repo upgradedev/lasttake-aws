@@ -1,6 +1,6 @@
 // Source-only measurement records; no product code or browser side effects here.
-import {mkdirSync,openSync,writeFileSync,fsyncSync,closeSync,renameSync,readFileSync,readdirSync} from 'node:fs';
-import {join,dirname} from 'node:path';
+import {mkdirSync,openSync,writeFileSync,fsyncSync,closeSync,renameSync,readFileSync,readdirSync,existsSync} from 'node:fs';
+import {join,dirname,resolve} from 'node:path';
 import {createHash} from 'node:crypto';
 export const N=20;
 export const stages=['trigger','live','sponsor','evidence','close'];
@@ -63,7 +63,7 @@ export function summarize(slots){
     by_viewport:Object.fromEntries(['desktop','mobile'].map(v=>[v,quantiles(successful.filter(s=>s.viewport===v).map(s=>s.elapsed_ms))])),
     by_stage:Object.fromEntries(stages.map(id=>[id,quantiles(slots.flatMap(s=>s.stages.filter(x=>x.id===id&&x.status==='PASSED').map(x=>x.elapsed_ms)))])),
     model_cost_usd:slots.every(s=>s.status==='PASSED'&&s.offline_verified&&s.model_calls===0&&s.model_cost_usd===0)?0:null,infrastructure_cost_usd:null,runner_cost_usd:null,
-    limits:'Descriptive scripted source-CI cohort only. Successful-duration quantiles exclude failures, which remain raw. No AWS/production/human-time/statistical advantage or total-zero-cost claim. Human NOT_RUN; video NOT_CONFIGURED.'};
+    limits:'Descriptive scripted source-CI cohort only. Successful-duration quantiles exclude failures, which remain raw. body_bytes measures request bodies only; response-body bytes UNKNOWN, not captured. No total-network-byte, AWS/production/human-time/statistical advantage or total-zero-cost claim. Human NOT_RUN; video NOT_CONFIGURED.'};
 }
 export function finalize(root,reason){
   const slots=Array.from({length:N},(_,i)=>readJSON(slotPath(root,i+1)));
@@ -75,7 +75,44 @@ export function finalize(root,reason){
   const summary=summarize(slots);durableJSON(join(root,'summary.json'),summary);
   const escape=text=>String(text).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   writeFileSync(join(root,'summary.html'),`<!doctype html><html lang="en"><meta charset="utf-8"><title>LastTake source hero measurement</title><h1>Source-only hero cohort</h1><p>${escape(summary.limits)}</p><p>p50: middle value/mean of two middle values. p95: nearest-rank ceil(.95 * successful_n). Infra and runner cost unknown.</p><pre>${escape(JSON.stringify(summary,null,2))}</pre><h2>All20 scheduled slots</h2><table><tr><th>Slot</th><th>Viewport</th><th>Status</th><th>Completed ms</th><th>Failed/partial ms</th></tr>${slots.map(s=>`<tr><td>${s.index}</td><td>${s.viewport}</td><td>${s.status}</td><td>${s.elapsed_ms??'unknown'}</td><td>${s.failed_elapsed_ms??'unknown'}</td></tr>`).join('')}</table></html>`);
-  const hashes=Object.fromEntries(readdirSync(root,{withFileTypes:true}).filter(f=>f.isFile()).map(f=>f.name).filter(f=>f!=='manifest.json'&&!f.endsWith('.next')).sort().map(f=>[f,sha256(readFileSync(join(root,f)))]));
+  const hashes=Object.fromEntries(fileNames(root).filter(f=>f!=='manifest.json'&&!f.endsWith('.next')).map(f=>[f,sha256(readFileSync(join(root,f)))]));
   durableJSON(join(root,'manifest.json'),{schema:'lasttake/source-measurement-files/v1',sha256:hashes});
+  return summary;
+}
+function fileNames(root,prefix=''){
+  return readdirSync(join(root,prefix),{withFileTypes:true}).flatMap(entry=>{
+    const path=prefix?`${prefix}/${entry.name}`:entry.name;
+    if(entry.isDirectory())return fileNames(root,path);
+    if(!entry.isFile())throw new Error('Unexpected non-regular evidence file');
+    return [path];
+  }).sort();
+}
+// Only this isolated destination is uploaded. A surviving producer knows the live root,
+// never this destination; all derivation uses buffers captured once, not later live reads.
+export function sealSnapshot(root,destination,reason){
+  root=resolve(root);destination=resolve(destination);
+  if(dirname(root)!==dirname(destination)||root===destination||existsSync(destination))throw new Error('Snapshot must be a new sibling');
+  const staging=destination+'.next';mkdirSync(staging,{recursive:false});
+  const started_at=new Date().toISOString();
+  const captured=new Map(readdirSync(root,{withFileTypes:true}).filter(e=>!e.name.endsWith('.next')).map(entry=>{
+    if(!entry.isFile())throw new Error('Unexpected producer evidence entry');
+    return [entry.name,readFileSync(join(root,entry.name))];
+  }));
+  const ended_at=new Date().toISOString();
+  // Refuse a missing/corrupt denominator before publishing any final directory.
+  for(let index=1;index<=N;index++){
+    const name=`slot-${String(index).padStart(2,'0')}.json`;
+    if(JSON.parse(captured.get(name)?.toString()??'null')?.index!==index)throw new Error('Captured denominator lost');
+  }
+  mkdirSync(join(staging,'captured'));
+  for(const [name,bytes] of captured){
+    writeFileSync(join(staging,'captured',name),bytes,{flag:'wx'});
+    if(!['manifest.json','summary.json','summary.html'].includes(name))writeFileSync(join(staging,name),bytes,{flag:'wx'});
+  }
+  durableJSON(join(staging,'capture.json'),{schema:'lasttake/source-measurement-capture/v1',started_at,ended_at,reason,
+    consistency:'Per-file atomic observations, not a cross-file transaction. Captured bytes are retained unchanged; RUNNING slots become INCOMPLETE only in the derived view.',
+    sha256:Object.fromEntries([...captured].map(([name,bytes])=>[name,sha256(bytes)]))});
+  const summary=finalize(staging,reason);
+  renameSync(staging,destination); // Publish once, after summary and hashes; never update in place.
   return summary;
 }

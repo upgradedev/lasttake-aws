@@ -2,7 +2,7 @@ import {execFileSync,spawn} from 'node:child_process';
 import {readFileSync} from 'node:fs';
 import {resolve,join} from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {preallocate,finalize,readJSON,sha256,durableJSON} from './hero-measurement.mjs';
+import {preallocate,readJSON,sha256,durableJSON} from './hero-measurement.mjs';
 export const preregistration='19ef0723a4d240bcb4e79e93dc58c9ca9366a3cb';
 const repository=resolve(fileURLToPath(new URL('../..',import.meta.url)));
 const git=(...args)=>execFileSync('git',args,{cwd:repository,encoding:'utf8'}).trim();
@@ -35,8 +35,7 @@ export async function supervise(command,args,{cwd,env,root,timeoutMs}){
   process.once('SIGTERM',signal);process.once('SIGINT',signal);
   const exit=await new Promise(resolveExit=>{child.once('error',()=>resolveExit(-1));child.once('close',code=>resolveExit(code??-1));});
   clearTimeout(timer);process.removeListener('SIGTERM',signal);process.removeListener('SIGINT',signal);
-  const summary=finalize(root,reason);
-  return {exit,reason,summary};
+  return {exit,reason}; // Final derivation belongs to the isolated workflow snapshot.
 }
 async function main(){
   if(process.env.CI!=='true'||process.env.GITHUB_EVENT_NAME!=='workflow_dispatch')throw new Error('Manual source CI only');
@@ -49,11 +48,10 @@ async function main(){
       cwd:join(repository,'frontend'),root,timeoutMs:identity.protocol.sampling.process_timeout_ms-1000-(performance.now()-started),
       env:{...process.env,LASTTAKE_BENCHMARK_ROOT:root,LASTTAKE_COMMIT_SHA:identity.commit,LASTTAKE_UI_URL:''}});
     durableJSON(join(root,'process.json'),{elapsed_ms:performance.now()-started,exit:result.exit,reason:result.reason});
-    finalize(root,result.reason);
-    if(result.exit!==0||result.summary.counts.PASSED!==20)process.exitCode=1;
+    if(result.exit!==0)process.exitCode=1;
   }catch(error){
     durableJSON(join(root,'process.json'),{elapsed_ms:performance.now()-started,reason:'INSTRUMENT_REFUSAL',failure:error instanceof Error?error.name:'UNKNOWN'});
-    finalize(root,'INSTRUMENT_REFUSAL');process.exitCode=1;
+    process.exitCode=1;
   }
 }
 if(process.argv[1]&&resolve(process.argv[1])===fileURLToPath(import.meta.url))await main();
