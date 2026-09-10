@@ -2,7 +2,7 @@
 const SHA = /^[0-9a-f]{40}$/;
 const DIGEST = /^[0-9a-f]{64}$/;
 const NUMBER = /^[1-9][0-9]*$/;
-const KEYS = 'schema_version application environment frontend_commit backend_commit backend_commit_basis run_id run_attempt run_url observed_at preflight_at preflight journeys postflight totals human_uat execution_mode limits workflow_status junit_sha256 receipt_path'.split(' ').sort();
+const KEYS = 'schema_version application environment frontend_commit backend_commit backend_commit_basis run_id run_attempt run_url observed_at preflight_at preflight journeys postflight totals retry_count human_uat execution_mode limits workflow_status junit_sha256 receipt_path'.split(' ').sort();
 const LIMITS = 'Automated Chromium desktop/mobile journeys on fictional data. No human UAT, staff identity, live model evaluation, real messages or downstream delivery claim.';
 const sameKeys = (value, keys) => value && typeof value === 'object' && !Array.isArray(value) && JSON.stringify(Object.keys(value).sort()) === JSON.stringify([...keys].sort());
 const matches = (value, pattern) => typeof value === 'string' && pattern.test(value);
@@ -18,12 +18,12 @@ export function validateReceipt(r) {
       !matches(r.run_id, NUMBER) || !matches(r.run_attempt, NUMBER) || r.human_uat !== 'NOT_RUN' ||
       r.backend_commit_basis !== 'GET /healthz before and after journeys; unchanged observed commit' ||
       r.execution_mode !== 'synthetic_data_scripted_planner_lexical_interpreter' || r.limits !== LIMITS ||
-      r.workflow_status !== 'NOT_ASSERTED' || ['preflight', 'journeys', 'postflight'].some(key => r[key] !== 'success') ||
+      r.workflow_status !== 'NOT_ASSERTED' || r.retry_count !== 0 || ['preflight', 'journeys', 'postflight'].some(key => r[key] !== 'success') ||
       r.run_url !== `https://github.com/upgradedev/lasttake-aws/actions/runs/${r.run_id}/attempts/${r.run_attempt}` ||
       r.receipt_path !== `/acceptance/runs/${r.run_id}-${r.run_attempt}.json`) throw new Error('Malformed or refused receipt');
   const totals = r.totals;
   if (!sameKeys(totals, ['tests', 'passed', 'failed', 'skipped']) ||
-      Object.values(totals).some(n => !Number.isSafeInteger(n) || n < 0) || totals.tests <= 0 ||
+      Object.values(totals).some(n => !Number.isSafeInteger(n) || n < 0) || totals.tests < 20 ||
       totals.passed !== totals.tests || totals.failed !== 0 || totals.skipped !== 0) throw new Error('Incomplete JUnit aggregate');
   const duration = time(r.observed_at) - time(r.preflight_at);
   if (!Number.isFinite(duration) || duration < 0 || duration > 20 * 60 * 1000) throw new Error('Invalid observation time');

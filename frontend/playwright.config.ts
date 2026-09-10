@@ -3,7 +3,7 @@ export default defineConfig({testDir:'./tests/e2e',fullyParallel:false,workers:1
   // PR diff collection in the pinned reporter performs a depth-one fetch.
   // Keep commit provenance without allowing reporting to truncate scan history.
   captureGitInfo:{commit:true,diff:false},
-  expect:{timeout:20000}, reporter:[['list'],['html',{open:'never'}],['junit',{outputFile:'test-results/e2e.xml'}]],
+  expect:{timeout:20000}, reporter:[['list'],['html',{open:'never'}],['junit',{outputFile:'test-results/e2e.xml'}],['json',{outputFile:'test-results/e2e-results.json'}]],
   use:{baseURL:process.env.LASTTAKE_UI_URL ?? 'http://127.0.0.1:4173',trace:'on',screenshot:'on',video:'retain-on-failure'},
   projects:[{name:'desktop',use:{...devices['Desktop Chrome'],viewport:{width:1440,height:1000}}},{name:'mobile',use:{...devices['iPhone 13'],defaultBrowserType:'chromium'}}],
   webServer:process.env.LASTTAKE_UI_URL ? undefined : [

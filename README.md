@@ -49,6 +49,8 @@ The previous accepted run 34359050749/artifact 10107569851 was preserved as iner
 
 Manual reruns remain available. Automated results never set human UAT signoff to PASS.
 
+The public receipt requires at least the existing 20 product cases. JUnit supplies the totals; the same run's Playwright JSON report additionally refuses retries, repeated cases, skipped cases, expected failures and report disagreement. That raw report remains in the private CI artifact and is never published to the frontend bucket.
+
 The served root HTML commit marker must match `release.json` as well as the receipt before publication or a current pass. A partial release or rollback cannot use a manifest alone to establish identity. Publisher-only retries use the producing acceptance job's artifact name and attempt output, preserving the run/attempt that actually executed the journeys.
 
 Backend pushes deploy only changed `src/**`, `corpus/**` or `infra/stack.yaml`. The package copies `src/lasttake` and corpus JSON and deploys that template; dependency packaging is defined inside the workflow. Packaging, dependency declaration and workflow-only changes therefore require an explicit `workflow_dispatch` deployment. Frontend proof and documentation changes do not automatically invoke backend deployment or its model checks.

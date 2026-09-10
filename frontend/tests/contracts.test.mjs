@@ -19,14 +19,14 @@ test('public proof refuses malformed, missing, stale, mismatched and broadened r
   assert.equal(assess({commit: 'd'.repeat(40)}, health, fixture, fixture, now, 'd'.repeat(40)).status, 'HISTORICAL');
   assert.equal(assess(release, {...health, commit: 'd'.repeat(40)}, fixture, fixture, now, release.commit).status, 'HISTORICAL');
   for (const patch of [{human_uat: 'PASS'}, {workflow_status: 'success'}, {run_url: 'javascript:alert(1)'},
-    {schema_version: 2}, {raw_data: 'private'}, {postflight: 'failure'}, {receipt_path: '/../secret'},
+    {schema_version: 2}, {raw_data: 'private'}, {postflight: 'failure'}, {receipt_path: '/../secret'}, {retry_count: 1},
     {backend_commit: null}, {preflight_at: 'tomorrow'}, {preflight_at: '2026-02-30T06:00:00Z', observed_at: '2026-02-30T06:01:00Z'}, {totals: {tests: 0, passed: 0, failed: 0, skipped: 0}},
-    {totals: {tests: 2, passed: 2, failed: 0, skipped: 1}}]) {
+    {totals: {tests: 19, passed: 19, failed: 0, skipped: 0}}, {totals: {tests: 24, passed: 24, failed: 0, skipped: 1}}]) {
     assert.throws(() => validateReceipt({...fixture, ...patch}));
     assert.equal(assess(release, health, {...fixture, ...patch}, fixture, now, release.commit).status, 'UNKNOWN');
   }
   assert.equal(assess(release, health, fixture, null, now, release.commit).status, 'UNKNOWN');
-  assert.equal(assess(release, health, fixture, {...fixture, totals: {tests: 3, passed: 3, failed: 0, skipped: 0}}, now, release.commit).status, 'UNKNOWN');
+  assert.equal(assess(release, health, fixture, {...fixture, totals: {tests: 22, passed: 22, failed: 0, skipped: 0}}, now, release.commit).status, 'UNKNOWN');
 });
 
 test('public proof assets ship under existing CSP without a built-in success receipt', async () => {

@@ -17,11 +17,27 @@ NOW = datetime(2026, 9, 10, 6, 0, tzinfo=timezone.utc)
 ENV = {"EXPECTED_RELEASE": FRONTEND, "PREFLIGHT": "success", "JOURNEYS": "success", "POSTFLIGHT": "success",
        "GITHUB_RUN_ID": "12345", "GITHUB_RUN_ATTEMPT": "2", "GITHUB_SHA": FRONTEND,
        "GITHUB_REF": "refs/heads/main", "GITHUB_REPOSITORY": proof.REPO}
-JUNIT = b'''<testsuites tests="2" failures="0" errors="0" skipped="0">
-<testsuite name="journeys.spec.ts" hostname="desktop" tests="1" failures="0" errors="0" skipped="0">
-<testcase classname="journeys.spec.ts" name="refusal and recovery"><system-out>PRIVATE SCENARIO TEXT NOT FOR PUBLICATION</system-out></testcase></testsuite>
-<testsuite name="journeys.spec.ts" hostname="mobile" tests="1" failures="0" errors="0" skipped="0">
-<testcase classname="journeys.spec.ts" name="refusal and recovery"/></testsuite></testsuites>'''
+
+
+def junit_fixture(per_project=12):
+    # Deliberately 24 cases, independent of the fixed production minimum of 20.
+    suites = []
+    for project in ("desktop", "mobile"):
+        cases = ''.join(f'<testcase classname="journeys.spec.ts" name="case {n}"><system-out>PRIVATE SCENARIO TEXT NOT FOR PUBLICATION</system-out></testcase>' for n in range(per_project))
+        suites.append(f'<testsuite name="journeys.spec.ts" hostname="{project}" tests="{per_project}" failures="0" errors="0" skipped="0">{cases}</testsuite>')
+    return (f'<testsuites tests="{per_project * 2}" failures="0" errors="0" skipped="0">' + ''.join(suites) + '</testsuites>').encode()
+
+
+def browser_report(per_project=12):
+    return {"errors": [], "config": {"projects": [{"name": name, "retries": 0, "repeatEach": 1} for name in ("desktop", "mobile")]},
+            "stats": {"expected": per_project * 2, "unexpected": 0, "skipped": 0, "flaky": 0},
+            "suites": [{"specs": [{"ok": True, "tests": [
+                {"projectName": project, "status": "expected", "expectedStatus": "passed",
+                 "results": [{"status": "passed", "retry": 0, "errors": []}]} for project in ("desktop", "mobile")
+            ]} for _ in range(per_project)]}]}
+
+
+JUNIT = junit_fixture()
 
 
 def observation(at=NOW):
@@ -30,20 +46,20 @@ def observation(at=NOW):
 
 def receipt():
     with patch.object(proof, "utcnow", return_value=NOW):
-        return proof.build(JUNIT, observation(NOW - timedelta(minutes=9)), observation(), ENV)
+        return proof.build(JUNIT, observation(NOW - timedelta(minutes=9)), observation(), ENV, browser_report())
 
 
 class ReceiptContract(unittest.TestCase):
     def test_real_case_nodes_produce_only_sanitized_totals_and_exact_observed_pair(self):
         result = receipt()
-        self.assertEqual(result["totals"], {"tests": 2, "passed": 2, "failed": 0, "skipped": 0})
+        self.assertEqual(result["totals"], {"tests": 24, "passed": 24, "failed": 0, "skipped": 0})
         self.assertEqual(result["frontend_commit"], FRONTEND)
         self.assertEqual(result["backend_commit"], BACKEND)
         self.assertEqual(result["run_attempt"], "2")
         self.assertEqual(result["human_uat"], "NOT_RUN")
         self.assertEqual(result["workflow_status"], "NOT_ASSERTED")
         self.assertNotIn(b"PRIVATE SCENARIO", proof.encode(result))
-        self.assertNotIn(b"refusal and recovery", proof.encode(result))
+        self.assertNotIn(b"case 0", proof.encode(result))
 
     def test_failed_skipped_or_missing_stage_never_creates_receipt(self):
         for stage in ("PREFLIGHT", "JOURNEYS", "POSTFLIGHT"):
@@ -53,14 +69,41 @@ class ReceiptContract(unittest.TestCase):
 
     def test_junit_empty_malformed_or_false_counts_refused(self):
         for bad in (b"", b"<testsuites/>", b"<html>success</html>", b"<!DOCTYPE x>" + JUNIT,
-                    JUNIT.replace(b'tests="2"', b'tests="3"'), JUNIT.replace(b'tests="1"', b'tests="2"'),
+                    JUNIT.replace(b'tests="24"', b'tests="25"'), JUNIT.replace(b'tests="12"', b'tests="13"'),
                     JUNIT.replace(b'failures="0"', b'failures="1"'), JUNIT.replace(b'skipped="0"', b'skipped="1"'),
                     JUNIT.replace(b'<system-out>', b'<failure>').replace(b'</system-out>', b'</failure>'),
                     JUNIT.replace(b'<system-out>', b'<skipped>').replace(b'</system-out>', b'</skipped>'),
                     JUNIT.replace(b' hostname="mobile"', b' hostname="desktop"'),
-                    JUNIT.replace(b' name="refusal and recovery"', b''), JUNIT.replace(b'errors="0"', b'errors="1"')):
+                    JUNIT.replace(b' name="case 0"', b''), JUNIT.replace(b'errors="0"', b'errors="1"')):
             with self.subTest(input=bad[:90]), self.assertRaises((ValueError, proof.ET.ParseError)):
-                proof.junit_totals(bad)
+                proof.junit_totals(bad, browser_report())
+
+    def test_minimum_requires_twenty_independent_product_cases(self):
+        self.assertEqual(proof.junit_totals(junit_fixture(10), browser_report(10))["tests"], 20)
+        with self.assertRaisesRegex(ValueError, "20 required"):
+            proof.junit_totals(junit_fixture(9), browser_report(9))
+        with self.assertRaises(ValueError):
+            proof.validate({**receipt(), "totals": {"tests": 19, "passed": 19, "failed": 0, "skipped": 0}})
+
+    def test_json_report_is_required_to_refuse_retries_skips_and_expected_failures(self):
+        for mutate in (
+            lambda r: r["config"]["projects"][0].update(retries=1),
+            lambda r: r["stats"].update(flaky=1),
+            lambda r: r["stats"].update(expected=23),
+            lambda r: r["errors"].append({"message": "global failure"}),
+            lambda r: r["suites"][0]["specs"][0]["tests"][0].update(expectedStatus="failed"),
+            lambda r: r["suites"][0]["specs"][0]["tests"][0]["results"].append({"status": "passed", "retry": 1, "errors": []}),
+            lambda r: r["suites"][0]["specs"][0]["tests"][0]["results"][0].update(retry=1),
+            lambda r: r["suites"][0]["specs"][0]["tests"][0]["results"][0].update(status="skipped"),
+            lambda r: r["suites"][0]["specs"][0]["tests"][0]["results"][0].update(status="failed"),
+            lambda r: r["suites"][0]["specs"].pop(),
+        ):
+            report = browser_report()
+            mutate(report)
+            with self.assertRaises(ValueError):
+                proof.junit_totals(JUNIT, report)
+        with self.assertRaises(ValueError):
+            proof.junit_totals(JUNIT)
 
     def test_changed_pair_refused(self):
         for key in ("frontend_commit", "backend_commit"):
@@ -89,7 +132,7 @@ class ReceiptContract(unittest.TestCase):
 
     def test_strict_schema_rejects_raw_data_or_broadened_claims(self):
         for extra in ({"raw_scenarios": ["private"]}, {"human_uat": "PASS"}, {"workflow_status": "success"},
-                      {"schema_version": True}, {"backend_commit": "unavailable"}, {"application": "archon"},
+                      {"schema_version": True}, {"backend_commit": "unavailable"}, {"application": "archon"}, {"retry_count": 1},
                       {"run_url": "https://example.com/token"}, {"receipt_path": "/acceptance/runs/../../secret"},
                       {"totals": {"tests": 2, "passed": 2, "failed": 0, "skipped": 1}},
                       {"totals": {"tests": True, "passed": True, "failed": 0, "skipped": 0}},

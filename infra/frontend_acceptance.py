@@ -23,10 +23,11 @@ REPO = "upgradedev/lasttake-aws"
 SHA = re.compile(r"[0-9a-f]{40}")
 DIGEST = re.compile(r"[0-9a-f]{64}")
 NUMBER = re.compile(r"[1-9][0-9]*")
+MIN_PRODUCT_CASES = 20
 MODE = "synthetic_data_scripted_planner_lexical_interpreter"
 LIMITS = "Automated Chromium desktop/mobile journeys on fictional data. No human UAT, staff identity, live model evaluation, real messages or downstream delivery claim."
 BASIS = "GET /healthz before and after journeys; unchanged observed commit"
-KEYS = set("schema_version application environment frontend_commit backend_commit backend_commit_basis run_id run_attempt run_url observed_at preflight_at preflight journeys postflight totals human_uat execution_mode limits workflow_status junit_sha256 receipt_path".split())
+KEYS = set("schema_version application environment frontend_commit backend_commit backend_commit_basis run_id run_attempt run_url observed_at preflight_at preflight journeys postflight totals retry_count human_uat execution_mode limits workflow_status junit_sha256 receipt_path".split())
 
 
 def utcnow():
@@ -97,7 +98,7 @@ def require_current_source(expected, environment=os.environ, command=subprocess.
     require(head == expected == main, "stale dispatch or checkout")
 
 
-def junit_totals(data):
+def junit_totals(data, browser_results=None):
     require(len(data) <= 10_000_000 and b"<!DOCTYPE" not in data.upper() and b"<!ENTITY" not in data.upper(), "unsafe JUnit")
     root = ET.fromstring(data)
     require(root.tag == "testsuites", "expected Playwright JUnit testsuites")
@@ -120,6 +121,31 @@ def junit_totals(data):
         total += len(cases)
     for key, expected in (("tests", total), ("failures", 0), ("errors", 0), ("skipped", 0)):
         require(root.get(key) == str(expected), "JUnit totals disagree or contain failures/skips")
+    require(total >= MIN_PRODUCT_CASES, "fewer than 20 required product cases")
+    require(isinstance(browser_results, dict) and browser_results.get("errors") == [], "missing or failed Playwright JSON report")
+    projects = browser_results.get("config", {}).get("projects", [])
+    require({p.get("name") for p in projects} == {"desktop", "mobile"} and len(projects) == 2,
+            "both browser projects required")
+    require(all(p.get("retries") == 0 and p.get("repeatEach") == 1 for p in projects), "retries or repeated cases refused")
+    stats = browser_results.get("stats", {})
+    require(stats.get("expected") == total and all(stats.get(key) == 0 for key in ("unexpected", "skipped", "flaky")),
+            "Playwright totals disagree or contain retries/failures/skips")
+    tests = []
+
+    def visit(suites):
+        for suite in suites:
+            for case in suite.get("specs", []):
+                require(case.get("ok") is True, "failed browser case")
+                tests.extend(case.get("tests", []))
+            visit(suite.get("suites", []))
+
+    visit(browser_results.get("suites", []))
+    require(len(tests) == total, "JSON case count differs from JUnit")
+    for test in tests:
+        attempts = test.get("results", [])
+        require(test.get("expectedStatus") == "passed" and test.get("status") == "expected", "expected failure or non-passing case refused")
+        require(len(attempts) == 1 and attempts[0].get("status") == "passed" and attempts[0].get("retry") == 0
+                and attempts[0].get("errors") == [] and not attempts[0].get("error"), "retried, skipped or failed attempt refused")
     return {"tests": total, "passed": total, "failed": 0, "skipped": 0}
 
 
@@ -127,7 +153,7 @@ def validate(receipt, now=None, fresh=False):
     require(isinstance(receipt, dict) and set(receipt) == KEYS, "unexpected receipt fields")
     for key, value in {"schema_version": 1, "application": "lasttake", "environment": "live_aws",
                        "backend_commit_basis": BASIS, "human_uat": "NOT_RUN", "execution_mode": MODE,
-                       "limits": LIMITS, "workflow_status": "NOT_ASSERTED", "preflight": "success",
+                       "limits": LIMITS, "workflow_status": "NOT_ASSERTED", "retry_count": 0, "preflight": "success",
                        "journeys": "success", "postflight": "success"}.items():
         require(type(receipt[key]) is type(value) and receipt[key] == value, "receipt scope or stage invalid")
     for key in ("frontend_commit", "backend_commit"):
@@ -141,7 +167,7 @@ def validate(receipt, now=None, fresh=False):
     counts = receipt["totals"]
     require(isinstance(counts, dict) and set(counts) == {"tests", "passed", "failed", "skipped"}, "invalid aggregate fields")
     require(all(type(n) is int and n >= 0 for n in counts.values()), "invalid aggregate counts")
-    require(counts["tests"] > 0 and counts["passed"] == counts["tests"] and counts["failed"] == counts["skipped"] == 0, "incomplete acceptance")
+    require(counts["tests"] >= MIN_PRODUCT_CASES and counts["passed"] == counts["tests"] and counts["failed"] == counts["skipped"] == 0, "incomplete acceptance")
     start, end = timestamp(receipt["preflight_at"]), timestamp(receipt["observed_at"])
     require(timedelta(0) <= end - start <= timedelta(minutes=20), "invalid acceptance time window")
     if fresh:
@@ -149,7 +175,7 @@ def validate(receipt, now=None, fresh=False):
     return receipt
 
 
-def build(junit, before, after, environment=os.environ):
+def build(junit, before, after, environment=os.environ, browser_results=None):
     require(all(environment.get(key) == "success" for key in ("PREFLIGHT", "JOURNEYS", "POSTFLIGHT")), "all observed stages must succeed")
     expected = environment["EXPECTED_RELEASE"]
     require(before["frontend_commit"] == after["frontend_commit"] == expected, "frontend changed during acceptance")
@@ -162,7 +188,7 @@ def build(junit, before, after, environment=os.environ):
         "run_url": f"https://github.com/{REPO}/actions/runs/{run}/attempts/{attempt}",
         "observed_at": after["observed_at"], "preflight_at": before["observed_at"],
         "preflight": "success", "journeys": "success", "postflight": "success",
-        "totals": junit_totals(junit), "human_uat": "NOT_RUN", "execution_mode": MODE, "limits": LIMITS,
+        "totals": junit_totals(junit, browser_results), "retry_count": 0, "human_uat": "NOT_RUN", "execution_mode": MODE, "limits": LIMITS,
         "workflow_status": "NOT_ASSERTED", "junit_sha256": hashlib.sha256(junit).hexdigest(),
         "receipt_path": f"/acceptance/runs/{run}-{attempt}.json",
     }
@@ -241,7 +267,8 @@ def main():
     parser.add_argument("--output", default="frontend/acceptance-observations/acceptance-receipt.json")
     args = parser.parse_args()
     if args.action == "inspect-junit":
-        print(json.dumps({"scope": "SOURCE_CI_ONLY", "totals": junit_totals(Path("frontend/test-results/e2e.xml").read_bytes())}))
+        print(json.dumps({"scope": "SOURCE_CI_ONLY", "totals": junit_totals(Path("frontend/test-results/e2e.xml").read_bytes(),
+                         read_json(Path("frontend/test-results/e2e-results.json").read_bytes()))}))
         return
     expected = os.environ["EXPECTED_RELEASE"]
     if args.action in {"observe", "publish"}:
@@ -251,7 +278,8 @@ def main():
     elif args.action == "build":
         result = build(Path("frontend/test-results/e2e.xml").read_bytes(),
                        read_json(Path("frontend/acceptance-observations/preflight.json").read_bytes()),
-                       read_json(Path("frontend/acceptance-observations/postflight.json").read_bytes()))
+                       read_json(Path("frontend/acceptance-observations/postflight.json").read_bytes()),
+                       browser_results=read_json(Path("frontend/test-results/e2e-results.json").read_bytes()))
     else:
         # A publisher-only retry retains the producing acceptance job's attempt.
         result = publish(Path(args.output).read_bytes(), expected, os.environ["GITHUB_RUN_ID"], os.environ["PRODUCER_RUN_ATTEMPT"])

@@ -8,6 +8,8 @@ const cases = [
   ['failed cases', 'UNKNOWN'], ['skipped cases', 'UNKNOWN'], ['future', 'UNKNOWN'],
   ['unsafe link', 'UNKNOWN'], ['unavailable health', 'UNKNOWN'], ['server error', 'UNKNOWN'],
   ['HTML mismatch', 'UNKNOWN'], ['HTML missing marker', 'UNKNOWN'],
+  ['below minimum', 'UNKNOWN'],
+  ['retried case', 'UNKNOWN'],
 ];
 
 for (const [scenario, status] of cases) {
@@ -21,9 +23,11 @@ for (const [scenario, status] of cases) {
     record.preflight_at = new Date(end - 9 * 60000).toISOString().replace(/\.\d{3}Z$/, 'Z');
     const immutable = structuredClone(record);
     if (scenario === 'refusal') record.postflight = 'failure';
+    if (scenario === 'retried case') record.retry_count = 1;
     if (scenario === 'failed cases') record.totals.failed = 1;
     if (scenario === 'skipped cases') record.totals.skipped = 1;
-    if (scenario === 'immutable mismatch') immutable.totals = {tests: 3, passed: 3, failed: 0, skipped: 0};
+    if (scenario === 'below minimum') record.totals = {tests: 19, passed: 19, failed: 0, skipped: 0};
+    if (scenario === 'immutable mismatch') immutable.totals = {tests: 22, passed: 22, failed: 0, skipped: 0};
     if (scenario === 'unsafe link') record.run_url = 'javascript:alert(1)';
     await page.route('http://127.0.0.1:4173/', route => route.fulfill({contentType: 'text/html', body:
       scenario === 'HTML missing marker' ? '<html><head></head></html>' :
@@ -46,7 +50,7 @@ for (const [scenario, status] of cases) {
     if (status === 'CURRENT_AUTOMATED_PASS' || status === 'HISTORICAL') {
       await expect(page.locator('#current-frontend')).toHaveText(scenario === 'frontend mismatch' ? 'd'.repeat(40) : record.frontend_commit);
       await expect(page.locator('#recorded-backend')).toHaveText(record.backend_commit);
-      await expect(page.getByTestId('acceptance-counts')).toHaveText('JUnit browser cases: 2 total; 2 passed; 0 failed; 0 skipped.');
+      await expect(page.getByTestId('acceptance-counts')).toHaveText('JUnit browser cases: 24 total; 24 passed; 0 failed; 0 skipped.');
       await expect(page.getByRole('link', {name: 'Immutable aggregate receipt'})).toHaveAttribute('href', record.receipt_path);
     } else {
       await expect(page.locator('#details')).toBeHidden();

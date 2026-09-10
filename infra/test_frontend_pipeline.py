@@ -203,6 +203,7 @@ class MainAcceptanceContract(unittest.TestCase):
         assert "testDir: './proof-tests'" in config and "proof-junit.xml" in config
         product = (ROOT / "frontend/playwright.config.ts").read_text()
         assert "testDir:'./tests/e2e'" in product and "test-results/e2e.xml" in product
+        assert "test-results/e2e-results.json" in product
         assert "proof-tests" not in product
 
     def test_observation_inside_browser_cleanup_directory_is_rejected(self):
