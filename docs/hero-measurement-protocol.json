@@ -1,0 +1,58 @@
+{
+  "schema": "lasttake/hero-measurement-protocol/v1",
+  "protocol_id": "LT-X1-SOURCE-20260910",
+  "declared_at": "2026-09-10T11:34:00Z",
+  "status": "PREREGISTERED_NOT_MEASURED",
+  "scope": "SOURCE_CI_ONLY",
+  "question": "How long does the complete synthetic hero workflow take in one source-only GitHub Actions environment, from creating an owned shoot day to verified handoff downloads?",
+  "source_baseline": {
+    "commit": "cd011a963a079a6fa6d8022acd4552bbf7a41864",
+    "frontend_path": "frontend/src",
+    "frontend_tree": "809ece67c954e82f6137002aeb0eebfc365e9fba",
+    "backend_path": "src/lasttake",
+    "backend_tree": "9658d4e6c81766258c8bb0e0f89af68f5e78a284",
+    "hero_path": "web/video/hero-journey.mjs",
+    "hero_sha256": "1723246162e0863bddf5f41f114b9d34e5ea3a18d071f0d6a66989ae5b5d86c1",
+    "identity_rule": "Bind protocol commit/hash, instrument HEAD, independent frontend/backend source trees, served frontend asset hashes and observed backend health revision before and after. Refuse mismatches. These are local source identities, not AWS releases."
+  },
+  "sampling": {
+    "n": 10,
+    "workers": 1,
+    "retries": 0,
+    "sample_timeout_ms": 90000,
+    "job_timeout_minutes": 25,
+    "viewport": {"width": 1440, "height": 1000},
+    "browser": "Chromium desktop from the existing locked Playwright dependency",
+    "order": "Sequential sample indices 1 through 10; fresh browser context and owned synthetic session per sample; same local server processes throughout.",
+    "warmup": "None. Preserve first-sample cache/start effects that fall inside the timing boundary.",
+    "failure_rule": "Continue remaining scheduled samples after a failure. Never retry, replace, discard or add samples. Preserve scheduled, started, stage and final records; unstarted or interrupted samples stay NOT_RUN or INCOMPLETE, never zero-duration successes.",
+    "execution_budget": "One manual source benchmark dispatch after instrument tests pass. Instrument failure must be reported; another measured cohort needs a separately recorded decision, never silent rerun."
+  },
+  "timing": {
+    "clock": "Monotonic performance.now in the browser driver process; milliseconds as unrounded raw numbers.",
+    "start": "Immediately before clicking Start this fictional shoot day, after initial page navigation and readiness of that control.",
+    "end": "Immediately after the unchanged shared close stage returns, having verified downloaded turnover JSON, downloaded handoff recommendations against the saved manifest, downloaded wrap receipt and visible handoff take identity.",
+    "stages": ["create", "hook", "surface", "trigger", "live", "sponsor", "evidence", "close"],
+    "included": "Browser controls, API work, reloads, polling/assertions, downloads, scripted human-role actions and measurement instrumentation within the boundary. This is automation completion time, not human-active time or model inference latency.",
+    "excluded": "Dependency install, build, server startup, initial navigation, pre/postflight provenance checks, post-workflow clipboard exercises, artifact upload and summary rendering. No narration holds, screenshots, traces or video recording are enabled.",
+    "failed_elapsed": "Retain elapsed time and completed/failed stages separately. A timed-out or partial sample is not a completed-workflow latency."
+  },
+  "network_and_cost": {
+    "browser_origin": "http://127.0.0.1:4173",
+    "backend_origin": "http://127.0.0.1:8765",
+    "network_policy": "During the measured workflow, browser requests are same-origin only; backend provider client construction and outbound network are refused and counted. Package installation by GitHub Actions is outside the boundary.",
+    "runtime": "Real Strands sessions with local durable adapters, offline-scripted/1.0.0 planning and offline-lexical/1.0.0 interpretation. Not semantic-AI or creative/legal clearance.",
+    "model_calls": "Paid/external model invocations must be observed as 0 with installed fail-closed guards and per-sample counters. Scripted planner calls are separately counted and must not be described as 0 model activity.",
+    "model_cost_usd": "0 only for the guarded source-only paid-model path; unknown if guard evidence is absent or incomplete.",
+    "aws_infrastructure_cost_usd": null,
+    "aws_cost_status": "UNKNOWN_NOT_MEASURED",
+    "other_costs": "No claim of zero total cost: GitHub Actions, compute, storage and human cost are not metered. No AWS benchmark, paid model, mail or recording is authorized."
+  },
+  "reporting": {
+    "fixed_denominator": 10,
+    "raw": "Preserve every sample index, outcome, stage start/end/elapsed milliseconds, total elapsed, API request counts and body byte counts, guard/planner counters, provenance and sanitized failure class/stage. Missing byte observations remain unknown, not 0. Do not retain session handles, request/response bodies, headers or arbitrary error text.",
+    "statistics": "Report success/failure/incomplete/not-run counts over 10. Median is the middle success value or mean of the two middle success values; p95 uses nearest-rank ceil(0.95 * successful_n); max uses successful samples only. Print successful_n beside all successful-duration statistics and each stage. For 10 successes nearest-rank p95 equals max. Empty aggregates are null. Report failed elapsed separately.",
+    "retention": "Always upload raw records and human-readable HTML summary with SHA256 artifact manifest for 90 days, even after failure. Do not overwrite historical docs/measurement.json or earlier evidence.",
+    "claims": "A bounded descriptive source-CI observation on one synthetic workflow and environment. No statistical advantage, baseline speedup, population inference, real-user benefit, production latency or AWS monetary estimate. Human UAT remains NOT_RUN and production video remains NOT_CONFIGURED."
+  }
+}
