@@ -36,6 +36,10 @@ function aTake(overrides = {}) {
     usable: true,
     note: "Pickup on the reaction. Clean single, held.",
     visible_people: ["DELPHINE"],
+    // Independently supplied camera-department evidence, not copied by ingestion.
+    camera_report_row: {
+      take_id: "T-900", media_id: "A007R2G01", lens_mm: 50, camera_roll: "A007",
+    },
     ...overrides,
   }, null, 2);
 }
@@ -127,6 +131,21 @@ test.describe("LT-01, a document a person supplied", () => {
     await expect(page.locator('.beat[data-beat="B-17"]')).toContainText(
       "corroborated by the interpreter",
     );
+  });
+
+  test("a take without independent camera evidence stays a media exception after reload", async ({ page }) => {
+    await openFresh(page);
+    await submit(page, "take", aTake({ camera_report_row: undefined }));
+    await expect(page.locator("#ingestOut .shape")).toHaveClass(/good/);
+    await expect(page.locator('.take[data-take="T-900"]')).toBeVisible();
+    const beat = page.locator('.beat[data-beat="B-17"]');
+    await expect(beat).toHaveClass(/s-media/);
+    await expect(beat).not.toHaveClass(/s-covered/);
+    await expect(page.locator('.card[data-req="T-900"]')).toContainText("has no row in camera report");
+    await page.reload({ waitUntil: "networkidle" });
+    await expect(page.locator("#tally")).toContainText("34", { timeout: 90_000 });
+    await expect(beat).toHaveClass(/s-media/);
+    await expect(page.locator('.card[data-req="T-900"]')).toContainText("There is no second record to reconcile against");
   });
 
   test("the same document twice does not write it twice", async ({ page }) => {
