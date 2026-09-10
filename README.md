@@ -815,6 +815,46 @@ ever copied into CI.
 
 **Costs and timing.** No measured invoice, human-active time or savings are claimed. AWS charges and quotas depend on the account and request pattern; CI timings are validation timings, not time saved for a crew. The receipt exposes measured publication elapsed time without treating it as human time.
 
+### DSQL runtime authority preparation (not activated)
+
+The active stack still uses the legacy admin connection and first-use schema
+bootstrap. Source preparation adds an explicit custom-role path; it does not
+change deployed IAM, database grants or the active IaC defaults. Actual limited-role
+runtime probes are **NOT_RUN** and require a second owner-approved cutover.
+
+With no new authority settings, existing admin/bootstrap behavior is unchanged.
+To select the prepared runtime path, all four values must be supplied together:
+
+| Setting | Prepared runtime value |
+|---|---|
+| `LASTTAKE_DSQL_ENDPOINT` | The exact cluster hostname, without a URL scheme |
+| `LASTTAKE_DSQL_USER` | `lasttake_runtime` |
+| `LASTTAKE_DSQL_AUTH_MODE` | `runtime` |
+| `LASTTAKE_DSQL_BOOTSTRAP` | `disabled` |
+
+Incomplete, blank or conflicting authority configuration refuses before adapter
+construction; it cannot select admin or S3/local storage. Runtime authentication
+uses the non-admin token method, and runtime schema initialization is refused.
+The schema must already exist, prepared by a separate operator authority. Existing
+targeted-rerun and delivery-recovery DELETE operations remain required.
+
+[`infra/dsql_runtime_authority.py`](infra/dsql_runtime_authority.py) is an inert,
+explicit `--prepare` renderer. It emits separate schema SQL, exact per-table DML,
+custom-role mapping, cluster-scoped connection policy and an environment **patch**.
+It has no apply operation, AWS connection or automatic workflow, and the active
+stack does not import it. Keep rendered real identifiers in a private change record.
+Normal rollback restores admin IAM before the retained complete environment/code,
+then verifies health/acceptance. Optional cleanup remains `NOT_AUTHORIZED`, requires
+separate owner approval and is not part of rollback; nothing is dropped.
+
+The configuration follows the official [DSQL role mapping instructions](https://docs.aws.amazon.com/aurora-dsql/latest/userguide/using-database-and-iam-roles.html)
+and [non-admin token API](https://docs.aws.amazon.com/boto3/latest/reference/services/dsql/client/generate_db_connect_auth_token.html).
+CI checks configuration refusal, token selection, cold-start bootstrap compatibility,
+actual adapter query permissions against an independent literal map, and negative
+permission/rollback fixtures. These are source controls, not proof of effective
+Aurora grants, inherited permissions or authorization by an actual runtime principal.
+The ordinary user journeys and current AWS evidence remain on `/acceptance.html`.
+
 **Tearing it down.** `gh workflow run deploy.yml -f action=teardown` deletes the stack. The
 data bucket is retained on purpose, because it holds the audit trail, and a teardown that
 destroys the audit trail is not a teardown. Empty it deliberately if you want it gone.

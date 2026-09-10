@@ -35,6 +35,8 @@ import json
 import os
 from typing import Any, Optional
 
+from .dsql_config import DsqlConfig, DsqlConfigurationError
+
 #: How long a generated auth token stays valid. Short on purpose: it is minted
 #: per connection, and a long-lived one would be a credential in all but name.
 TOKEN_TTL_SECONDS = 900
@@ -108,11 +110,28 @@ class DsqlRunStore:
         region: Optional[str] = None,
         database: str = "postgres",
         user: str = "admin",
+        *,
+        auth_mode: str = "admin",
+        bootstrap: bool = True,
     ) -> None:
-        self.endpoint = endpoint or os.environ["LASTTAKE_DSQL_ENDPOINT"]
+        self._config = DsqlConfig(
+            endpoint if endpoint is not None else os.environ.get("LASTTAKE_DSQL_ENDPOINT"),
+            user, auth_mode, bootstrap,
+        )
         self.region = region or os.environ.get("AWS_REGION", "eu-west-1")
         self.database = database
-        self.user = user
+
+    @property
+    def endpoint(self) -> str:
+        return self._config.endpoint
+
+    @property
+    def user(self) -> str:
+        return self._config.user
+
+    @property
+    def schema_bootstrap_enabled(self) -> bool:
+        return self._config.bootstrap
 
     # -- connection ---------------------------------------------------------
 
@@ -120,7 +139,9 @@ class DsqlRunStore:
         import boto3
 
         client = boto3.client("dsql", region_name=self.region)
-        return client.generate_db_connect_admin_auth_token(
+        token = (client.generate_db_connect_admin_auth_token if self._config.auth_mode == "admin"
+                 else client.generate_db_connect_auth_token)
+        return token(
             Hostname=self.endpoint, Region=self.region, ExpiresIn=TOKEN_TTL_SECONDS
         )
 
@@ -144,6 +165,8 @@ class DsqlRunStore:
         BEGIN" is exactly wrong here and fails only once you point it at a real
         cluster.
         """
+        if not self.schema_bootstrap_enabled:
+            raise DsqlConfigurationError("Schema bootstrap is disabled for this connection.")
         with self._connect() as conn:
             for statement in SCHEMA_STATEMENTS:
                 with conn.cursor() as cur:

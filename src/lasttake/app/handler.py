@@ -30,6 +30,7 @@ from typing import Any, Optional
 from botocore.exceptions import BotoCoreError, ClientError
 
 from ..adapters.aws.infrastructure import from_environment, run_store_kind
+from ..adapters.aws.dsql_config import DsqlConfigurationError
 from ..adapters.local.interpreter import OfflineInterpreter
 from ..agents.orchestrator import build_orchestrator
 from ..agents.runtime import WrapRun
@@ -123,11 +124,14 @@ def build_run(run_id: str, package=None) -> WrapRun:
     The schema is created once per container rather than once per request. It
     is `CREATE TABLE IF NOT EXISTS`, so a second container racing the first is
     harmless, and putting it here means a fresh cluster works on its first
-    request instead of needing a migration step nobody remembers to run.
+    request instead of needing a migration step nobody remembers to run. This
+    legacy default is preserved; opt-in runtime authority never runs DDL and
+    requires a separately bootstrapped schema before serving requests.
     """
     global _SCHEMA_READY
     bus, artifacts, runs = from_environment()
-    if not _SCHEMA_READY and hasattr(runs, "ensure_schema"):
+    if (not _SCHEMA_READY and getattr(runs, "schema_bootstrap_enabled", True)
+            and hasattr(runs, "ensure_schema")):
         runs.ensure_schema()
         _SCHEMA_READY = True
     if package is None:
@@ -683,12 +687,16 @@ def handler(event: dict, context: Any) -> dict:
     if method == "GET" and path in {"/", "/index.html"}:
         return _page()
     if method == "GET" and path == "/healthz":
+        try:
+            store_kind = run_store_kind()
+        except DsqlConfigurationError as exc:
+            return _unavailable(exc, path, request_id)
         return _json(
             200,
             {
                 "ok": True,
                 "scene": scene_package().scene_id,
-                "run_state_store": run_store_kind(),
+                "run_state_store": store_kind,
                 "commit": os.environ.get("LASTTAKE_COMMIT_SHA", "unknown"),
             },
             request_id,
@@ -748,7 +756,7 @@ def handler(event: dict, context: Any) -> dict:
         from ..domain.history import HistoryChanged, HistoryUnavailable
         if isinstance(exc, HistoryChanged):
             return _json(409, {"error": str(exc)}, request_id)
-        if isinstance(exc, (ClientError, BotoCoreError, HistoryUnavailable)):
+        if isinstance(exc, (ClientError, BotoCoreError, HistoryUnavailable, DsqlConfigurationError)):
             return _unavailable(exc, path, request_id)
 
         if resumed_with_a_bad_interrupt(exc):
