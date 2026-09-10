@@ -62,7 +62,7 @@ export function summarize(slots){
   return {scope:'SOURCE_CI_ONLY',denominator:N,counts,overall:quantiles(successful.map(s=>s.elapsed_ms)),
     by_viewport:Object.fromEntries(['desktop','mobile'].map(v=>[v,quantiles(successful.filter(s=>s.viewport===v).map(s=>s.elapsed_ms))])),
     by_stage:Object.fromEntries(stages.map(id=>[id,quantiles(slots.flatMap(s=>s.stages.filter(x=>x.id===id&&x.status==='PASSED').map(x=>x.elapsed_ms)))])),
-    model_cost_usd:slots.every(s=>s.offline_verified)?0:null,infrastructure_cost_usd:null,runner_cost_usd:null,
+    model_cost_usd:slots.every(s=>s.status==='PASSED'&&s.offline_verified&&s.model_calls===0&&s.model_cost_usd===0)?0:null,infrastructure_cost_usd:null,runner_cost_usd:null,
     limits:'Descriptive scripted source-CI cohort only. Successful-duration quantiles exclude failures, which remain raw. No AWS/production/human-time/statistical advantage or total-zero-cost claim. Human NOT_RUN; video NOT_CONFIGURED.'};
 }
 export function finalize(root,reason){

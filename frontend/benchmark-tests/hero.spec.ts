@@ -52,11 +52,12 @@ test('fixed full source hero',async({page},info)=>{
     for(const stage of slot.stages){
       slot.stage=stage.id;stage.status='RUNNING';stage.start_ms=performance.now()-started;slot.failed_elapsed_ms=stage.start_ms;save();
       const result=await scenes[stage.id]();
-      stage.end_ms=performance.now()-started;stage.elapsed_ms=stage.end_ms-stage.start_ms;stage.status='PASSED';
-      if(stage.id==='close')slot.receipt=result;
+      const ended=performance.now();
+      stage.end_ms=ended-started;stage.elapsed_ms=stage.end_ms-stage.start_ms;stage.status='PASSED';
+      if(stage.id==='close'){slot.receipt=result;slot.elapsed_ms=ended-started;active=false;}
       slot.failed_elapsed_ms=performance.now()-started;save();
     }
-    slot.elapsed_ms=performance.now()-started;active=false;
+    active=false;
     slot.guard_after=measurement.readJSON(join(root,'guards.json'));
     slot.offline_verified=measurement.verifyOffline(slot.guard_before,slot.guard_after,identity.commit)&&blocked===0;
     expect(slot.offline_verified).toBe(true);expect(errors).toEqual([]);

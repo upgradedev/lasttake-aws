@@ -65,6 +65,22 @@ test('partial or forged success cannot enter a completed-duration statistic',t=>
   assert.throws(()=>summarize(slots));slots[0].status='RUNNING';assert.throws(()=>summarize(slots));
   for(const index of [0,21,-1,1.2,'1'])assert.throws(()=>slotPath(root,index));
 });
+test('mixed successful and failed cohorts retain20 while quantiles name their smaller denominator',t=>{
+  const root=fixture(t);preallocate(root,{});
+  const slots=Array.from({length:20},(_,i)=>readJSON(slotPath(root,i+1)));
+  for(const [i,slot] of slots.entries()){
+    slot.offline_verified=true;
+    if(i<10){
+      Object.assign(slot,{status:'PASSED',elapsed_ms:31+i,receipt:{fixture:true},model_calls:0,model_cost_usd:0});
+      slot.stages.forEach(stage=>Object.assign(stage,{status:'PASSED',elapsed_ms:2}));
+    }else Object.assign(slot,{status:'FAILED',failed_elapsed_ms:99});
+  }
+  const summary=summarize(slots);
+  assert.deepEqual(summary.counts,{PASSED:10,FAILED:10,INCOMPLETE:0,NOT_RUN:0});
+  assert.equal(summary.overall.successful_n,10);assert.equal(summary.overall.p50_ms,35.5);
+  assert.equal(summary.overall.p95_ms,40);assert.equal(summary.by_viewport.mobile.p50_ms,null);
+  assert.equal(summary.by_stage.close.successful_n,10);assert.equal(summary.model_cost_usd,null);
+});
 test('benchmark is manual-only after source verification and preserves the declared fixed budget',()=>{
   const protocol=readJSON('../docs/hero-measurement-protocol.json');
   assert.equal(protocol.sampling.n,20);assert.equal(protocol.sampling.process_timeout_ms,1200000);
