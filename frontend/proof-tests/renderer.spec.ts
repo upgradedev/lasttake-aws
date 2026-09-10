@@ -13,7 +13,7 @@ const cases = [
 ];
 
 for (const [scenario, status] of cases) {
-  test(`public proof fixture: ${scenario}`, async ({page}) => {
+  test(`public proof fixture: ${scenario}`, async ({page}, testInfo) => {
     const errors: string[] = [];
     page.on('pageerror', error => errors.push(error.message));
     const record = structuredClone(fixture);
@@ -56,6 +56,15 @@ for (const [scenario, status] of cases) {
       await expect(page.locator('#details')).toBeHidden();
     }
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    if (scenario === 'valid' && testInfo.project.name === 'compact-mobile') {
+      await page.setViewportSize({width: 320, height: 812});
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+      // Deliberately remove the fix in the CI fixture to prove the regression catches it.
+      const brokenStyle = await page.addStyleTag({content: '#verdict { overflow-wrap: normal !important; }'});
+      expect(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)).toBe(true);
+      await brokenStyle.evaluate(node => node.remove());
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    }
     expect(errors).toEqual([]);
   });
 }
