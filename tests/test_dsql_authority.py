@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 import re
 import sys
+import subprocess
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -326,6 +327,10 @@ def test_active_iac_defaults_and_no_branch_deployment_remain_unchanged():
     assert "Action: dsql:DbConnectAdmin" in stack
     for key in AUTH_KEYS: assert key not in stack
     assert "dsql_runtime_authority" not in stack
+    baseline = subprocess.check_output(["git","show","fbb901caf41e624d4b200f6062794d101738236c:infra/stack.yaml"],
+                                       cwd=root, text=True)
+    without_comments = lambda source: [line for line in source.splitlines() if not line.lstrip().startswith("#")]
+    assert without_comments(stack) == without_comments(baseline), "Active template may change comments only in preparation"
     for workflow in ["deploy.yml","frontend-deploy.yml","live-surface.yml"]:
         source = (root/".github/workflows"/workflow).read_text()
         assert re.search(r"push:\s+branches: \[main\]", source)
