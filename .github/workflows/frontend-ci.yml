@@ -5,6 +5,11 @@ on:
   pull_request:
   workflow_dispatch:
     inputs:
+      run_source_benchmark:
+        description: Run the preregistered20-slot source-only hero cohort after verification
+        type: boolean
+        default: false
+        required: false
       archive_previous_acceptance:
         description: Preserve the fixed historical acceptance artifact only if no archive exists
         type: boolean
@@ -14,6 +19,48 @@ on:
 permissions:
   contents: read
 jobs:
+  source-hero-benchmark:
+    needs: verify
+    if: github.event_name == 'workflow_dispatch' && inputs.run_source_benchmark == true && github.ref == 'refs/heads/codex/hero-measurement-20260910'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    env:
+      AWS_EC2_METADATA_DISABLED: 'true'
+      AWS_DEFAULT_REGION: eu-west-1
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Use existing locked dependencies in CI only
+        run: |
+          npm install --global npm@11.19.1
+          npm ci --prefix frontend
+          python -m pip install -e '.[dev]'
+      - name: Build source frontend and install existing Chromium runtime
+        working-directory: frontend
+        run: |
+          npm run build
+          python ../.github/scripts/install-playwright-chromium.py
+      - name: One fixed cohort with durable timeout retention, no retries or recordings
+        working-directory: frontend
+        run: node scripts/run-hero-benchmark.mjs
+      - name: Retain every raw slot and source identity even after failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: source-hero-measurement-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: frontend/test-results/hero-benchmark/
+          retention-days: 90
+          if-no-files-found: error
+          overwrite: false
   archive-previous-acceptance:
     # First preserved in run 34375838628, artifact 10113819181.
     # Manual opt-in only; the immutable archive lookup also prevents duplicates.
@@ -140,6 +187,10 @@ jobs:
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         working-directory: frontend
         run: npm run test:functional
+      - name: Source measurement instrument negative fixtures (no measured cohort)
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        working-directory: frontend
+        run: node --test tests/hero-measurement.test.mjs
       - name: Claim evidence and media-source syntax without provider calls
         if: ${{ !cancelled() }}
         run: |

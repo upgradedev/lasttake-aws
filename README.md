@@ -137,6 +137,17 @@ arm64 or AWS. This artifact does not deploy, update `LASTTAKE_COMMIT_SHA`, or pr
 live acceptance. The release owner must verify code and environment identity
 separately; current AWS status remains on `/acceptance.html`.
 
+The optional source hero measurement is preregistered in
+[`docs/hero-measurement-protocol.json`](docs/hero-measurement-protocol.json).
+It runs only on manual opt-in after normal source verification:20 fixed attempts,
+10 desktop and10 mobile, no retries, recordings or discarded warmup. The unchanged
+hero helper is timed from checkpoint through changed evidence, fresh wrap approval
+and verified handoff downloads. Raw slots, failures, unrun slots, byte counts and
+independent source/runtime identity are retained with p50/nearest-rank p95 methods.
+This is scripted source-CI completion time, not AWS latency or human time. External
+model cost is0 only with verified offline guards; infrastructure/runner cost is
+unknown. Earlier unmeasured protocol176b58b is explicitly superseded, not rewritten.
+
 Dependencies are installed in GitHub Actions. `frontend-ci.yml` generates a lock
 only when absent, uploads it, builds the app, measures unit coverage, runs the
 Python regressions and exercises desktop/mobile browsers against the real Python
