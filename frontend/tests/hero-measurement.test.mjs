@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtempSync,readFileSync,readdirSync,rmSync} from 'node:fs';
+import {mkdtempSync,readFileSync,readdirSync,rmSync,writeFileSync,existsSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {spawn} from 'node:child_process';
@@ -79,10 +79,24 @@ test('killed driver leaves a real detached writer, but captured bytes and final 
   assert.throws(()=>sealSnapshot(root,destination,'REPLACEMENT'));
 });
 
-test('corrupt or missing captured slot refuses publication rather than inventing a denominator',t=>{
-  const root=fixture(t);preallocate(root,{});rmSync(slotPath(root,20));
-  assert.throws(()=>sealSnapshot(root,root+'-final','FIXTURE'),/denominator/);
-  assert.ok(!readdirSync(join(root,'..')).includes('cohort-final'));
+for(const kind of ['missing','malformed'])test(`${kind} captured slot seals available raw/error bytes and refuses a success summary`,t=>{
+  const root=fixture(t),destination=root+'-final';preallocate(root,{fixture:true});beginSlot(root,1);
+  if(kind==='missing')rmSync(slotPath(root,20));else writeFileSync(slotPath(root,20),'{broken JSON');
+  const originals=Object.fromEntries(readdirSync(root).map(name=>[name,readFileSync(join(root,name))]));
+  assert.throws(()=>sealSnapshot(root,destination,'FIXTURE'),/raw bytes retained/);
+  const refusal=readJSON(join(destination,'validation-error.json'));
+  assert.equal(refusal.status,'REFUSED');assert.equal(refusal.summary_status,'NOT_PRODUCED');
+  assert.equal(refusal.observed_outcomes,null);assert.equal(refusal.scheduled_denominator,20);
+  assert.equal(refusal.captured_slot_files.length,kind==='missing'?19:20);
+  assert.equal(refusal.error_class,kind==='missing'?'Error':'SyntaxError');
+  assert.equal(existsSync(join(destination,'summary.json')),false);
+  assert.equal(existsSync(join(destination,'summary.html')),false);
+  for(const [name,bytes] of Object.entries(originals))assert.deepEqual(readFileSync(join(destination,'captured',name)),bytes);
+  const manifest=readFileSync(join(destination,'manifest.json'));
+  durableJSON(slotPath(root,1),{changed_after_seal:true});
+  for(const [file,hash] of Object.entries(JSON.parse(manifest).sha256))assert.equal(sha256(readFileSync(join(destination,file))),hash);
+  assert.deepEqual(readFileSync(join(destination,'manifest.json')),manifest);
+  assert.throws(()=>sealSnapshot(root,destination,'REPLACE'));
 });
 test('p50 and nearest-rank p95 use actual successful_n, without outlier trimming',()=>{
   assert.deepEqual(quantiles([4,1,3,2]),{successful_n:4,p50_ms:2.5,p95_ms:4,max_ms:4});

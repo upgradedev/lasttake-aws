@@ -75,9 +75,12 @@ export function finalize(root,reason){
   const summary=summarize(slots);durableJSON(join(root,'summary.json'),summary);
   const escape=text=>String(text).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   writeFileSync(join(root,'summary.html'),`<!doctype html><html lang="en"><meta charset="utf-8"><title>LastTake source hero measurement</title><h1>Source-only hero cohort</h1><p>${escape(summary.limits)}</p><p>p50: middle value/mean of two middle values. p95: nearest-rank ceil(.95 * successful_n). Infra and runner cost unknown.</p><pre>${escape(JSON.stringify(summary,null,2))}</pre><h2>All20 scheduled slots</h2><table><tr><th>Slot</th><th>Viewport</th><th>Status</th><th>Completed ms</th><th>Failed/partial ms</th></tr>${slots.map(s=>`<tr><td>${s.index}</td><td>${s.viewport}</td><td>${s.status}</td><td>${s.elapsed_ms??'unknown'}</td><td>${s.failed_elapsed_ms??'unknown'}</td></tr>`).join('')}</table></html>`);
+  writeManifest(root);
+  return summary;
+}
+function writeManifest(root){
   const hashes=Object.fromEntries(fileNames(root).filter(f=>f!=='manifest.json'&&!f.endsWith('.next')).map(f=>[f,sha256(readFileSync(join(root,f)))]));
   durableJSON(join(root,'manifest.json'),{schema:'lasttake/source-measurement-files/v1',sha256:hashes});
-  return summary;
 }
 function fileNames(root,prefix=''){
   return readdirSync(join(root,prefix),{withFileTypes:true}).flatMap(entry=>{
@@ -99,11 +102,6 @@ export function sealSnapshot(root,destination,reason){
     return [entry.name,readFileSync(join(root,entry.name))];
   }));
   const ended_at=new Date().toISOString();
-  // Refuse a missing/corrupt denominator before publishing any final directory.
-  for(let index=1;index<=N;index++){
-    const name=`slot-${String(index).padStart(2,'0')}.json`;
-    if(JSON.parse(captured.get(name)?.toString()??'null')?.index!==index)throw new Error('Captured denominator lost');
-  }
   mkdirSync(join(staging,'captured'));
   for(const [name,bytes] of captured){
     writeFileSync(join(staging,'captured',name),bytes,{flag:'wx'});
@@ -112,7 +110,23 @@ export function sealSnapshot(root,destination,reason){
   durableJSON(join(staging,'capture.json'),{schema:'lasttake/source-measurement-capture/v1',started_at,ended_at,reason,
     consistency:'Per-file atomic observations, not a cross-file transaction. Captured bytes are retained unchanged; RUNNING slots become INCOMPLETE only in the derived view.',
     sha256:Object.fromEntries([...captured].map(([name,bytes])=>[name,sha256(bytes)]))});
-  const summary=finalize(staging,reason);
-  renameSync(staging,destination); // Publish once, after summary and hashes; never update in place.
+  let summary,failure;
+  try{
+    // Preserve all available bytes BEFORE refusing a missing/corrupt denominator.
+    for(let index=1;index<=N;index++){
+      const name=`slot-${String(index).padStart(2,'0')}.json`;
+      if(JSON.parse(captured.get(name)?.toString()??'null')?.index!==index)throw new Error('Captured denominator lost');
+    }
+    summary=finalize(staging,reason);
+  }catch(error){
+    failure=new Error('Captured evidence validation refused; raw bytes retained');
+    durableJSON(join(staging,'validation-error.json'),{schema:'lasttake/source-measurement-refusal/v1',status:'REFUSED',
+      reason:'CAPTURED_EVIDENCE_INVALID',error_class:error instanceof Error?error.name:'UNKNOWN',
+      scheduled_denominator:N,observed_outcomes:null,summary_status:'NOT_PRODUCED',
+      captured_slot_files:[...captured.keys()].filter(name=>/^slot-\d\d\.json$/.test(name)).sort()});
+    writeManifest(staging);
+  }
+  renameSync(staging,destination); // Publish success OR refusal evidence once; never update in place.
+  if(failure)throw failure; // Workflow fails, but its always-upload can retain the sealed evidence.
   return summary;
 }
