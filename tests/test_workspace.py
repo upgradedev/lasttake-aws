@@ -1,5 +1,7 @@
 """Owned navigation, exact evidence review and portable receipt contracts."""
 import json
+from pathlib import Path
+import re
 
 import pytest
 
@@ -39,6 +41,37 @@ def test_legacy_and_owned_runs_have_distinct_access_contracts():
     assert post('/api/reset', {'session_id': 'a'*64})['status'] == 403
     event = {'requestContext': {'http': {'path':'/api/state', 'method':'POST'}}, 'body':'[]'}
     assert H.handler(event, None)['statusCode'] == 400
+
+
+def test_readme_ingest_example_requires_its_own_session_and_persists():
+    readme = (Path(__file__).resolve().parents[1] / 'README.md').read_text(encoding='utf-8')
+    section = readme.split('## Bring your own record', 1)[1].split('### ', 1)[0]
+    document = json.loads(re.search(r"-d '(\{.*?\})'", section, re.S).group(1))
+    assert document['run_id'] == 'REPLACE_WITH_YOUR_RUN_ID'
+    assert document['session_id'] == 'REPLACE_WITH_YOUR_PRIVATE_SESSION_ID'
+    body = owned()
+    request = {**document, **body}
+    original = post('/api/state', body)['package_revision_digest']
+    missing = {key: value for key, value in request.items() if key != 'session_id'}
+    assert post('/api/ingest', missing)['status'] == 403
+    other = owned()
+    assert post('/api/ingest', {**request, 'session_id': other['session_id']})['status'] == 403
+    assert post('/api/state', body)['package_revision_digest'] == original
+    accepted = post('/api/ingest', request)
+    assert accepted['status'] == 200
+    assert accepted['ingested'] == {'kind': 'take', 'amendments': 1}
+    assert accepted['package_revision_digest'] != original
+    assert post('/api/state', body)['package_revision_digest'] == accepted['package_revision_digest']
+
+
+def test_legacy_ingest_omits_session_and_rejects_an_owned_handle():
+    body = owned()
+    request = {'run_id': RUN, 'kind': 'take', 'document': A_TAKE}
+    assert post('/api/ingest', {**request, 'session_id': body['session_id']})['status'] == 403
+    accepted = post('/api/ingest', request)
+    assert accepted['status'] == 200
+    assert accepted['ingested'] == {'kind': 'take', 'amendments': 1}
+    assert post('/api/state', {'run_id': RUN})['package_revision_digest'] == accepted['package_revision_digest']
 
 
 def test_owned_decisions_require_the_digest_that_the_human_saw():

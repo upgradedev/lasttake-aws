@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       release_sha:
-        description: Exact deployed SHA to record
+        description: Exact deployed frontend SHA to record
         required: true
         type: string
       hosted_run_id:
@@ -17,7 +17,7 @@ on:
         required: false
         type: string
       governed_run_id:
-        description: Successful LastTake backend deployment proof for the release, optional
+        description: Successful LastTake deployment proof for the observed backend revision, optional
         required: false
         type: string
 
@@ -43,27 +43,14 @@ jobs:
       LASTTAKE_GOVERNED_RUN_ID: ${{ inputs.governed_run_id }}
     steps:
       - name: Bind media to successful exact-release evidence
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           test "${GITHUB_REPOSITORY}" = "upgradedev/lasttake-aws"
           test "${GITHUB_REF}" = "refs/heads/main"
           test "${GITHUB_SHA}" = "${LASTTAKE_RELEASE_SHA}"
           [[ "${LASTTAKE_RELEASE_SHA}" =~ ^[a-f0-9]{40}$ ]]
-          # Optional proof IDs must name the exact successful release workflows.
-          if [[ -n "${LASTTAKE_HOSTED_RUN_ID}" ]]; then
-            [[ "${LASTTAKE_HOSTED_RUN_ID}" =~ ^[1-9][0-9]*$ ]]
-            test "$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${LASTTAKE_HOSTED_RUN_ID}" --jq .head_sha)" = "${LASTTAKE_RELEASE_SHA}"
-            test "$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${LASTTAKE_HOSTED_RUN_ID}" --jq .conclusion)" = success
-            test "$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${LASTTAKE_HOSTED_RUN_ID}" --jq .path)" = ".github/workflows/frontend-deploy.yml"
-          fi
-          if [[ -n "${LASTTAKE_GOVERNED_RUN_ID}" ]]; then
-            [[ "${LASTTAKE_GOVERNED_RUN_ID}" =~ ^[1-9][0-9]*$ ]]
-            test "$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${LASTTAKE_GOVERNED_RUN_ID}" --jq .head_sha)" = "${LASTTAKE_RELEASE_SHA}"
-            test "$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${LASTTAKE_GOVERNED_RUN_ID}" --jq .conclusion)" = success
-            test "$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${LASTTAKE_GOVERNED_RUN_ID}" --jq .path)" = ".github/workflows/deploy.yml"
-          fi
+          # release_proof.py binds optional .github/workflows/frontend-deploy.yml
+          # and .github/workflows/deploy.yml evidence to their own observed SHAs.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -85,6 +72,10 @@ jobs:
           test ! -e "${root}"
           mkdir -m 0700 "${root}"
           echo "LASTTAKE_VIDEO_ROOT=${root}" >>"${GITHUB_ENV}"
+      - name: Verify the frontend and backend pair before media production
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 video/release_proof.py before
       # Non-AWS cloud authentication from the original kit is not configured here.
       - name: Install ephemeral media tooling
         run: |
@@ -108,8 +99,14 @@ jobs:
       - name: Install ephemeral Chromium
         run: npx --prefix web playwright install --with-deps chromium
       - name: Record the real production journey
+        id: capture
         working-directory: web
         run: node video/capture-production.mjs
+      - name: Verify the same frontend and backend pair after recording
+        if: always() && steps.capture.outcome != 'skipped'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 video/release_proof.py after
       - name: Compose and independently probe the final media
         run: python3 video/build-video.py
       - name: Validate the upload package
@@ -123,8 +120,10 @@ jobs:
           # Scene count matches the seven narration/capture beats.
           jq -e \
             --arg sha "${LASTTAKE_RELEASE_SHA}" \
+            --arg backend "$(jq -er .backendSha "${LASTTAKE_VIDEO_ROOT}/release-before.json")" \
             '.schemaVersion == "lasttake.submission-video-receipt/v1"
              and .releaseSha == $sha
+             and .backendSha == $backend
              and .durationSeconds >= 90
              and .durationSeconds < 179
              and .width == 1920
@@ -150,6 +149,14 @@ jobs:
           if-no-files-found: error
           retention-days: 90
           compression-level: 0
+      - name: Retain release observations even when recording fails
+        if: always() && env.LASTTAKE_VIDEO_ROOT != ''
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: lasttake-video-release-proof-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/lasttake-submission-video/release-*.json
+          if-no-files-found: warn
+          retention-days: 90
       - name: Remove runner media
         if: always() && env.LASTTAKE_VIDEO_ROOT != ''
         run: |
