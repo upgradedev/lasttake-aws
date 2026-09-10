@@ -10,7 +10,8 @@ const older={...session,runs:[{...session.runs[0],run_id:'demo-old-saved'}],next
 function server(history:(body:Record<string,unknown>)=>Promise<unknown>) {
   const fetcher=vi.fn(async(url:string,init:RequestInit)=>{
     const body=JSON.parse(init.body as string);
-    return {ok:true,json:async()=>url==='/api/session'?history(body):url==='/api/scene'?scene:url==='/api/events'?{events:[]}:state};
+    const data=url==='/api/session'?await history(body):url==='/api/scene'?scene:url==='/api/events'?{events:[]}:state;
+    return data instanceof Response?data:new Response(JSON.stringify(data),{status:200,headers:{'Content-Type':'application/json'}});
   });
   vi.stubGlobal('fetch',fetcher);return fetcher;
 }
@@ -51,7 +52,7 @@ it('loads one page only on request, replaces rather than accumulates it, and pre
 });
 
 it('failed page keeps saved state and page, with an explicit read retry instead of a write retry',async()=>{
-  const fetcher=server(async body=>{if(body.cursor)throw new Error('Saved history changed.');return first;});
+  const fetcher=server(async body=>body.cursor?new Response(JSON.stringify({error:'Saved history changed.'}),{status:409,headers:{'Content-Type':'application/json'}}):first);
   const {result}=renderHook(()=>useWorkspace());
   await waitFor(()=>expect(result.current.busy).toBe(false));
   await act(async()=>{await result.current.olderRuns();});
