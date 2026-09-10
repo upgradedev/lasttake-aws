@@ -6,15 +6,27 @@
 
 For a script supervisor and the 1st AD reviewing a fictional shoot day. LastTake reconciles supplied records before a human wrap decision.
 
-[Open the AWS workspace](https://d3kf6hquzlli8g.cloudfront.net/). Create a run, start a checkpoint, review sources, then answer the saved request as the 1st AD. In **Open guided demo → Add take or release**, try the editable valid take, refused date and corrected date documents. Each save calls the real Python API.
+[Open the AWS workspace](https://d3kf6hquzlli8g.cloudfront.net/) and choose **Start this fictional shoot day**. The next-step panel follows the saved evidence through the human wrap decision to a turnover for the assistant editor.
 
 [Current automated acceptance](https://d3kf6hquzlli8g.cloudfront.net/acceptance.html) compares the observed frontend and backend revisions with the latest public aggregate receipt. Missing, malformed, mismatched or older-than-24-hour proof cannot establish a current pass. Human UAT remains NOT_RUN. The page becomes available with the frontend release containing it; source CI alone does not publish acceptance.
 
 The live browser uses an offline planner and lexical interpreter with real Strands tool calls, S3 session resume and role-gated decisions. It does not analyze footage/audio, send emails, make payments or establish legal sufficiency. Demo role selection is not authenticated staff identity. History exports sources, current decisions, revisions, recorded model identifiers, failure/recovery status and limits. Hashes identify bytes, not truth.
 
+## Walk the complete shoot day
+
+1. **Checkpoint:** create the fictional run and choose Run wrap checkpoint. Open a take and compare its sidecar with the independent camera report. Missing evidence stays missing.
+2. **Evidence change:** answer the saved pickup request as the 1st AD. Open guided demo, then Add take or release. Save the valid take and a release example. A prior continuity decision becomes stale when the take changes its sources. You can also download an editable input JSON and load that ordinary file; loading only previews it until you press Save.
+3. **Human wrap decision:** review continuity as the script supervisor and metadata T-013 as DIT. Record the reason for each accepted fictional exception. Select 1st AD, Review wrap readiness, Request wrap approval, inspect the fingerprint and explicitly approve or decline. Reload restores the saved request; eligibility never signs for the human.
+4. **Editorial handoff:** in History, Publish approved turnover. Download turnover preserves the saved manifest. Download or copy the handoff summary for the beat-to-take map, source digests and retained exceptions. Prepare a Wrap review receipt for the recorded approval and open work. Historical records remain downloadable with their status shown.
+
+The steps above are the new source capture contract, exercised by `frontend/tests/e2e/hero.spec.ts` against the real HTTP handler. Availability on the live URL depends on a reviewed frontend release; source CI is not deployment evidence. Final recording stays `NOT_CONFIGURED` pending owner verification. File intake accepts one JSON record up to 64 KiB, with independent camera report fields inside a take; it does not parse media, PDFs or CSV. Session authority comes from the browser's saved handle, never from the imported document.
+
 ---
 
-## Contents
+## Workspace reference
+
+<details>
+<summary>Detailed workspace behavior, release verification and recovery</summary>
 
 ### React workspace usage
 
@@ -105,6 +117,10 @@ integration. A build artifact from a failed verification is for diagnosis only.
 The HTTP test entrypoint is `python -m lasttake.app.local_server --state-dir
 .lasttake-ui`; Vite's test proxy targets `127.0.0.1:8765`. No model credentials
 are needed. Frontend deployment is a separate AWS integration step.
+
+</details>
+
+## Contents
 
 - [Who this is for](#who-this-is-for)
 - [Own workflow requirements](#own-workflow-requirements)

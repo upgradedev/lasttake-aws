@@ -29,6 +29,11 @@
   time {font-variant-numeric:tabular-nums}
 }
 @layer components {
+  .execution-mode {font-size:.875rem;color:var(--secondary);border-left:3px solid var(--amber);padding:8px 12px;margin:0 0 16px;overflow-wrap:anywhere}
+  .workflow-next {display:flex;align-items:center;justify-content:space-between;gap:16px;border:1px solid #455074;border-radius:12px;padding:16px;margin-bottom:18px;background:#182043;flex-wrap:wrap}
+  .workflow-next>div {flex:1;min-width:min(100%,260px)}
+  .workflow-next p {font-size:.875rem;max-width:85ch}
+  .handoff-provenance {overflow-wrap:anywhere}
   .app-shell {@apply min-h-screen;display:grid;grid-template-columns:192px minmax(0,1fr)}
   .navigation {background:#0b0f1e;color:#e8ebf5;padding:26px 14px;position:sticky;top:0;height:100dvh;display:flex;flex-direction:column;border-right:1px solid var(--line)}
   .brand {display:flex;align-items:center;gap:10px;text-decoration:none;color:#e8ebf5;font-weight:700;font-size:1rem;letter-spacing:.08em}

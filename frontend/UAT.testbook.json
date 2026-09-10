@@ -345,6 +345,52 @@
       ],
       "observed_result_evidence": "AUTOMATION_PASS for implementation 59844080b768993d67821fd6fb55db9049c998db in https://github.com/upgradedev/lasttake-aws/actions/runs/34377650942. Python/unit controls cover explicit rejection, unknown outcomes, concurrency and fresh-process recovery; desktop/mobile real HTTP covers intake refusal/correction and wrap review. No real AWS fault injection or human signoff.",
       "human_signoff": "NOT_RUN"
+    },
+    {
+      "id": "LT-HERO",
+      "persona": "Script supervisor, 1st AD and assistant editor",
+      "requirement": "Complete source capture shows evidence change, withdrawn decision, fresh human wrap approval and usable turnover.",
+      "preconditions": "Fresh owned fictional run; real HTTP handler; desktop/mobile browser.",
+      "steps": [
+        "Follow the next-step panel and checkpoint",
+        "Record continuity, reload and explicitly approve the saved pickup",
+        "Download and load the existing take example as an ordinary JSON file; save take and release",
+        "Observe old decision withdrawal and record new supervisor/DIT decisions",
+        "Request wrap, reload, inspect fingerprint and explicitly approve",
+        "Publish turnover, reload and compare downloaded manifest to saved record",
+        "Prepare and download wrap receipt and inspect handoff summary"
+      ],
+      "expected_outcome": "The new digest reaches the separate human wrap decision, saved turnover and receipt. Prior decisions and accepted exceptions remain visible. Copy/download includes provenance and limitations.",
+      "negative_recovery_case": "No automatic approval or stale decision reuse; changed/historical turnover is labelled. Copy refusal leaves selectable plain text. No production video is generated.",
+      "automation_mapping": [
+        "tests/e2e/hero.spec.ts: LT-HERO",
+        "tests/hero.test.tsx",
+        "tests/contracts.test.mjs",
+        "../web/video/hero-journey.mjs"
+      ],
+      "observed_result_evidence": "PASS at the historical source checkpoint 2026-09-10T11:12:11Z: ec14930fc754ab5cae1315402d002c2ee2cb1651, https://github.com/upgradedev/lasttake-aws/actions/runs/34469562958. Desktop/mobile real offline-HTTP journeys verified changed evidence, fresh human wrap approval and downloaded turnover/receipt; the downloaded handoff summary matched actual saved manifest recommended_action values. Unit controls verified clipboard success/refusal and historical output labels. See hero_workflow_revision for exact suite counts and the log command. This is source CI evidence, not current deployment or human acceptance; current AWS status: https://d3kf6hquzlli8g.cloudfront.net/acceptance.html.",
+      "human_signoff": "NOT_RUN"
+    },
+    {
+      "id": "LT-FILE",
+      "persona": "Script supervisor supplying take/camera records",
+      "requirement": "Ordinary JSON file preview is explicit, editable, session-owned and durable.",
+      "preconditions": "Owned fictional run and separate foreign session; no media parsing.",
+      "steps": [
+        "Load malformed JSON and a missing-field document; save and inspect refusal",
+        "Download an existing synthetic take example without an independent report",
+        "Load the file and try missing/foreign session access",
+        "Save with the owned session and reload",
+        "Resubmit the same file"
+      ],
+      "expected_outcome": "Local preview never saves automatically. Invalid, foreign and duplicate writes leave the package unchanged. Valid take persists and missing camera evidence remains missing.",
+      "negative_recovery_case": "Oversized or unsupported file refused without upload; known validation failure keeps editable JSON; network uncertainty still requires refresh.",
+      "automation_mapping": [
+        "tests/e2e/hero.spec.ts: LT-FILE",
+        "tests/hero.test.tsx"
+      ],
+      "observed_result_evidence": "PASS at the historical source checkpoint 2026-09-10T11:12:11Z: ec14930fc754ab5cae1315402d002c2ee2cb1651, https://github.com/upgradedev/lasttake-aws/actions/runs/34469562958. Desktop/mobile real offline-HTTP journeys verified ordinary JSON preview, owned saving, reload and invalid/missing-session/foreign-session/duplicate refusal. Missing camera evidence stayed missing; a unit FileReader assertion checked downloaded lens_mm 50 versus independent camera_report_row.lens_mm 85. See hero_workflow_revision for exact suite counts and the log command. This is source CI evidence, not current deployment or human acceptance; current AWS status: https://d3kf6hquzlli8g.cloudfront.net/acceptance.html.",
+      "human_signoff": "NOT_RUN"
     }
   ],
   "verification_checkpoint": {
@@ -399,5 +445,27 @@
     "observed_result_evidence": "Passed Python, component, functional and desktop/mobile real-HTTP reliability cases at the implementation SHA above. The later documentation, video preflight and history-scan fix do not claim to validate themselves; final candidate CI artifacts remain authoritative.",
     "human_signoff": "NOT_RUN",
     "live_aws_acceptance": "NOT_RUN"
+  },
+  "hero_workflow_revision": {
+    "status": "PASS",
+    "scope": "HISTORICAL_SOURCE_CHECKPOINT",
+    "observed_at": "2026-09-10T11:12:11Z",
+    "implementation_sha": "ec14930fc754ab5cae1315402d002c2ee2cb1651",
+    "ci_run_url": "https://github.com/upgradedev/lasttake-aws/actions/runs/34469562958",
+    "evidence_artifact": "frontend-evidence-ec14930fc754ab5cae1315402d002c2ee2cb1651",
+    "evidence_command": "gh run view 34469562958 --repo upgradedev/lasttake-aws --log",
+    "suite_counts": {
+      "python_passed": 277,
+      "python_coverage_percent": 88.70,
+      "unit_component_passed": 70,
+      "functional_passed": 7,
+      "real_offline_http_desktop_mobile_passed": 24,
+      "separate_receipt_browser_passed": 60
+    },
+    "recording_status": "NOT_CONFIGURED",
+    "live_aws_acceptance": "SEE_CURRENT_ACCEPTANCE",
+    "current_aws_acceptance_url": "https://d3kf6hquzlli8g.cloudfront.net/acceptance.html",
+    "human_signoff": "NOT_RUN",
+    "evidence": "GitHub Actions source CI used the built React application, real offline Python HTTP handler, durable local stores, real Strands sessions and Chromium desktop/mobile emulation. Counts above are separate suite totals, not additional hero-only tests. This dated checkpoint does not validate later documentation commits or establish current AWS deployment; exact candidate CI artifacts and the current AWS acceptance page remain authoritative. Earlier evidence is retained. No paid models, production recording or practising-user signoff."
   }
 }
