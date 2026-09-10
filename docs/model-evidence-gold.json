@@ -1,0 +1,7 @@
+{
+  "schema":"lasttake/semantic-development-gold/v1",
+  "authorship":"Synthetic cases and labels authored by the implementing assistant for source development; not independent or practitioner-labelled ground truth.",
+  "labels":{"C01":"POSITIVE","C02":"POSITIVE","C03":"POSITIVE","C04":"NEGATIVE","C05":"NEGATIVE","C06":"ABSTAIN","C07":"ABSTAIN","C08":"ABSTAIN","C09":"NEGATIVE","C10":"NEGATIVE","N01":"POSITIVE","N02":"NEGATIVE","N03":"NEGATIVE","N04":"ABSTAIN","N05":"ABSTAIN","N06":"NEGATIVE"},
+  "meaning":"POSITIVE means plausible beat capture or same documented physical state. NEGATIVE means supplied text contradicts capture or describes different states. ABSTAIN means supplied text cannot settle the question. No footage, sound, creative quality, wrap approval or legal clearance is judged.",
+  "prompt_rule":"Never include this file, its labels, case IDs or category metadata in adapter/model prompts. Only the four input strings reach each existing bounded interpreter."
+}

@@ -1,0 +1,28 @@
+{
+  "schema":"lasttake/semantic-development-protocol/v1",
+  "declared_at":"2026-09-10T19:56:14Z",
+  "status":"SOURCE_PREPARATION_ONLY_REAL_MODEL_NOT_RUN",
+  "baseline_source":"fbb901caf41e624d4b200f6062794d101738236c",
+  "scope":"Sixteen fixed synthetic supplied-text interpretation questions, ten coverage and six continuity; a development instrument, never independent accuracy or statistical advantage.",
+  "case_file":"docs/model-evidence-cases.json",
+  "gold_file":"docs/model-evidence-gold.json",
+  "case_count":16,
+  "order":["C01","C02","C03","C04","C05","C06","C07","C08","C09","C10","N01","N02","N03","N04","N05","N06"],
+  "confidence_thresholds":{"coverage":0.55,"continuity":0.6},
+  "classification":"Valid finite confidence below the kind threshold is ABSTAIN. Otherwise coverage covers=true or continuity states_agree=true is POSITIVE, false is NEGATIVE. This question-level ruler is not the complete production eligibility policy. possibly_intentional is retained but not scored as artistic intent.",
+  "metrics":{
+    "capture":"Correct definitive label / all gold POSITIVE or NEGATIVE cases; failures/unrun never removed from denominator.",
+    "false_positive":"POSITIVE on gold NEGATIVE or ABSTAIN / all gold NEGATIVE or ABSTAIN cases.",
+    "false_exception":"NEGATIVE on gold POSITIVE / all gold POSITIVE cases.",
+    "correct_abstention":"ABSTAIN on gold ABSTAIN / all gold ABSTAIN cases; malformed responses and transport errors are FAILED, not successful abstentions.",
+    "decision_coverage":"Valid POSITIVE or NEGATIVE / all16 slots; report failed/unrun separately. No single aggregate accuracy claim."
+  },
+  "attempts":"One slot per case per declared mode, fixed order, no retries, replacements, dropped failures or gold-driven repair. All slots preallocated before adapter execution; raw bytes retained before parse. Output directory must be new.",
+  "modes":["offline-lexical/1.0.0","fixture-replay-not-a-model","declared-bedrock-replay-unverified"],
+  "future_model_gate":"No network-capable model runner or live workflow in this task. New inference requires separate owner budget/activation approval with exact model/profile/region/config, raw inputs/responses, usage and failures retained. Replay provenance remains declared, not authenticated by hashes.",
+  "bindings":"Retain protocol/case/gold/source/adapter/request/raw-response hashes and source Git revision/run identity. Existing Bedrock prompt/schema builders are reused without constructing a model. Gold stays outside prompts. Reject stale/wrong request hashes, duplicate/unknown case IDs and wrong protocol bindings; retain original replay bytes even on refusal.",
+  "mandatory_negative_controls":["malformed JSON","missing field","non-boolean outcome","nonfinite or out-of-range confidence","extra authority fields","adapter failure","missing response slot","duplicate response","wrong or stale request citation/hash","wrong protocol","gold absent from prompt","interrupted execution retains preallocated slots","refusal retains original bytes and error"],
+  "costs":"Source offline/fake network model calls zero; real inference usage and model cost UNKNOWN when absent. Runner/infrastructure cost UNKNOWN. No human-time, AWS latency or total-network claim.",
+  "preregistration":"This JSON, cases and separate gold are committed before implementation or evaluation. Tests pin those bytes and verify this commit is an ancestor. Any later protocol change needs an explicit new protocol, not silent rewriting.",
+  "prior_evidence":"See model-evidence-inventory.json. Inspected receipts are insufficient for a comparable semantic replay; never synthesize missing real outputs."
+}
