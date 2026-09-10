@@ -117,6 +117,16 @@ Historical repeated links are deduplicated only in the scene projection; origina
 artifacts and their digests remain unchanged. Uncertain storage reads return a
 generic unavailable response, never an unowned run or an empty saved state.
 
+The security branch's `ci.yml` also produces a credential-free, source-only
+Python 3.12 arm64 Lambda ZIP after the Python checks pass. It contains current
+`src/lasttake`, corpus JSON, resolved runtime dependencies including the AWS SDK,
+and `_lasttake_build.json`. The accompanying build receipt records the source
+and component trees, input hashes, dependency report, ZIP hash and Lambda code
+checksum. Native ELF architecture is checked, but target code is not executed on
+arm64 or AWS. This artifact does not deploy, update `LASTTAKE_COMMIT_SHA`, or prove
+live acceptance. The release owner must verify code and environment identity
+separately; current AWS status remains on `/acceptance.html`.
+
 Dependencies are installed in GitHub Actions. `frontend-ci.yml` generates a lock
 only when absent, uploads it, builds the app, measures unit coverage, runs the
 Python regressions and exercises desktop/mobile browsers against the real Python
