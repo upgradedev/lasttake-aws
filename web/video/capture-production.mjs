@@ -11,7 +11,8 @@
 // voice: a scene is on screen for the length of its own sentence plus the tail,
 // and changing one line of narration re-times one scene and nothing else.
 
-import { chromium } from "@playwright/test";
+import { chromium, expect } from "@playwright/test";
+import {assertSceneBudget,heroSceneIds,heroScenes} from './hero-journey.mjs';
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import path from "node:path";
@@ -36,7 +37,7 @@ const timing = JSON.parse(
 const holds = Object.fromEntries(
   timing.scenes.map((scene) => [scene.id, Number(scene.holdSeconds) * 1000]),
 );
-const expectedScenes = ["hook", "surface", "trigger", "live", "sponsor", "evidence", "close"];
+const expectedScenes = heroSceneIds;
 if (JSON.stringify(timing.scenes.map((scene) => scene.id)) !== JSON.stringify(expectedScenes)) {
   throw new Error("The narration and the production journey scene order differ.");
 }
@@ -69,44 +70,20 @@ await page.getByRole("button", { name: "New shoot-day run", exact: true }).click
 await page.getByRole("button", { name: "Run wrap checkpoint" }).waitFor();
 const timelineStarted = Date.now();
 
+const sceneTimings=[];
 async function holdScene(id, action) {
   const started = Date.now();
-  await action();
-  await page.waitForTimeout(Math.max(0, holds[id] - (Date.now() - started)));
+  const result=await action();
+  const elapsed=Date.now()-started;
+  sceneTimings.push({id,actionMilliseconds:elapsed,holdMilliseconds:holds[id]});
+  assertSceneBudget(id,elapsed,holds[id]);
+  await page.waitForTimeout(holds[id]-elapsed);
+  return result;
 }
 
-await holdScene("hook", async () => {
-  await page.getByRole("heading", { name: "Workspace", exact: true }).scrollIntoViewIfNeeded();
-});
-await holdScene("surface", async () => {
-  await page.locator(".take summary").first().click();
-});
-await holdScene("trigger", async () => {
-  await page.getByRole("button", { name: "Run wrap checkpoint" }).click();
-  await page.getByText(/Of 34 required beats/).first().waitFor({ timeout: 60_000 });
-});
-await holdScene("live", async () => {
-  await page.getByLabel("Demo role").selectOption("first_ad");
-  await page.reload();
-  await page.getByRole("button", { name: "Decline pickup" }).waitFor({ timeout: 30_000 });
-  await page.getByRole("button", { name: "Decline pickup" }).click();
-  await page.getByText(/did not approve a pickup/).waitFor();
-});
-await holdScene("sponsor", async () => {
-  await page.getByText("Run details & execution labels").click();
-  await page.getByText("Strands Agents SDK", { exact: true }).scrollIntoViewIfNeeded();
-});
-await holdScene("evidence", async () => {
-  await page.getByRole("navigation").getByRole("link", { name: "History", exact: true }).click();
-  await page.getByRole("button", { name: "Prepare receipt" }).click();
-  await page.getByRole("button", { name: "Download evidence summary" }).waitFor();
-});
-await holdScene("close", async () => {
-  await page.getByRole("navigation").getByRole("link", { name: "Workspace", exact: true }).click();
-  await page.getByRole("button", { name: "Open guided demo" }).click();
-  await page.getByRole("button", { name: "Add take or release" }).click();
-  await page.getByRole("button", { name: "Try refused date" }).click();
-});
+const journey=heroScenes(page,expect.configure({timeout:20000}));
+let workflowResult;
+for(const id of expectedScenes)workflowResult=await holdScene(id,journey[id]);
 const after = await (await context.request.get(appOrigin + "/release.json")).json();
 if (after.commit !== releaseSha) throw new Error("Frontend release changed during recording");
 
@@ -121,6 +98,8 @@ const receipt = {
   releaseSha,
   appOrigin,
   sceneCount: expectedScenes.length,
+  sceneTimings,
+  workflowResult,
   trimLeadSeconds: Math.max(0, (timelineStarted - captureStarted) / 1000),
   timelineSeconds: Number(timing.totalSeconds),
   pageErrors: errors,

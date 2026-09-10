@@ -3,6 +3,20 @@ import assert from 'node:assert/strict';
 import {readFile,readdir} from 'node:fs/promises';
 import {checkAudit} from '../scripts/check-audit.mjs';
 import {validateReceipt, assess} from '../public/acceptance.js';
+import {assertSceneBudget,heroSceneIds} from '../../web/video/hero-journey.mjs';
+
+test('capture uses the complete CI-exercised journey and refuses a truncated or unmeasured beat',async()=>{
+  const spec=JSON.parse(await readFile('../video/narration.json','utf8'));
+  assert.deepEqual(spec.segments.map(segment=>segment.id),heroSceneIds);
+  assert.equal(spec.recording_status,'NOT_CONFIGURED');
+  for(const segment of spec.segments)assert.equal(segment.captionText,segment.speechText);
+  assert.doesNotThrow(()=>assertSceneBudget('evidence',900,1000));
+  for(const hold of [undefined,NaN,Infinity,0,-1,899])assert.throws(()=>assertSceneBudget('evidence',900,hold),/never truncate/);
+  assert.throws(()=>assertSceneBudget('evidence',NaN,1000));
+  const capture=await readFile('../web/video/capture-production.mjs','utf8');
+  assert.match(capture,/heroScenes\(page,/);
+  assert.match(capture,/assertSceneBudget\(id,elapsed,holds\[id\]\)/);
+});
 
 test('public proof refuses malformed, missing, stale, mismatched and broadened results', async () => {
   const fixture = JSON.parse(await readFile('proof-tests/receipt.fixture.json', 'utf8'));

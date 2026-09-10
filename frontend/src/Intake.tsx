@@ -1,5 +1,7 @@
 import {useState} from 'react';
 import {makeDocument} from './model';
+import {saveJson} from './api';
+import {parseEvidenceDocument,readEvidenceFile} from './evidenceFile';
 import type {Document,Scene} from './types';
 const takeFields=[['take_id','Take identifier'],['slate','Slate'],['shot_id','Shot identifier'],['camera_roll','Camera roll'],['media_id','Media identifier'],['sound_roll','Sound roll'],['timecode_in','Timecode in'],['timecode_out','Timecode out'],['lens_mm','Lens (mm)'],['report_media_id','Reported media identifier'],['report_lens_mm','Reported lens (mm)'],['report_camera_roll','Reported camera roll']];
 const sample:Record<string,string>={take_id:'T-900',slate:'42L/1',shot_id:'S-42-PICKUP',camera_roll:'A007',media_id:'A007R2G01',sound_roll:'SR07',timecode_in:'23:04:00:00',timecode_out:'23:04:41:00',lens_mm:'50',report_media_id:'A007R2G01',report_lens_mm:'50',report_camera_roll:'A007',visible_people:'DELPHINE',note:'Pickup on the reaction. Clean single.'};
@@ -9,6 +11,8 @@ export function Intake({scene,busy,writeBlocked=false,onSubmit,onClose,guided}:{
   const [advanced,setAdvanced]=useState(false);
   const [json,setJson]=useState('');
   const [error,setError]=useState('');
+  const [fileName,setFileName]=useState('');
+  const [reading,setReading]=useState(false);
   const [missingReport,setMissingReport]=useState(false);
   function exampleFlow(flow:'success'|'refusal'|'correction') {
     setError('');setMissingReport(false);setExample(true);
@@ -21,17 +25,26 @@ export function Intake({scene,busy,writeBlocked=false,onSubmit,onClose,guided}:{
   async function submit(event:React.FormEvent<HTMLFormElement>){
     event.preventDefault();setError('');
     let doc:Document;
-    try {doc=advanced ? JSON.parse(json) as Document : makeDocument(kind,new FormData(event.currentTarget));}
+    try {doc=advanced ? parseEvidenceDocument(json) : makeDocument(kind,new FormData(event.currentTarget));}
     catch {setError('Enter valid JSON. Your document has been kept.');return;}
     if(await onSubmit(kind,doc))onClose();
   }
   return <section className="panel intake" aria-labelledby="intake-title">
     <div className="section-heading"><div><p className="eyebrow">Supplied records</p><h2 id="intake-title">Add evidence to this shoot day</h2></div><button onClick={onClose} disabled={busy}>Close form</button></div>
     <p>Use fictional records only. Saving reruns the checks affected by the supplied evidence.</p>
+    <label>Load a JSON record file<input type="file" accept=".json,application/json" disabled={busy || reading} onChange={async e=>{
+      const file=e.target.files?.[0];e.target.value='';if(!file)return;
+      setReading(true);setError('');
+      try {const text=await readEvidenceFile(file);setJson(text);setAdvanced(true);setFileName(file.name);}
+      catch(error){setError(error instanceof Error?error.message:'The file could not be read. Nothing was uploaded.');}
+      finally{setReading(false);}
+    }}/></label><p className="fine">One take with its independent camera_report_row, or one release record, up to 64 KiB. Choose the record type below. Loading only fills the editable preview; Save sends it to this session's selected run. No PDFs, images, CSV or footage parsing.</p>
+    {reading && <p role="status">Reading the local record…</p>}
+    {fileName && <p className="fine">Loaded for review: {fileName}. The preview may be edited before saving.</p>}
     {guided && <div className="guide"><h3>Three editable API flows</h3><p>Load a document, inspect or edit it, then submit. The invalid date must be refused without saving; the corrected document reuses its identifier. Nothing submits automatically.</p><div className="toolbar"><button onClick={()=>exampleFlow('success')}>Try valid take</button><button onClick={()=>exampleFlow('refusal')}>Try refused date</button><button onClick={()=>exampleFlow('correction')}>Try corrected date</button></div></div>}
     <div className="toolbar"><label>Record type<select value={kind} onChange={e=>{setKind(e.target.value as typeof kind);setExample(false);setError('');}}><option value="take">Captured take</option><option value="rights_record">Release / licence record</option></select></label>{guided && <button onClick={()=>setExample(true)}>Fill synthetic example</button>}<label className="check"><input type="checkbox" checked={advanced} onChange={e=>setAdvanced(e.target.checked)}/>Advanced JSON entry</label></div>
     <form onSubmit={submit} key={`${kind}-${example}`}>
-      <fieldset disabled={busy}><legend className="sr-only">{kind==='take'?'Take details':'Release details'}</legend>
+      <fieldset disabled={busy || reading}><legend className="sr-only">{kind==='take'?'Take details':'Release details'}</legend>
       {advanced ? <label>Document JSON<textarea required rows={10} value={json} onChange={e=>setJson(e.target.value)}/></label> : kind==='take' ? <>
         <div className="form-grid"><label>Script beat<select name="beat_id" defaultValue={example?'B-17':scene.beats[0].beat_id}>{scene.beats.filter(b=>b.required).map(b=><option key={b.beat_id} value={b.beat_id}>{b.beat_id} · {b.slug}</option>)}</select></label>
         {takeFields.map(([name,label])=><label key={name}>{label}<input name={name} required={!missingReport || !name.startsWith('report_')} disabled={missingReport && name.startsWith('report_')} type={name.includes('lens')?'number':'text'} min={name.includes('lens')?1:undefined} maxLength={128} defaultValue={example?sample[name]:''}/></label>)}</div>
@@ -52,6 +65,7 @@ export function Intake({scene,busy,writeBlocked=false,onSubmit,onClose,guided}:{
       </div>}
       {error && <p role="alert" className="error">{error}</p>}
       <button className="primary" type="submit" disabled={writeBlocked}>Save evidence & rerun checks</button>
+      <button type="button" onClick={e=>{try {saveJson(`${kind}-input.json`,advanced?parseEvidenceDocument(json):makeDocument(kind,new FormData(e.currentTarget.form!)));setError('');}catch{setError('Enter valid JSON before downloading this input.');}}}>Download input JSON</button>
       {writeBlocked && <p className="warning">Refresh saved state before saving more evidence. You can keep editing or close this form.</p>}
       </fieldset>
     </form>
