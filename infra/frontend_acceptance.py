@@ -67,10 +67,11 @@ def fetch_json(path):
     request = urllib.request.Request(URL + path, headers={"Cache-Control": "no-cache", "User-Agent": "lasttake-acceptance/1"})
     with urllib.request.urlopen(request, timeout=30) as response:
         require(response.status == 200, "public identity unavailable")
-        require("application/json" in response.headers.get("Content-Type", ""), "identity is not JSON")
+        media_type = "text/html" if path == "" else "application/json"
+        require(media_type in response.headers.get("Content-Type", ""), "unexpected identity media type")
         data = response.read(1_000_001)
         require(len(data) <= 1_000_000, "identity too large")
-        return read_json(data)
+        return data.decode("utf-8") if path == "" else read_json(data)
 
 
 def identity(expected, request=fetch_json, now=utcnow):
@@ -80,6 +81,9 @@ def identity(expected, request=fetch_json, now=utcnow):
     backend = health.get("commit")
     require(health.get("ok") is True and health.get("run_state_store") == "aurora-dsql", "backend health unavailable")
     require(isinstance(backend, str) and SHA.fullmatch(backend), "backend commit unavailable")
+    html = request("")
+    require(isinstance(html, str) and re.findall(r'<meta name="application-commit" content="([0-9a-f]{40})">', html) == [expected],
+            "served root HTML differs from release")
     return {"frontend_commit": expected, "backend_commit": backend, "observed_at": stamp(now())}
 
 
@@ -249,13 +253,18 @@ def main():
                        read_json(Path("frontend/acceptance-observations/preflight.json").read_bytes()),
                        read_json(Path("frontend/acceptance-observations/postflight.json").read_bytes()))
     else:
-        result = publish(Path(args.output).read_bytes(), expected, os.environ["GITHUB_RUN_ID"], os.environ["GITHUB_RUN_ATTEMPT"])
+        # A publisher-only retry retains the producing acceptance job's attempt.
+        result = publish(Path(args.output).read_bytes(), expected, os.environ["GITHUB_RUN_ID"], os.environ["PRODUCER_RUN_ATTEMPT"])
         print(json.dumps(result))
         return
     path = Path(args.output)
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("xb") as target:
         target.write(encode(result))
+    if args.action == "build":
+        with Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8") as outputs:
+            outputs.write(f'artifact_name=acceptance-public-{result["run_id"]}-{result["run_attempt"]}\n')
+            outputs.write(f'run_attempt={result["run_attempt"]}\n')
 
 
 if __name__ == "__main__":

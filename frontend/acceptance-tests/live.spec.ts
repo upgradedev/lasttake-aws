@@ -10,7 +10,7 @@ test('anonymous published proof renders the actual release pair, aggregate and c
   const receipt = await response.json();
   expect(receipt.frontend_commit).toBe(process.env.EXPECTED_RELEASE);
   expect(receipt.run_id).toBe(process.env.GITHUB_RUN_ID);
-  expect(receipt.run_attempt).toBe(process.env.GITHUB_RUN_ATTEMPT);
+  expect(receipt.run_attempt).toBe(process.env.PRODUCER_RUN_ATTEMPT);
   expect(receipt.receipt_path).toBe(`/acceptance/runs/${receipt.run_id}-${receipt.run_attempt}.json`);
   const immutable = await request.get(receipt.receipt_path);
   expect(immutable.status()).toBe(200);

@@ -1,10 +1,10 @@
 name: AWS hosting contract
 on:
   pull_request:
-    paths: ["infra/frontend*", "infra/test_frontend_hosting.py", "infra/test_frontend_acceptance.py", ".github/workflows/aws-hosting-ci.yml", ".github/workflows/frontend-deploy.yml", ".github/workflows/aws-uat.yml", "infra/test_frontend_pipeline.py", ".github/scripts/install-playwright-chromium.py", ".github/workflows/frontend-ci.yml"]
+    paths: ["infra/frontend*", "infra/test_frontend_hosting.py", "infra/test_frontend_acceptance.py", ".github/workflows/aws-hosting-ci.yml", ".github/workflows/frontend-deploy.yml", ".github/workflows/deploy.yml", ".github/workflows/aws-uat.yml", "infra/test_frontend_pipeline.py", ".github/scripts/install-playwright-chromium.py", ".github/workflows/frontend-ci.yml"]
   push:
     branches: [main, "codex/**"]
-    paths: ["infra/frontend*", "infra/test_frontend_hosting.py", "infra/test_frontend_acceptance.py", ".github/workflows/aws-hosting-ci.yml", ".github/workflows/frontend-deploy.yml", ".github/workflows/aws-uat.yml", "infra/test_frontend_pipeline.py", ".github/scripts/install-playwright-chromium.py", ".github/workflows/frontend-ci.yml"]
+    paths: ["infra/frontend*", "infra/test_frontend_hosting.py", "infra/test_frontend_acceptance.py", ".github/workflows/aws-hosting-ci.yml", ".github/workflows/frontend-deploy.yml", ".github/workflows/deploy.yml", ".github/workflows/aws-uat.yml", "infra/test_frontend_pipeline.py", ".github/scripts/install-playwright-chromium.py", ".github/workflows/frontend-ci.yml"]
   workflow_dispatch:
 permissions:
   contents: read

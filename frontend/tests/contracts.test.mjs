@@ -9,22 +9,24 @@ test('public proof refuses malformed, missing, stale, mismatched and broadened r
   const now = Date.parse('2026-09-10T06:00:00Z');
   const release = {commit: fixture.frontend_commit};
   const health = {commit: fixture.backend_commit, ok: true, run_state_store: 'aurora-dsql'};
-  assert.equal(assess(release, health, fixture, structuredClone(fixture), now).status, 'CURRENT_AUTOMATED_PASS');
-  assert.equal(assess(release, health, null, null, now).status, 'PENDING');
-  assert.equal(assess({}, health, fixture, fixture, now).status, 'UNKNOWN');
-  assert.equal(assess(release, health, fixture, fixture, now + 25 * 3600000).status, 'HISTORICAL');
-  assert.equal(assess(release, health, fixture, fixture, now - 6 * 60000).status, 'UNKNOWN');
-  assert.equal(assess({commit: 'd'.repeat(40)}, health, fixture, fixture, now).status, 'HISTORICAL');
-  assert.equal(assess(release, {...health, commit: 'd'.repeat(40)}, fixture, fixture, now).status, 'HISTORICAL');
+  assert.equal(assess(release, health, fixture, structuredClone(fixture), now, release.commit).status, 'CURRENT_AUTOMATED_PASS');
+  assert.equal(assess(release, health, fixture, fixture, now, 'd'.repeat(40)).status, 'UNKNOWN');
+  assert.equal(assess(release, health, fixture, fixture, now).status, 'UNKNOWN');
+  assert.equal(assess(release, health, null, null, now, release.commit).status, 'PENDING');
+  assert.equal(assess({}, health, fixture, fixture, now, release.commit).status, 'UNKNOWN');
+  assert.equal(assess(release, health, fixture, fixture, now + 25 * 3600000, release.commit).status, 'HISTORICAL');
+  assert.equal(assess(release, health, fixture, fixture, now - 6 * 60000, release.commit).status, 'UNKNOWN');
+  assert.equal(assess({commit: 'd'.repeat(40)}, health, fixture, fixture, now, 'd'.repeat(40)).status, 'HISTORICAL');
+  assert.equal(assess(release, {...health, commit: 'd'.repeat(40)}, fixture, fixture, now, release.commit).status, 'HISTORICAL');
   for (const patch of [{human_uat: 'PASS'}, {workflow_status: 'success'}, {run_url: 'javascript:alert(1)'},
     {schema_version: 2}, {raw_data: 'private'}, {postflight: 'failure'}, {receipt_path: '/../secret'},
     {backend_commit: null}, {preflight_at: 'tomorrow'}, {preflight_at: '2026-02-30T06:00:00Z', observed_at: '2026-02-30T06:01:00Z'}, {totals: {tests: 0, passed: 0, failed: 0, skipped: 0}},
     {totals: {tests: 2, passed: 2, failed: 0, skipped: 1}}]) {
     assert.throws(() => validateReceipt({...fixture, ...patch}));
-    assert.equal(assess(release, health, {...fixture, ...patch}, fixture, now).status, 'UNKNOWN');
+    assert.equal(assess(release, health, {...fixture, ...patch}, fixture, now, release.commit).status, 'UNKNOWN');
   }
-  assert.equal(assess(release, health, fixture, null, now).status, 'UNKNOWN');
-  assert.equal(assess(release, health, fixture, {...fixture, totals: {tests: 3, passed: 3, failed: 0, skipped: 0}}, now).status, 'UNKNOWN');
+  assert.equal(assess(release, health, fixture, null, now, release.commit).status, 'UNKNOWN');
+  assert.equal(assess(release, health, fixture, {...fixture, totals: {tests: 3, passed: 3, failed: 0, skipped: 0}}, now, release.commit).status, 'UNKNOWN');
 });
 
 test('public proof assets ship under existing CSP without a built-in success receipt', async () => {

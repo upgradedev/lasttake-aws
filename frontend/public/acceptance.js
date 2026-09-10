@@ -33,9 +33,9 @@ export function validateReceipt(r) {
 const canonical = value => JSON.stringify(value, (key, item) => item && typeof item === 'object' && !Array.isArray(item) ?
   Object.fromEntries(Object.entries(item).sort(([a], [b]) => a.localeCompare(b))) : item);
 
-export function assess(release, health, receipt, immutable, now = Date.now()) {
-  if (!matches(release?.commit, SHA) || !matches(health?.commit, SHA) || health.ok !== true || health.run_state_store !== 'aurora-dsql') {
-    return {status: 'UNKNOWN', reason: 'Current frontend or backend identity could not be verified.'};
+export function assess(release, health, receipt, immutable, now = Date.now(), servedFrontend) {
+  if (!matches(release?.commit, SHA) || !matches(health?.commit, SHA) || health.ok !== true || health.run_state_store !== 'aurora-dsql' || servedFrontend !== release.commit) {
+    return {status: 'UNKNOWN', reason: 'Current root HTML, frontend manifest or backend identity could not be verified as a consistent release.'};
   }
   if (!receipt) return {status: 'PENDING', reason: 'No published receipt is available. Current acceptance is not established.'};
   try {
@@ -63,6 +63,16 @@ async function json(path, missingIsPending = false) {
   return JSON.parse(body);
 }
 
+async function rootCommit() {
+  const response = await fetch('/', {cache: 'no-store', credentials: 'omit', signal: AbortSignal.timeout(15000)});
+  if (!response.ok || !response.headers.get('content-type')?.includes('text/html')) throw new Error('Root HTML unavailable');
+  const body = await response.text();
+  if (body.length > 1000000) throw new Error('Root HTML too large');
+  const markers = [...body.matchAll(/<meta name="application-commit" content="([0-9a-f]{40})">/g)];
+  if (markers.length !== 1) throw new Error('Root release marker missing or ambiguous');
+  return markers[0][1];
+}
+
 export async function refresh(document) {
   const set = (id, value) => { document.getElementById(id).textContent = value; };
   const verdict = document.getElementById('verdict');
@@ -75,7 +85,7 @@ export async function refresh(document) {
   set('reason', 'Checking the deployed revisions and recorded evidence.');
   for (const id of ['current-frontend', 'current-backend', 'recorded-frontend', 'recorded-backend']) set(id, 'Unknown');
   try {
-    const [release, health, receipt] = await Promise.all([json('/release.json'), json('/healthz'), json('/acceptance.json', true)]);
+    const [release, health, receipt, htmlCommit] = await Promise.all([json('/release.json'), json('/healthz'), json('/acceptance.json', true), rootCommit()]);
     if (matches(release?.commit, SHA)) set('current-frontend', release.commit);
     if (matches(health?.commit, SHA)) set('current-backend', health.commit);
     let immutable = null;
@@ -86,11 +96,11 @@ export async function refresh(document) {
       immutable = await json(receipt.receipt_path);
     }
     // A release can change during fetching: compare the second identity read too.
-    const [current, backend] = await Promise.all([json('/release.json'), json('/healthz')]);
+    const [current, backend, currentHTML] = await Promise.all([json('/release.json'), json('/healthz'), rootCommit()]);
     set('current-frontend', matches(current?.commit, SHA) ? current.commit : 'Unknown');
     set('current-backend', matches(backend?.commit, SHA) ? backend.commit : 'Unknown');
-    let result = assess(current, backend, receipt, immutable);
-    if (release.commit !== current.commit || health.commit !== backend.commit) result = {status: 'UNKNOWN', reason: 'The deployed revision changed while checking. Check again.'};
+    let result = assess(current, backend, receipt, immutable, Date.now(), currentHTML);
+    if (release.commit !== current.commit || health.commit !== backend.commit || htmlCommit !== currentHTML) result = {status: 'UNKNOWN', reason: 'The deployed revision changed while checking. Check again.'};
     set('verdict', result.status);
     verdict.dataset.status = result.status;
     set('reason', result.reason);

@@ -112,10 +112,13 @@ class Bucket:
         self.objects = {"release.json": proof.encode({"commit": FRONTEND})}
         self.calls = []
         self.frontend, self.backend = FRONTEND, BACKEND
+        self.html_commit = FRONTEND
         self.before_put = None
         self.output_bucket = "lasttake-web-123456789012-eu-west-1"
 
     def public(self, path):
+        if path == "":
+            return f'<html><head><meta name="application-commit" content="{self.html_commit}"></head></html>'
         if path == "release.json":
             return {"commit": self.frontend}
         return {"commit": self.backend, "ok": True, "run_state_store": "aurora-dsql"}
@@ -194,7 +197,7 @@ class PublicationContract(unittest.TestCase):
         self.assertNotIn("acceptance.json", self.bucket.objects)
 
     def test_public_frontend_backend_or_s3_manifest_change_refuses_publication(self):
-        for kind in ("frontend", "backend", "origin"):
+        for kind in ("frontend", "backend", "origin", "html_commit"):
             self.bucket = Bucket()
             if kind == "origin":
                 self.bucket.objects["release.json"] = proof.encode({"commit": "c" * 40})
@@ -222,6 +225,26 @@ class PublicationContract(unittest.TestCase):
             with self.assertRaises(ValueError):
                 self.publish()
             self.assertEqual(self.bucket.objects["acceptance.json"], existing)
+
+    def test_publisher_retry_keeps_the_producing_attempt(self):
+        self.publish()
+        with patch.dict(proof.os.environ, {"GITHUB_RUN_ATTEMPT": "3", "PRODUCER_RUN_ATTEMPT": "2"}):
+            self.publish(attempt=proof.os.environ["PRODUCER_RUN_ATTEMPT"])
+        self.assertEqual(proof.read_json(self.bucket.objects["acceptance.json"])["run_attempt"], "2")
+        self.assertNotIn("acceptance/runs/12345-3.json", self.bucket.objects)
+
+    def test_root_html_changing_after_immutable_write_refuses_latest(self):
+        self.bucket.before_put = lambda key: setattr(self.bucket, "html_commit", "d" * 40)
+        with self.assertRaisesRegex(ValueError, "root HTML"):
+            self.publish()
+        self.assertNotIn("acceptance.json", self.bucket.objects)
+
+    def test_missing_and_ambiguous_root_html_markers_refuse_current_identity(self):
+        for html in ('<html>old release</html>', ('<meta name="application-commit" content="' + FRONTEND + '">') * 2):
+            def request(path):
+                return html if path == "" else self.bucket.public(path)
+            with self.subTest(html=html), self.assertRaisesRegex(ValueError, "root HTML"):
+                proof.identity(FRONTEND, request=request)
 
     def test_older_latest_updates_with_compare_and_swap(self):
         prior = {**self.record, "observed_at": proof.stamp(NOW - timedelta(minutes=1))}

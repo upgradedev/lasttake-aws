@@ -1,5 +1,5 @@
 import {test, expect} from '@playwright/test';
-import fixture from './receipt.fixture.json';
+import fixture from './receipt.fixture.json' with {type: 'json'};
 
 const cases = [
   ['valid', 'CURRENT_AUTOMATED_PASS'], ['missing', 'PENDING'], ['malformed', 'UNKNOWN'],
@@ -7,6 +7,7 @@ const cases = [
   ['immutable mismatch', 'UNKNOWN'], ['immutable missing', 'UNKNOWN'], ['refusal', 'UNKNOWN'],
   ['failed cases', 'UNKNOWN'], ['skipped cases', 'UNKNOWN'], ['future', 'UNKNOWN'],
   ['unsafe link', 'UNKNOWN'], ['unavailable health', 'UNKNOWN'], ['server error', 'UNKNOWN'],
+  ['HTML mismatch', 'UNKNOWN'], ['HTML missing marker', 'UNKNOWN'],
 ];
 
 for (const [scenario, status] of cases) {
@@ -24,6 +25,9 @@ for (const [scenario, status] of cases) {
     if (scenario === 'skipped cases') record.totals.skipped = 1;
     if (scenario === 'immutable mismatch') immutable.totals = {tests: 3, passed: 3, failed: 0, skipped: 0};
     if (scenario === 'unsafe link') record.run_url = 'javascript:alert(1)';
+    await page.route('http://127.0.0.1:4173/', route => route.fulfill({contentType: 'text/html', body:
+      scenario === 'HTML missing marker' ? '<html><head></head></html>' :
+        `<html><head><meta name="application-commit" content="${['HTML mismatch', 'frontend mismatch'].includes(scenario) ? 'd'.repeat(40) : record.frontend_commit}"></head></html>`}));
     await page.route('**/release.json', route => route.fulfill({json: {commit: scenario === 'frontend mismatch' ? 'd'.repeat(40) : record.frontend_commit}}));
     await page.route('**/healthz', route => scenario === 'unavailable health' ? route.fulfill({status: 503, body: 'unavailable'}) :
       route.fulfill({json: {ok: true, run_state_store: 'aurora-dsql', commit: scenario === 'backend mismatch' ? 'd'.repeat(40) : record.backend_commit}}));
@@ -57,6 +61,7 @@ test('a previously passing page withdraws the pass when refresh sees a changed r
   record.observed_at = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
   record.preflight_at = record.observed_at;
   let frontend = record.frontend_commit;
+  await page.route('http://127.0.0.1:4173/', route => route.fulfill({contentType: 'text/html', body: `<html><head><meta name="application-commit" content="${frontend}"></head></html>`}));
   await page.route('**/release.json', route => route.fulfill({json: {commit: frontend}}));
   await page.route('**/healthz', route => route.fulfill({json: {ok: true, run_state_store: 'aurora-dsql', commit: record.backend_commit}}));
   await page.route('**/acceptance.json', route => route.fulfill({json: record}));

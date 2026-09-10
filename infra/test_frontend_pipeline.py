@@ -1,5 +1,6 @@
 """CI-only structural regression checks for main -> deploy -> live UAT."""
 import copy
+from fnmatch import fnmatchcase
 import importlib.util
 import tempfile
 import unittest
@@ -76,9 +77,12 @@ def validate(deploy, uat):
     assert publisher["concurrency"]["queue"] == "max"
     assert not any("npm" in step.get("run", "") or "playwright" in step.get("run", "") for step in publisher["steps"])
     download = next(s for s in publisher["steps"] if s.get("uses", "").startswith("actions/download-artifact@"))
-    assert download["with"] == {"name": "acceptance-public-${{ github.run_id }}-${{ github.run_attempt }}", "path": "public-proof"}
+    assert download["with"] == {"name": "${{ needs.acceptance.outputs.artifact_name }}", "path": "public-proof"}
+    assert job["outputs"] == {"artifact_name": "${{ steps.proof.outputs.artifact_name }}", "run_attempt": "${{ steps.proof.outputs.run_attempt }}"}
+    assert publisher["env"]["PRODUCER_RUN_ATTEMPT"] == "${{ needs.acceptance.outputs.run_attempt }}"
     followup = uat["jobs"]["verify-public-proof"]
-    assert followup["needs"] == "publish" and followup["permissions"] == {"contents": "read"}
+    assert followup["needs"] == ["acceptance", "publish"] and followup["permissions"] == {"contents": "read"}
+    assert followup["env"]["PRODUCER_RUN_ATTEMPT"] == "${{ needs.acceptance.outputs.run_attempt }}"
     assert not any("configure-aws-credentials" in s.get("uses", "") for s in followup["steps"])
 
     # Playwright cleans test-results at startup. Identity evidence must survive it.
@@ -88,6 +92,19 @@ def validate(deploy, uat):
 
 
 class MainAcceptanceContract(unittest.TestCase):
+    def test_backend_push_paths_cover_shipped_inputs_but_refuse_proof_and_packaging_only_changes(self):
+        deploy = read_workflow("deploy.yml")
+        paths = deploy["on"]["push"]["paths"]
+        assert paths == ["src/**", "corpus/**", "infra/stack.yaml"]
+        assert "workflow_dispatch" in deploy["on"]
+        for path in ("src/lasttake/app/handler.py", "src/lasttake/adapters/aws/dsql.py", "corpus/takes.json", "infra/stack.yaml"):
+            with self.subTest(path=path):
+                assert any(fnmatchcase(path, pattern) for pattern in paths)
+        for path in ("infra/frontend_acceptance.py", "infra/frontend_publish.py", "infra/test_frontend_pipeline.py",
+                     "frontend/public/acceptance.html", "README.md", ".github/workflows/deploy.yml", "pyproject.toml"):
+            with self.subTest(path=path):
+                assert not any(fnmatchcase(path, pattern) for pattern in paths)
+
     def test_shared_browser_preparation_preserves_install_and_journey_contracts(self):
         invocation = "python ../.github/scripts/install-playwright-chromium.py"
         for name, job in (("frontend-ci.yml", "verify"), ("aws-uat.yml", "acceptance")):
@@ -192,6 +209,12 @@ class MainAcceptanceContract(unittest.TestCase):
         candidate = copy.deepcopy(self.uat)
         before = next(s for s in candidate["jobs"]["acceptance"]["steps"] if s.get("id") == "preflight")
         before["run"] = before["run"].replace("acceptance-observations", "test-results")
+        with self.assertRaises(AssertionError):
+            validate(self.deploy, candidate)
+
+    def test_publisher_retry_must_use_producer_artifact_and_attempt(self):
+        candidate = copy.deepcopy(self.uat)
+        candidate["jobs"]["publish"]["env"]["PRODUCER_RUN_ATTEMPT"] = "${{ github.run_attempt }}"
         with self.assertRaises(AssertionError):
             validate(self.deploy, candidate)
 
