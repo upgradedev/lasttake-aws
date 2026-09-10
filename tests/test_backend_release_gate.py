@@ -13,7 +13,7 @@ WORKFLOW = Path(__file__).resolve().parents[1] / ".github/workflows/deploy.yml"
 ])
 def test_only_explicit_manual_deploy_activates_the_broad_backend_job(event, action, expected):
     source = WORKFLOW.read_text()
-    condition = source.split("  deploy:\n",1)[1].split("\n",2)[1].strip().removeprefix("if: ")
+    condition = source.split("  deploy:\n",1)[1].split("\n",1)[0].strip().removeprefix("if: ")
     assert condition == "github.event_name == 'workflow_dispatch' && inputs.action == 'deploy'"
     result = eval(condition.replace("&&", "and"), {"__builtins__":{}},
                   {"github":SimpleNamespace(event_name=event),"inputs":SimpleNamespace(action=action)})
