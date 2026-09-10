@@ -368,7 +368,7 @@
         "tests/contracts.test.mjs",
         "../web/video/hero-journey.mjs"
       ],
-      "observed_result_evidence": "PENDING_CI: new source scope; use exact candidate run and artifacts. Previous observations do not validate this change.",
+      "observed_result_evidence": "PASS at the historical source checkpoint 2026-09-10T11:12:11Z: ec14930fc754ab5cae1315402d002c2ee2cb1651, https://github.com/upgradedev/lasttake-aws/actions/runs/34469562958. Desktop/mobile real offline-HTTP journeys verified changed evidence, fresh human wrap approval and downloaded turnover/receipt; the downloaded handoff summary matched actual saved manifest recommended_action values. Unit controls verified clipboard success/refusal and historical output labels. See hero_workflow_revision for exact suite counts and the log command. This is source CI evidence, not current deployment or human acceptance; current AWS status: https://d3kf6hquzlli8g.cloudfront.net/acceptance.html.",
       "human_signoff": "NOT_RUN"
     },
     {
@@ -389,7 +389,7 @@
         "tests/e2e/hero.spec.ts: LT-FILE",
         "tests/hero.test.tsx"
       ],
-      "observed_result_evidence": "PENDING_CI: new source scope; use exact candidate run and artifacts.",
+      "observed_result_evidence": "PASS at the historical source checkpoint 2026-09-10T11:12:11Z: ec14930fc754ab5cae1315402d002c2ee2cb1651, https://github.com/upgradedev/lasttake-aws/actions/runs/34469562958. Desktop/mobile real offline-HTTP journeys verified ordinary JSON preview, owned saving, reload and invalid/missing-session/foreign-session/duplicate refusal. Missing camera evidence stayed missing; a unit FileReader assertion checked downloaded lens_mm 50 versus independent camera_report_row.lens_mm 85. See hero_workflow_revision for exact suite counts and the log command. This is source CI evidence, not current deployment or human acceptance; current AWS status: https://d3kf6hquzlli8g.cloudfront.net/acceptance.html.",
       "human_signoff": "NOT_RUN"
     }
   ],
@@ -447,11 +447,25 @@
     "live_aws_acceptance": "NOT_RUN"
   },
   "hero_workflow_revision": {
-    "status": "PENDING_CI",
-    "scope": "SOURCE_ONLY_UNRELEASED",
+    "status": "PASS",
+    "scope": "HISTORICAL_SOURCE_CHECKPOINT",
+    "observed_at": "2026-09-10T11:12:11Z",
+    "implementation_sha": "ec14930fc754ab5cae1315402d002c2ee2cb1651",
+    "ci_run_url": "https://github.com/upgradedev/lasttake-aws/actions/runs/34469562958",
+    "evidence_artifact": "frontend-evidence-ec14930fc754ab5cae1315402d002c2ee2cb1651",
+    "evidence_command": "gh run view 34469562958 --repo upgradedev/lasttake-aws --log",
+    "suite_counts": {
+      "python_passed": 277,
+      "python_coverage_percent": 88.70,
+      "unit_component_passed": 70,
+      "functional_passed": 7,
+      "real_offline_http_desktop_mobile_passed": 24,
+      "separate_receipt_browser_passed": 60
+    },
     "recording_status": "NOT_CONFIGURED",
-    "live_aws_acceptance": "NOT_RUN",
+    "live_aws_acceptance": "SEE_CURRENT_ACCEPTANCE",
+    "current_aws_acceptance_url": "https://d3kf6hquzlli8g.cloudfront.net/acceptance.html",
     "human_signoff": "NOT_RUN",
-    "evidence": "Use the exact candidate frontend-ci run artifacts. This new source journey does not inherit earlier acceptance."
+    "evidence": "GitHub Actions source CI used the built React application, real offline Python HTTP handler, durable local stores, real Strands sessions and Chromium desktop/mobile emulation. Counts above are separate suite totals, not additional hero-only tests. This dated checkpoint does not validate later documentation commits or establish current AWS deployment; exact candidate CI artifacts and the current AWS acceptance page remain authoritative. Earlier evidence is retained. No paid models, production recording or practising-user signoff."
   }
 }
