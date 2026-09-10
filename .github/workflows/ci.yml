@@ -70,6 +70,21 @@ jobs:
 
 
 
+      - name: Fixed text development evidence, offline only after instrument tests
+        env:
+          AWS_EC2_METADATA_DISABLED: 'true'
+        run: python tools/model_evidence.py --output source-evidence/model-evidence
+
+      - name: Retain text evidence including failed or unrun slots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: text-development-evidence-${{ github.sha }}-${{ github.run_id }}
+          path: source-evidence/model-evidence/
+          if-no-files-found: warn
+          retention-days: 90
+          overwrite: false
+
       - name: secret scan
 
         run: python tools/secret_scan.py --all-history

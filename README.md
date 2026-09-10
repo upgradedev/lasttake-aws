@@ -601,6 +601,44 @@ kinds of input. It is not an evaluation of judgement quality against labelled gr
 supervisor finds the evidence available before wrap and the reconciliation work actually reduced.
 That has not happened, and nothing here should be read as though it had.
 
+### Text interpretation evidence: source preparation, not model accuracy
+
+The fixed [16-case protocol](docs/model-evidence-protocol.json), [supplied text](docs/model-evidence-cases.json)
+and [separate gold labels](docs/model-evidence-gold.json) were committed before the
+instrument. These are assistant-authored synthetic development cases, not held-out
+research data or practitioner labels. Only supplied notes and text descriptions
+are interpreted. There is no footage/audio analysis or creative/legal judgement.
+
+Source CI first runs malformed/unsafe-response, missing-slot, interrupted-write,
+wrong/stale request-binding and metric-denominator controls. It then runs:
+
+```bash
+python tools/model_evidence.py --output source-evidence/model-evidence
+```
+
+The fresh output directory contains the existing lexical interpreter's raw outputs,
+all16 future-model slots marked `UNRUN`, the existing bounded Bedrock prompts and
+schemas captured without constructing a model, source/request/response hashes,
+and fixed capture, false-positive, false-exception and abstention denominators.
+Gold never enters the prompts. Failed/unrun attempts are not dropped or replaced;
+malformed responses are failures, not successful abstentions. The question-level
+ruler is not the complete production eligibility policy. No model quality threshold
+or independent accuracy claim is attached to these development results.
+
+`--replay <already-captured.json>` reads inert structured responses only, with exact
+protocol and request bindings. It retains original bytes even when refusing them;
+hashes bind bytes, not model origin. Tests use explicitly labelled fake responses.
+The [spent-evidence inventory](docs/model-evidence-inventory.json) found no complete,
+comparable raw semantic cohort in its bounded inspection: two latest successful
+deploy runs list no artifacts, and the newest log retains counts, one truncated
+rationale and a separate connectivity-only `OK` response. None establishes accuracy.
+
+Real-model evaluation remains `NOT_RUN`; LT2/C1 is not closed. No live model workflow
+or network-capable runner is added. A future inference cohort needs separate owner
+budget/activation approval and retained exact model/profile/region/config, raw
+responses, usage and failures. Unrecorded model usage/cost and runner/infrastructure
+cost remain `UNKNOWN`; zero model calls describes only this offline instrument.
+
 ## What "covered" rests on, and why two readers count differently
 
 `[PRIMARY]` 2026-09-08, deploy run 34195514875, which runs `lasttake checkpoint --bedrock` on the
