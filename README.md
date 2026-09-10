@@ -65,7 +65,7 @@ The public receipt requires at least the existing 20 product cases. JUnit suppli
 
 The served root HTML commit marker must match `release.json` as well as the receipt before publication or a current pass. A partial release or rollback cannot use a manifest alone to establish identity. Publisher-only retries use the producing acceptance job's artifact name and attempt output, preserving the run/attempt that actually executed the journeys.
 
-Backend pushes deploy only changed `src/**`, `corpus/**` or `infra/stack.yaml`. The package copies `src/lasttake` and corpus JSON and deploys that template; dependency packaging is defined inside the workflow. Packaging, dependency declaration and workflow-only changes therefore require an explicit `workflow_dispatch` deployment. Frontend proof and documentation changes do not automatically invoke backend deployment or its model checks.
+Backend release is explicitly controlled: `deploy.yml` runs its deployment job only for `workflow_dispatch` with action `deploy`. Source pushes cannot activate that job. This separates code integration from its broader stack updates and real-model validation, not an extra approval gate on ordinary work. Frontend main CI/CD stays automatic; manual teardown/lifecycle behavior is unchanged. The package copies `src/lasttake`, corpus JSON and runtime dependencies. Credential-free branch CI retains a code package for a reviewed code-only rollout; it does not invoke the deployment workflow or establish AWS acceptance.
 
 The browser acceptance job has only `contents: read` and no cloud credentials. After all three stages succeed, it parses the current run's product-journey JUnit into sanitized totals. A separate main-only publisher uses the existing frontend release OIDC role and bucket. `/acceptance/runs/<run-id>-<attempt>.json` is create-only or verified byte-identical; `/acceptance.json` is the latest pointer and aggregate, updated conditionally after rechecking public and origin release identity. Frontend publishes preserve retained proof. A changed backend during acceptance or stale dispatch refuses publication; frontend and backend commits may legitimately differ and the exact observed pair is recorded.
 
@@ -117,7 +117,17 @@ Historical repeated links are deduplicated only in the scene projection; origina
 artifacts and their digests remain unchanged. Uncertain storage reads return a
 generic unavailable response, never an unowned run or an empty saved state.
 
-The security branch's `ci.yml` also produces a credential-free, source-only
+Saved run history loads 10 registrations per page (API maximum 20), before rebuilding
+any run. DSQL filters the owning session in a parameterized keyset query and fetches
+at most page size plus one row. Local/S3 fallback reads at most 64 KiB of the existing
+audit array per page, without rewriting it. A changed fallback file asks for a list
+refresh; an unreadable or oversized historical record is refused, not skipped.
+Load older runs replaces the displayed page; Refresh newest runs restarts it.
+Counts describe the loaded page, not total history. Saved handles, direct owned-run
+links and earlier records remain valid. No registration quota is imposed. Database
+physical scan/sort cost is not measured or claimed bounded by the result-row limit.
+
+The security and pagination branches' `ci.yml` also produces a credential-free, source-only
 Python 3.12 arm64 Lambda ZIP after the Python checks pass. It contains current
 `src/lasttake`, corpus JSON, resolved runtime dependencies including the AWS SDK,
 and `_lasttake_build.json`. The accompanying build receipt records the source

@@ -96,7 +96,7 @@ jobs:
   lambda-package:
     name: arm64 Lambda package (source only)
     # This branch artifact is not a release. No AWS credentials or deploy steps.
-    if: github.ref == 'refs/heads/codex/security-boundaries-20260910'
+    if: github.ref == 'refs/heads/codex/security-boundaries-20260910' || github.ref == 'refs/heads/codex/history-pagination-20260910'
     needs: [test, hero]
     runs-on: ubuntu-latest
     timeout-minutes: 15

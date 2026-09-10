@@ -108,6 +108,7 @@ def test_package_job_is_branch_only_read_only_and_never_invokes_release():
     job = workflow.split("  lambda-package:\n", 1)[1].split("  hero:\n", 1)[0]
     assert "needs: [test, hero]" in job
     assert "github.ref == 'refs/heads/codex/security-boundaries-20260910'" in job
+    assert "github.ref == 'refs/heads/codex/history-pagination-20260910'" in job
     assert "contents: read" in job and "persist-credentials: false" in job
     assert "manylinux2014_aarch64" in job and "--only-binary=:all:" in job
     assert "tools/package_lambda.py" in job and "actions/upload-artifact@v4" in job

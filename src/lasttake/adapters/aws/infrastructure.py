@@ -191,6 +191,37 @@ class S3RunStore:
     def load_audit(self, run_id: str) -> list[dict]:
         return self._read(self._key(run_id, "audit.json"), [])
 
+    def registration_page(self, owner: str, limit: int, position: Optional[dict]) -> tuple[list[dict], Optional[dict]]:
+        from ...domain.history import WINDOW_BYTES, HistoryChanged, HistoryUnavailable, array_end, array_page, page_size
+        page_size(limit)
+        key = self._key(owner, "audit.json")
+        try:
+            info = self._s3.head_object(Bucket=self.bucket, Key=key)
+        except self._s3.exceptions.ClientError as exc:
+            if _missing_object(exc) and position is None:
+                return [], None
+            raise
+        size, version = info["ContentLength"], info["ETag"]
+        end = array_end(position, size, version)
+        if not end:
+            raise HistoryUnavailable("Saved history could not be read.")
+        start = max(0, end - WINDOW_BYTES)
+        try:
+            result = self._s3.get_object(Bucket=self.bucket, Key=key, Range=f"bytes={start}-{end - 1}", IfMatch=version)
+        except self._s3.exceptions.ClientError as exc:
+            if exc.response.get("Error", {}).get("Code") in ("PreconditionFailed", "412"):
+                raise HistoryChanged("Saved history changed. Refresh the run list.") from exc
+            raise
+        body = result["Body"]
+        try:
+            data = body.read(WINDOW_BYTES + 1)
+        finally:
+            body.close()
+        if (result.get("ContentRange") != f"bytes {start}-{end - 1}/{size}"
+                or len(data) != end - start or result.get("ETag") != version):
+            raise HistoryUnavailable("Saved history range could not be verified.")
+        return array_page(data, start, limit, version)
+
 
 class EventBridgeBus:
     """Publishes onto a real bus, and keeps a readable copy for the audit view.
