@@ -107,6 +107,7 @@ def test_fake_complete_cohort_checks_metric_arithmetic_not_real_model_quality(tm
     "not json", '{"covers":true}', '{"covers":"true","confidence":0.9,"rationale":"bad bool"}',
     '{"covers":true,"confidence":NaN,"rationale":"bad finite"}',
     '{"covers":true,"confidence":1.5,"rationale":"bad range"}',
+    '{"covers":true,"confidence":1.0,"rationale":"unsafe certainty"}',
     '{"covers":true,"confidence":true,"rationale":"bool confidence"}',
     '{"covers":true,"confidence":0.9,"rationale":"ok","approve_wrap":true}',
     '{"covers":true,"confidence":0.9,"rationale":""}',
@@ -167,12 +168,16 @@ def test_missing_slots_and_optional_metadata_are_not_silent_hard_gates(tmp_path)
 
 def test_interrupt_retains_started_failed_and_unrun_slots_before_adapter_execution(tmp_path):
     calls = []
+    output = tmp_path / "evidence"
     class Interrupted(E.OfflineInterpreter):
         def match_beat_to_take(self, **kwargs):
+            assert len(list((output / "slots").glob("*.json"))) == 32
+            assert len(list((output / "requests").glob("*.json"))) == 16
+            current = json.loads((output / "slots" / f"{len(calls):02d}.json").read_text())
+            assert current["status"] == "FAILED" and current["error"] == "INTERRUPTED_BEFORE_COMPLETION"
             calls.append(kwargs)
             if len(calls) == 2: raise KeyboardInterrupt()
             return super().match_beat_to_take(**kwargs)
-    output = tmp_path / "evidence"
     with pytest.raises(KeyboardInterrupt): E.evaluate(output, baseline_factory=Interrupted)
     assert json.loads((output / "slots/00.json").read_text())["status"] == "COMPLETE"
     assert json.loads((output / "slots/01.json").read_text())["status"] == "FAILED"
@@ -191,6 +196,13 @@ def test_adapter_failure_cannot_be_relabelled_successful_abstention(tmp_path):
 
 def test_corrupt_denominator_is_refused():
     with pytest.raises(ValueError): E.metrics([{"case_id":"C01","mode":"fixture"}], {"C01":"POSITIVE","C02":"NEGATIVE"})
+
+
+def test_frozen_binding_mismatch_refuses_before_evaluation(tmp_path, monkeypatch):
+    monkeypatch.setitem(E.FROZEN, "docs/model-evidence-cases.json", "0" * 64)
+    with pytest.raises(ValueError, match="Frozen input changed"):
+        E.evaluate(tmp_path / "never-started")
+    assert not (tmp_path / "never-started").exists()
 
 
 def test_cli_has_no_real_model_activation_and_incomplete_replay_returns_nonzero(tmp_path):

@@ -677,8 +677,8 @@ the count above what the evidence supports: the deploy asserts that required bea
 covered may fall and may never rise.
 
 What this exposes is the gap already declared in [`docs/assurance.md`](docs/assurance.md), that
-there is no evaluation set for the model's judgement on its two bounded questions. It has a size
-now instead of only a sentence. Closing it means labelled ground truth for "does this take contain
+there is no independent, real-model evaluation on its two bounded questions. The source-only
+development set above does not close that gap. Closing it means labelled ground truth for "does this take contain
 this beat", which this corpus does not have and one shoot day would not settle.
 
 ## The numbers, and the commands that produce them

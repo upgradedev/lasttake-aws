@@ -126,8 +126,9 @@ def opinion_from_raw(case, raw):
     if any(type(response[k]) is not bool for k in required - {"confidence", "rationale"}):
         raise ValueError("Outcome fields must be booleans")
     confidence = response["confidence"]
-    if type(confidence) not in (float, int) or not math.isfinite(confidence) or not 0 <= confidence <= 1:
-        raise ValueError("Finite unit confidence required")
+    # Existing findings.validate disallows certainty for an interpretation.
+    if type(confidence) not in (float, int) or not math.isfinite(confidence) or not 0 <= confidence < 1:
+        raise ValueError("Finite non-certain interpretation confidence required")
     if not isinstance(response["rationale"], str) or not 0 < len(response["rationale"]) <= 10000:
         raise ValueError("Bounded nonempty rationale required")
     return invoke(isolated_adapter(CapturedAgent(response)), case)
