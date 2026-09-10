@@ -150,6 +150,7 @@ FIELD_TYPES = {
 #: Free text a person writes reaches a model prompt and a page. Bounded, because
 #: an unbounded one is a bill and a denial of service at the same time.
 MAX_TEXT = 2_000
+MAX_ARRAY_ITEMS = 64
 
 #: A rights record is a document that exists or does not. This is not the place
 #: to invent statuses: the check compares against these and anything else would
@@ -202,12 +203,16 @@ def shape_error(kind: object, document: object) -> Optional[dict]:
         if expected is str and len(value) > MAX_TEXT:
             return {"error": f"{field} is longer than {MAX_TEXT} characters"}
         if expected is list:
+            if len(value) > MAX_ARRAY_ITEMS:
+                return {"error": f"{field} must contain at most {MAX_ARRAY_ITEMS} identifiers"}
             if not all(isinstance(item, str) for item in value):
                 return {"error": f"{field} must be a list of strings"}
             for item in value:
                 problem = bad_identifier(f"an entry in {field}", item)
                 if problem:
                     return {"error": problem}
+            if len(set(value)) != len(value):
+                return {"error": f"{field} must contain unique identifiers; duplicate entries are not accepted"}
 
     if "status" in document and document["status"] not in RIGHTS_STATUSES:
         return {

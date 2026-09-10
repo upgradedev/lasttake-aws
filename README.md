@@ -109,6 +109,14 @@ Known HTTP 400 validation refusals preserve editable input and allow immediate c
 and resubmission. Stale/conflicting, network, unreadable and server-failure results require
 a saved-state refresh before another write. Closing an intake form remains available.
 
+Take intake accepts at most 64 unique identifiers in each of `beat_ids`,
+`visible_people` and `visible_assets`. Repeated or oversized lists are refused
+before writing; unknown beat identifiers are not silently removed. HTTP requests
+are limited to 128,000 decoded UTF-8 bytes, including base64 gateway bodies.
+Historical repeated links are deduplicated only in the scene projection; original
+artifacts and their digests remain unchanged. Uncertain storage reads return a
+generic unavailable response, never an unowned run or an empty saved state.
+
 Dependencies are installed in GitHub Actions. `frontend-ci.yml` generates a lock
 only when absent, uploads it, builds the app, measures unit coverage, runs the
 Python regressions and exercises desktop/mobile browsers against the real Python

@@ -26,6 +26,17 @@ from ...domain.events import Event, EventType
 from ...ports.infrastructure import Receipt
 
 
+def _missing_object(exc) -> bool:
+    """Only an explicit object-not-found response is evidence of absence.
+
+    A 403 may hide an existing object. Bucket errors, throttling and transport
+    failures must not turn an ownership marker or saved state into a new record.
+    Conflicting status/code pairs also fail closed.
+    """
+    return (exc.response.get("Error", {}).get("Code") in ("404", "NoSuchKey")
+            and exc.response.get("ResponseMetadata", {}).get("HTTPStatusCode") in (None, 404))
+
+
 class S3ArtifactStore:
     """Content-addressed and write-once. There is no update and no delete.
 
@@ -66,8 +77,10 @@ class S3ArtifactStore:
         try:
             self._s3.head_object(Bucket=self.bucket, Key=self._key(key))
             return True
-        except self._s3.exceptions.ClientError:
-            return False
+        except self._s3.exceptions.ClientError as exc:
+            if _missing_object(exc):
+                return False
+            raise
 
     def url_for(self, key: str) -> Optional[str]:
         """A time-bounded link, never a public object.
@@ -99,10 +112,10 @@ class S3RunStore:
     def _read(self, key: str, default):
         try:
             body = self._s3.get_object(Bucket=self.bucket, Key=key)["Body"].read()
-        except self._s3.exceptions.NoSuchKey:
-            return default
-        except self._s3.exceptions.ClientError:
-            return default
+        except self._s3.exceptions.ClientError as exc:
+            if _missing_object(exc):
+                return default
+            raise
         return json.loads(body.decode("utf-8"))
 
     def _write(self, key: str, payload) -> None:
