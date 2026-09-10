@@ -18,8 +18,8 @@ on:
         default: deploy
   push:
     branches: [main]
-    # Only shipped source, corpus and the runtime template auto-deploy.
-    # Packaging/workflow-only changes require an explicit workflow_dispatch.
+    # Source pushes remain observable but cannot activate the deployment job.
+    # Stack updates and real-model validation require an explicit deploy dispatch.
     paths:
       - "src/**"
       - "corpus/**"
@@ -35,7 +35,7 @@ env:
 
 jobs:
   deploy:
-    if: inputs.action != 'teardown' && inputs.action != 'lifecycle'
+    if: github.event_name == 'workflow_dispatch' && inputs.action == 'deploy'
     runs-on: ubuntu-latest
     outputs:
       url: ${{ steps.stack.outputs.url }}

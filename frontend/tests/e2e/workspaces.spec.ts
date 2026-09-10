@@ -4,6 +4,38 @@ async function nav(page:Page,name:string){await page.getByRole('navigation').get
 async function saved(page:Page){return page.evaluate(()=>({session_id:localStorage.getItem('lasttake.session'),run_id:new URLSearchParams(location.hash.split('?')[1]).get('run')}));}
 async function create(page:Page){await page.goto('/');await page.getByRole('button',{name:'New shoot-day run',exact:true}).click();await expect(page.getByRole('button',{name:'Run wrap checkpoint'})).toBeEnabled();}
 
+test('LT-HISTORY bounded pages retain older owned runs, stale cursors recover without deleting history',async({page})=>{
+  await create(page);
+  const body=await saved(page);
+  for(let i=0;i<11;i++)expect((await page.request.post('/api/reset',{data:{session_id:body.session_id}})).ok()).toBe(true);
+  await page.goto(`/#history?run=${body.run_id}`);
+  await expect(page.locator('.run-list li')).toHaveCount(10);
+  await expect(page.getByRole('button',{name:'Load older runs'})).toBeEnabled();
+  const first=await (await page.request.post('/api/session',{data:{session_id:body.session_id}})).json();
+  expect(first.runs).toHaveLength(10);expect(first.has_more).toBe(true);
+  const other=await (await page.request.post('/api/session',{data:{}})).json();
+  expect((await page.request.post('/api/session',{data:{session_id:other.session_id,cursor:first.next_cursor}})).status()).toBe(400);
+  await page.getByRole('button',{name:'Load older runs'}).click();
+  await expect(page.locator('.run-list li')).toHaveCount(2);
+  await expect(page.locator('.run-list')).toContainText(body.run_id!);
+  await expect(page.getByRole('button',{name:'Load older runs'})).toBeDisabled();
+  await page.locator('.run-list a').first().click();
+  await expect(page.getByRole('button',{name:'Refresh saved state'})).toBeEnabled();
+  await page.reload();
+  await expect(page.locator('.run-list li')).toHaveCount(10);
+  // A new append invalidates the fallback object's version, not its old records.
+  expect((await page.request.post('/api/reset',{data:{session_id:body.session_id}})).ok()).toBe(true);
+  await page.getByRole('button',{name:'Load older runs'}).click();
+  await expect(page.getByRole('alert')).toContainText('Saved history changed');
+  await expect(page.locator('.run-list li')).toHaveCount(10);
+  await page.getByRole('button',{name:'Refresh newest runs'}).click();
+  await expect(page.getByRole('alert')).toHaveCount(0);
+  await page.getByRole('button',{name:'Load older runs'}).click();
+  await expect(page.locator('.run-list li')).toHaveCount(3);
+  await expect(page.locator('.run-list')).toContainText(body.run_id!);
+  expect((await page.request.post('/api/state',{data:body})).ok()).toBe(true);
+});
+
 test('LT-DASH scoped metrics drill into matching evidence, and desktop/mobile cockpit captures are reviewable',async({page},info)=>{
   const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
   await create(page);await nav(page,'Dashboard');

@@ -745,7 +745,10 @@ def handler(event: dict, context: Any) -> dict:
     except Exception as exc:  # noqa: BLE001 - logged in full, never returned in full
         import traceback
 
-        if isinstance(exc, (ClientError, BotoCoreError)):
+        from ..domain.history import HistoryChanged, HistoryUnavailable
+        if isinstance(exc, HistoryChanged):
+            return _json(409, {"error": str(exc)}, request_id)
+        if isinstance(exc, (ClientError, BotoCoreError, HistoryUnavailable)):
             return _unavailable(exc, path, request_id)
 
         if resumed_with_a_bad_interrupt(exc):

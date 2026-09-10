@@ -214,3 +214,25 @@ class LocalRunStore:
 
     def load_audit(self, run_id: str) -> list[dict]:
         return self._read_list(run_id, "audit.json")
+
+    def registration_page(self, owner: str, limit: int, position: Optional[dict]) -> tuple[list[dict], Optional[dict]]:
+        from ...domain.history import WINDOW_BYTES, HistoryChanged, array_end, array_page, page_size
+        page_size(limit)
+        path = self.root / owner / "audit.json"
+        try:
+            stream = path.open("rb")
+        except FileNotFoundError:
+            if position is not None:
+                raise HistoryChanged("Saved history changed. Refresh the run list.")
+            return [], None
+        with stream:
+            stat = os.fstat(stream.fileno())
+            version = f"{stat.st_mtime_ns}:{stat.st_size}"
+            end = array_end(position, stat.st_size, version)
+            start = max(0, end - WINDOW_BYTES)
+            stream.seek(start)
+            data = stream.read(end - start)
+            after = os.fstat(stream.fileno())
+            if (after.st_mtime_ns, after.st_size) != (stat.st_mtime_ns, stat.st_size):
+                raise HistoryChanged("Saved history changed. Refresh the run list.")
+        return array_page(data, start, limit, version)

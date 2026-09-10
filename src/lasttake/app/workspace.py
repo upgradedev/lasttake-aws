@@ -22,19 +22,25 @@ def owner_id(handle):
 
 
 def session(body, build_run, environment):
-    _, artifacts, runs = environment()
+    from ..domain.history import PAGE_SIZE, decode_cursor, encode_cursor, page_size
+    limit = page_size(body.get("page_size", PAGE_SIZE))
+    if body.get("cursor") is not None and not body.get("session_id"):
+        raise ValueError("A saved session is required for history pagination.")
     handle = body.get("session_id") or secrets.token_hex(32)
     owner = owner_id(handle)
+    position = decode_cursor(body.get("cursor"), owner)
+    _, artifacts, runs = environment()
     key = f"visitors/{owner}.json"
     if body.get("session_id") and not artifacts.exists(key):
         raise PermissionError("This session is unavailable. Start a new demo session.")
     if not artifacts.exists(key):
         artifacts.put(key, b'{"schema":"lasttake/session/v1"}')
-    records = runs.load_audit(owner)
+    records, next_position = runs.registration_page(owner, limit, position)
     summaries = []
     for record in records:
         if record.get("kind") != "ui.run.created":
             continue
+        authorize({"run_id": record["run_id"], "session_id": handle}, environment)
         run = build_run(record["run_id"])
         summaries.append({
             "run_id": run.run_id, "created_at": record["created_at"],
@@ -43,7 +49,9 @@ def session(body, build_run, environment):
             "wrap_approved": run.wrap_approved(),
             "turnover_published": run.artifacts.exists(f"turnover/{run.run_id}.json"),
         })
-    return {"session_id": handle, "runs": list(reversed(summaries)),
+    return {"session_id": handle, "runs": summaries,
+            "next_cursor": encode_cursor(next_position, owner), "has_more": next_position is not None,
+            "page_size": limit, "history_scope": "selected-page-not-total",
             "identity_mode": "synthetic-role-selection"}
 
 

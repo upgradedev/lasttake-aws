@@ -18,6 +18,10 @@ export function useWorkspace() {
   const [error,setError]=useState('');
   const [requiresRefresh,setRequiresRefresh]=useState(false);
   const [message,setMessage]=useState('');
+  const [historyLoading,setHistoryLoading]=useState(false);
+  const [historyError,setHistoryError]=useState('');
+  const historyGeneration=useRef(0);
+  const historyLock=useRef(false);
   useEffect(()=>{setMessage('');},[route.page]);
   const lock=useRef(false);
   const generation=useRef(0);
@@ -28,10 +32,11 @@ export function useWorkspace() {
     finally{lock.current=false;setWorking(false);setProgress('');}
   },[]);
   const loadSession=useCallback(async(newSession=false)=>{
+    const ticket=++historyGeneration.current;
     const saved=newSession ? null : readPreference('lasttake.session');
     const data=await request<Session>('session', saved ? {session_id:saved} : {});
-    writePreference('lasttake.session',data.session_id);
-    setSession(data);return data;
+    if(ticket===historyGeneration.current){writePreference('lasttake.session',data.session_id);setSession(data);setHistoryError('');}
+    return data;
   },[]);
   const loadRun=useCallback(async(runId:string,sessionId:string)=>{
     const ticket=++generation.current;
@@ -72,6 +77,20 @@ export function useWorkspace() {
   const recover=()=>handle(async()=>{
     generation.current++;await loadSession(true);setState(null);setScene(null);setEvents([]);location.hash='#overview';
   });
+  const historyPage=async(older:boolean)=>{
+    if(historyLock.current || loading || working || !session || (older && !session.next_cursor))return;
+    const ticket=++historyGeneration.current;
+    const owner=session.session_id;
+    historyLock.current=true;setHistoryLoading(true);setHistoryError('');
+    try {
+      const data=await request<Session>('session',{session_id:owner,...(older?{cursor:session.next_cursor}:{} )});
+      if(ticket!==historyGeneration.current)return;
+      if(data.session_id!==owner)throw new Error('The returned session changed. Refresh the run list.');
+      setSession(current=>current?.session_id===owner?data:current);
+    } catch(e){if(ticket===historyGeneration.current)setHistoryError(errorMessage(e));}
+    finally {historyLock.current=false;setHistoryLoading(false);}
+  };
   return {route,session,state,scene,events,busy:loading||working,error,requiresRefresh,message,progress,create,act,handle,
+    historyLoading,historyError,olderRuns:()=>historyPage(true),newestRuns:()=>historyPage(false),
     refresh:()=>route.run && session ? handle(()=>loadRun(route.run!,session.session_id)) : bootstrap(),recover};
 }

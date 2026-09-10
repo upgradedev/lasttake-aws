@@ -316,6 +316,40 @@ class DsqlRunStore:
             )
             return [json.loads(row[0]) for row in cur.fetchall()]
 
+    def registration_page(self, owner: str, limit: int, position: Optional[dict]) -> tuple[list[dict], Optional[dict]]:
+        from datetime import datetime
+        import re
+        from ...domain.history import page_size
+        page_size(limit)
+        if position is not None:
+            if (set(position) != {"kind", "at", "id"} or position["kind"] != "dsql"
+                    or not isinstance(position["at"], str) or len(position["at"]) > 64
+                    or not isinstance(position["id"], str)
+                    or not re.fullmatch(r"[A-Za-z0-9_.:-]{1,128}", position["id"])):
+                raise ValueError("Invalid saved-history position. Refresh the run list.")
+            at = datetime.fromisoformat(position["at"])
+            if at.tzinfo is None:
+                raise ValueError("Saved-history position requires a timezone.")
+        with self._connect() as conn, conn.cursor() as cur:
+            if position is None:
+                cur.execute(
+                    "SELECT body, recorded_at, entry_id FROM audit WHERE run_id = %s AND kind = %s "
+                    "ORDER BY recorded_at DESC, entry_id DESC LIMIT %s",
+                    (owner, "ui.run.created", limit + 1),
+                )
+            else:
+                cur.execute(
+                    "SELECT body, recorded_at, entry_id FROM audit WHERE run_id = %s AND kind = %s "
+                    "AND (recorded_at, entry_id) < (%s, %s) "
+                    "ORDER BY recorded_at DESC, entry_id DESC LIMIT %s",
+                    (owner, "ui.run.created", at, position["id"], limit + 1),
+                )
+            rows = cur.fetchmany(limit + 1)
+        selected = rows[:limit]
+        cursor = ({"kind": "dsql", "at": selected[-1][1].isoformat(), "id": selected[-1][2]}
+                  if len(rows) > limit else None)
+        return [json.loads(row[0]) for row in selected], cursor
+
     # -- the query S3 could not answer -------------------------------------
 
     def blocked_scenes(self) -> list[dict]:
