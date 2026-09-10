@@ -2,6 +2,43 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile,readdir} from 'node:fs/promises';
 import {checkAudit} from '../scripts/check-audit.mjs';
+import {validateReceipt, assess} from '../public/acceptance.js';
+
+test('public proof refuses malformed, missing, stale, mismatched and broadened results', async () => {
+  const fixture = JSON.parse(await readFile('proof-tests/receipt.fixture.json', 'utf8'));
+  const now = Date.parse('2026-09-10T06:00:00Z');
+  const release = {commit: fixture.frontend_commit};
+  const health = {commit: fixture.backend_commit, ok: true, run_state_store: 'aurora-dsql'};
+  assert.equal(assess(release, health, fixture, structuredClone(fixture), now).status, 'CURRENT_AUTOMATED_PASS');
+  assert.equal(assess(release, health, null, null, now).status, 'PENDING');
+  assert.equal(assess({}, health, fixture, fixture, now).status, 'UNKNOWN');
+  assert.equal(assess(release, health, fixture, fixture, now + 25 * 3600000).status, 'HISTORICAL');
+  assert.equal(assess(release, health, fixture, fixture, now - 6 * 60000).status, 'UNKNOWN');
+  assert.equal(assess({commit: 'd'.repeat(40)}, health, fixture, fixture, now).status, 'HISTORICAL');
+  assert.equal(assess(release, {...health, commit: 'd'.repeat(40)}, fixture, fixture, now).status, 'HISTORICAL');
+  for (const patch of [{human_uat: 'PASS'}, {workflow_status: 'success'}, {run_url: 'javascript:alert(1)'},
+    {schema_version: 2}, {raw_data: 'private'}, {postflight: 'failure'}, {receipt_path: '/../secret'},
+    {backend_commit: null}, {preflight_at: 'tomorrow'}, {preflight_at: '2026-02-30T06:00:00Z', observed_at: '2026-02-30T06:01:00Z'}, {totals: {tests: 0, passed: 0, failed: 0, skipped: 0}},
+    {totals: {tests: 2, passed: 2, failed: 0, skipped: 1}}]) {
+    assert.throws(() => validateReceipt({...fixture, ...patch}));
+    assert.equal(assess(release, health, {...fixture, ...patch}, fixture, now).status, 'UNKNOWN');
+  }
+  assert.equal(assess(release, health, fixture, null, now).status, 'UNKNOWN');
+  assert.equal(assess(release, health, fixture, {...fixture, totals: {tests: 3, passed: 3, failed: 0, skipped: 0}}, now).status, 'UNKNOWN');
+});
+
+test('public proof assets ship under existing CSP without a built-in success receipt', async () => {
+  const html = await readFile('dist/acceptance.html', 'utf8');
+  assert.match(html, /src="\/acceptance.js"/);
+  assert.match(html, /href="\/acceptance.css"/);
+  assert.match(html, /data-testid="acceptance-status">PENDING/);
+  assert.doesNotMatch(html, /<script(?![^>]*src=)[^>]*>/);
+  assert.equal(await readFile('dist/acceptance.js', 'utf8'), await readFile('public/acceptance.js', 'utf8'));
+  assert.ok(!(await readdir('dist')).includes('acceptance.json'));
+  const book = JSON.parse(await readFile('UAT.testbook.json', 'utf8'));
+  assert.equal(book.current_public_proof.url, 'https://d3kf6hquzlli8g.cloudfront.net/acceptance.html');
+  assert.match(await readFile('UAT.testbook.html', 'utf8'), /href="\/acceptance.html"/);
+});
 
 function assertWorkspaceEvidence(book) {
   const revision=book.current_workspace_revision;

@@ -8,6 +8,8 @@ For a script supervisor and the 1st AD reviewing a fictional shoot day. LastTake
 
 [Open the AWS workspace](https://d3kf6hquzlli8g.cloudfront.net/). Create a run, start a checkpoint, review sources, then answer the saved request as the 1st AD. In **Open guided demo → Add take or release**, try the editable valid take, refused date and corrected date documents. Each save calls the real Python API.
 
+[Current automated acceptance](https://d3kf6hquzlli8g.cloudfront.net/acceptance.html) compares the observed frontend and backend revisions with the latest public aggregate receipt. Missing, malformed, mismatched or older-than-24-hour proof cannot establish a current pass. Human UAT remains NOT_RUN. The page becomes available with the frontend release containing it; source CI alone does not publish acceptance.
+
 The live browser uses an offline planner and lexical interpreter with real Strands tool calls, S3 session resume and role-gated decisions. It does not analyze footage/audio, send emails, make payments or establish legal sufficiency. Demo role selection is not authenticated staff identity. History exports sources, current decisions, revisions, recorded model identifiers, failure/recovery status and limits. Hashes identify bytes, not truth.
 
 ---
@@ -46,6 +48,10 @@ or automatically roll back the deployed frontend. Backend deployment remains a s
 The previous accepted run 34359050749/artifact 10107569851 was preserved as inert source bytes in archive artifact 10113819181 by [CI run 34375838628](https://github.com/upgradedev/lasttake-aws/actions/runs/34375838628). Its SHA-256 manifest records the original IDs and bytes; the immutable archive expires 2026-12-08. Archival is now manual opt-in and skips an existing archive. Ordinary verification does not repeat it.
 
 Manual reruns remain available. Automated results never set human UAT signoff to PASS.
+
+The browser acceptance job has only `contents: read` and no cloud credentials. After all three stages succeed, it parses the current run's product-journey JUnit into sanitized totals. A separate main-only publisher uses the existing frontend release OIDC role and bucket. `/acceptance/runs/<run-id>-<attempt>.json` is create-only or verified byte-identical; `/acceptance.json` is the latest pointer and aggregate, updated conditionally after rechecking public and origin release identity. Frontend publishes preserve retained proof. A changed backend during acceptance or stale dispatch refuses publication; frontend and backend commits may legitimately differ and the exact observed pair is recorded.
+
+Receipts contain no scenario text, credentials or personal information. They record successful preflight/journeys/postflight, not overall workflow success. A final credential-free browser job reads the actual published page and receipt. Source-only proof-renderer fault fixtures have a separate configuration and JUnit report and never enter the public product-journey counts. Earlier testbook observations and failed-run artifacts remain dated history. In CI, `python infra/test_frontend_acceptance.py` exercises malformed JUnit, stale dispatch, release changes, immutable collisions and conditional publication; `npx playwright test --config playwright.proof.config.ts` checks the anonymous page's refusal states.
 
 Create a fictional shoot-day run, start a checkpoint, inspect the script and
 source records, then select the demo role responsible for each decision. Take

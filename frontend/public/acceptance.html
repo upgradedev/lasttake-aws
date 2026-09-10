@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LastTake automated acceptance</title>
+  <link rel="stylesheet" href="/acceptance.css">
+  <script type="module" src="/acceptance.js"></script>
+</head>
+<body>
+  <main>
+    <nav><a href="/">LastTake workspace</a><a href="/UAT.testbook.html">UAT testbook</a></nav>
+    <p class="eyebrow">LASTTAKE / RELEASE EVIDENCE</p>
+    <h1>Automated acceptance</h1>
+    <p>This page checks the latest recorded browser journeys against the application that is live now. No account is required to read the aggregate proof.</p>
+    <section aria-live="polite" aria-atomic="true">
+      <h2 id="verdict" data-testid="acceptance-status">PENDING</h2>
+      <p id="reason">Checking the deployed revisions and recorded evidence.</p>
+      <dl>
+        <dt>Current frontend</dt><dd id="current-frontend">Unknown</dd>
+        <dt>Recorded frontend</dt><dd id="recorded-frontend">Unknown</dd>
+        <dt>Current backend</dt><dd id="current-backend">Unknown</dd>
+        <dt>Recorded backend</dt><dd id="recorded-backend">Unknown</dd>
+      </dl>
+      <div id="details" hidden>
+        <p id="observed"></p>
+        <p id="stages"></p>
+        <p id="counts" data-testid="acceptance-counts"></p>
+        <p><a id="receipt-link">Immutable aggregate receipt</a> · <a id="run-link" rel="noopener noreferrer">Workflow run and attempt</a></p>
+      </div>
+      <button id="refresh" type="button">Check again</button>
+    </section>
+    <section>
+      <h2>What this evidence covers</h2>
+      <p>Chromium desktop and mobile viewport journeys use fictional shoot-day records, the scripted planner and lexical interpreter. The application uses real Strands tools and AWS storage. Demo roles do not establish staff identity.</p>
+      <p>Human UAT: <strong>NOT_RUN</strong>. These automated cases do not measure creative judgement, model accuracy, time saved, real messages or downstream delivery.</p>
+      <p>A receipt records successful preflight, journeys and postflight only. It does not assert that the entire workflow completed successfully. The workflow link may require repository access; the aggregate receipt is public.</p>
+      <p>A changed frontend or backend, an observation older than 24 hours, or unavailable evidence cannot establish a current pass. Earlier testbook observations remain historical.</p>
+      <p><a href="/acceptance.json">Latest aggregate JSON</a> · <a href="/release.json">Current frontend manifest</a> · <a href="/healthz">Current backend identity</a></p>
+    </section>
+    <noscript><p>UNKNOWN: JavaScript is required to compare the current revisions. The JSON links above remain readable; no current pass is established.</p></noscript>
+  </main>
+</body>
+</html>

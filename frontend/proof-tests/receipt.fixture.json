@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "application": "lasttake",
+  "environment": "live_aws",
+  "frontend_commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "backend_commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "backend_commit_basis": "GET /healthz before and after journeys; unchanged observed commit",
+  "run_id": "12345",
+  "run_attempt": "2",
+  "run_url": "https://github.com/upgradedev/lasttake-aws/actions/runs/12345/attempts/2",
+  "observed_at": "2026-09-10T06:00:00Z",
+  "preflight_at": "2026-09-10T05:51:00Z",
+  "preflight": "success",
+  "journeys": "success",
+  "postflight": "success",
+  "totals": {"tests": 2, "passed": 2, "failed": 0, "skipped": 0},
+  "human_uat": "NOT_RUN",
+  "execution_mode": "synthetic_data_scripted_planner_lexical_interpreter",
+  "limits": "Automated Chromium desktop/mobile journeys on fictional data. No human UAT, staff identity, live model evaluation, real messages or downstream delivery claim.",
+  "workflow_status": "NOT_ASSERTED",
+  "junit_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "receipt_path": "/acceptance/runs/12345-2.json"
+}
