@@ -638,11 +638,100 @@ comparable raw semantic cohort in its bounded inspection: two latest successful
 deploy runs list no artifacts, and the newest log retains counts, one truncated
 rationale and a separate connectivity-only `OK` response. None establishes accuracy.
 
-Real-model evaluation remains `NOT_RUN`; LT2/C1 is not closed. No live model workflow
-or network-capable runner is added. A future inference cohort needs separate owner
-budget/activation approval and retained exact model/profile/region/config, raw
-responses, usage and failures. Unrecorded model usage/cost and runner/infrastructure
-cost remain `UNKNOWN`; zero model calls describes only this offline instrument.
+Real-model evaluation remains `NOT_RUN`; LT2/C1 is not closed. The frozen offline
+instrument is unchanged. The separate bounded collector below prepares a future
+owner-activated cohort. Unrecorded model usage/cost and runner/infrastructure cost
+remain `UNKNOWN`; zero model calls describes only offline execution.
+
+### Bounded collector preparation: evaluation only, not production Strands
+
+`tools/bounded_model_evidence.py` wraps the frozen requests and offline replay.
+Source CI runs fake full-flow, budget/binding denial, malformed response, interrupted
+call and immutable raw-retention controls before this credential-free export:
+
+```bash
+python tools/bounded_model_evidence.py export --output source-evidence/bounded-export
+```
+
+The artifact contains every exact SDK request, per-case serialized ASCII byte size,
+request/config/protocol/source hashes, input-token reservation, fixed512 output
+ceiling, reference worst-cost arithmetic and an invalid `NOT_AUTHORIZED` grant
+template. It is not a measurement or authority to spend. No new dependency, app
+change, IAM setup, deployment step or live job is added to product workflows.
+
+The candidate is `eu.anthropic.claude-opus-5`, region `eu-west-1`, with thinking
+disabled, one forced `record_opinion` tool result and at most one plain Converse
+request for each of the16 frozen cases. System/user prompts, schemas, gold,
+thresholds, evaluator bytes and preregistration ancestry stay unchanged. Plain
+Converse does not exercise the production Strands structured-output orchestration;
+this transport/config difference prevents a production-adapter equivalence claim.
+There is no tool execution, repair, retry, fallback, warmup or replacement sample.
+The SDK has `total_max_attempts=1`,5-second connect and30-second read timeouts;
+the driver checks a900-second process bound and grant expiry before each call.
+
+Input tokens are conservatively reserved as serialized ASCII request bytes plus
+4096 tokens for hidden model/tool framing, with a16384-byte request ceiling. This
+counts the whole schema and escaped supplied text. It is an explicit reviewed
+assumption, not a provider-certified tokenizer bound or CountTokens measurement.
+The parent must accept this exact allowance or refuse activation. Actual usage
+above the bound, unknown usage, errors or expiry stop further calls. Reference
+rates5.50/27.50 USD per million input/output tokens are illustrative geo pricing,
+not an active grant. Only exact positive finite Decimal rate strings in the
+parent's digest-bound grant can authorize the plan. The entire worst-case cohort
+must fit that app's allocated share before SDK initialization; the shared USD5
+pool is never inferred as LastTake's available balance.
+
+Activation belongs to the parent private manual runner, after source CI review.
+It must preserve `e1a090192df6b3470489d36349d9aba2960cda9d` and `c0593b9` ancestry,
+check out the exact collector SHA, consume a unique grant once in its durable
+shared ledger, and reserve the app allocation before providing existing scoped
+AWS credentials. It must verify private-repository context, scope the existing
+credential session to the reviewed model/profile resources, and retain its own
+single-use reservation receipt. This CLI does not implement cross-run locking,
+verify the remote ledger, grant IAM authority, or authenticate its caller's
+environment variables; the trusted parent runner owns those controls. Hashes
+bind bytes, not owner identity. Do not reuse a consumed grant in another directory.
+
+The parent fills the exported template with exact source/model/config/request
+manifest/protocol bindings, current run ID/repository/workflow ref, attempt1,
+unique grant ID, reservation receipt hash, verified rates and an expiry within
+one hour. It supplies the independently configured hash of the exact grant bytes
+as `LASTTAKE_EVAL_GRANT_SHA256` and sets `LASTTAKE_EVAL_PRIVATE_RUNNER=true` only
+after verifying that context. There is no activation boolean in this repo's CI.
+Future parent command format, **not executed during source preparation**:
+
+```bash
+timeout --signal=TERM --kill-after=5s 960s python tools/bounded_model_evidence.py collect --grant /private/grant.json --output /private/lasttake-cohort
+```
+
+The outer timeout is mandatory in the private runner, whose job is also capped at
+20 minutes. Only GitHub manual `workflow_dispatch`, run attempt1 and matching grant/context
+are accepted. Before each call, the create-only journal fsyncs the reservation and
+full request; after it, the full SDK-decoded response is fsynced before semantic
+parsing. Each record also prints as a flushed base64 stdout backup. It preserves
+request IDs and usage, not just a rationale. These are SDK receipts, not original
+HTTP wire bytes or independently authenticated model origin. Request hashes are
+mechanical provenance, not model-authored citations. Unknown outcomes consume
+their entire worst reservation, with no refund or retry. All16 failed/unrun slots
+remain in the frozen evaluator's denominators. Recorded usage-cost arithmetic is
+not an AWS bill; runner/infra cost and response-body byte count stay `UNKNOWN`.
+
+The normal exit seals an immutable `final/` copy and replays only those captured
+bytes through the frozen evaluator. If the process is killed, the parent must
+first terminate it, then run the following **offline** finalizer only if `final/`
+does not exist. Never rerun `collect`. Missing/corrupt denominator files retain
+available raw bytes, refusal report and hashes, without a successful summary:
+
+```bash
+python tools/bounded_model_evidence.py finalize --output /private/lasttake-cohort
+```
+
+The private runner must upload the journal and `final/` with `if: always()`, even
+on failure, and retain stdout when the runner itself is lost. Reference contracts:
+[Converse](https://docs.aws.amazon.com/boto3/latest/reference/services/bedrock-runtime/client/converse.html),
+[single SDK attempt](https://docs.aws.amazon.com/botocore/latest/reference/config.html),
+[model profile](https://docs.aws.amazon.com/bedrock/latest/userguide/model-card-anthropic-claude-opus-5.html),
+[pricing to re-verify before grant](https://platform.claude.com/docs/en/about-claude/pricing).
 
 ## What "covered" rests on, and why two readers count differently
 

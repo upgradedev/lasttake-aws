@@ -75,6 +75,21 @@ jobs:
           AWS_EC2_METADATA_DISABLED: 'true'
         run: python tools/model_evidence.py --output source-evidence/model-evidence
 
+      - name: Export bounded collector requests and inert cost plan, no credentials or calls
+        env:
+          AWS_EC2_METADATA_DISABLED: 'true'
+        run: python tools/bounded_model_evidence.py export --output source-evidence/bounded-export
+
+      - name: Retain bounded source export, never an activation grant
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bounded-collector-source-${{ github.sha }}-${{ github.run_id }}
+          path: source-evidence/bounded-export/
+          if-no-files-found: warn
+          retention-days: 90
+          overwrite: false
+
       - name: Retain text evidence including failed or unrun slots
         if: always()
         uses: actions/upload-artifact@v4
