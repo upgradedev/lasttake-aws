@@ -26,6 +26,8 @@ import os
 import pathlib
 import subprocess
 
+from release_proof import recording_binding
+
 
 ROOT = pathlib.Path(os.environ["LASTTAKE_VIDEO_ROOT"])
 NARRATION = ROOT / "narration"
@@ -62,6 +64,13 @@ def main() -> None:
     timing = json.loads((NARRATION / "timing.json").read_text(encoding="utf-8"))
     capture_receipt = json.loads(
         (ROOT / "capture" / "capture-receipt.json").read_text(encoding="utf-8")
+    )
+    before = json.loads((ROOT / "release-before.json").read_text(encoding="utf-8"))
+    after = json.loads((ROOT / "release-after.json").read_text(encoding="utf-8"))
+    binding = recording_binding(
+        before, after, capture_receipt, os.environ["LASTTAKE_RELEASE_SHA"],
+        os.environ.get("LASTTAKE_HOSTED_RUN_ID", ""),
+        os.environ.get("LASTTAKE_GOVERNED_RUN_ID", ""),
     )
     scenes = timing["scenes"]
     total = float(timing["totalSeconds"])
@@ -145,7 +154,7 @@ def main() -> None:
     digest = hashlib.sha256(final.read_bytes()).hexdigest()
     receipt = {
         "schemaVersion": "lasttake.submission-video-receipt/v1",
-        "releaseSha": os.environ["LASTTAKE_RELEASE_SHA"],
+        **binding,
         "durationSeconds": round(duration, 3),
         "width": 1920,
         "height": 1080,
@@ -153,13 +162,6 @@ def main() -> None:
         "sha256": digest,
         "bytes": final.stat().st_size,
     }
-    for field, name in (
-        ("hostedRunId", "LASTTAKE_HOSTED_RUN_ID"),
-        ("governedRunId", "LASTTAKE_GOVERNED_RUN_ID"),
-    ):
-        value = os.environ.get(name, "").strip()
-        if value:
-            receipt[field] = int(value)
     (OUTPUT / "video-receipt.json").write_text(
         json.dumps(receipt, indent=2) + "\n", encoding="utf-8"
     )

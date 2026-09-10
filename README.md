@@ -437,9 +437,15 @@ The demo used to have two buttons that wrote a take and a release for you. They
 showed the targeted rerun honestly enough, but nobody could put their own scene
 through it, which made this a fixture with a play button. It takes a document now.
 
+For a session-owned run, replace both placeholders below: `run_id` is returned by
+`POST /api/reset` using your `session_id`, and `session_id` is the private handle
+returned by `POST /api/session`. Keep that handle private; it grants access to your
+saved runs. Do not put it in shared examples, screenshots or logs.
+
 ```bash
 curl -s -X POST "$URL/api/ingest" -H 'content-type: application/json' -d '{
-  "run_id": "demo-yourrun0001",
+  "run_id": "REPLACE_WITH_YOUR_RUN_ID",
+  "session_id": "REPLACE_WITH_YOUR_PRIVATE_SESSION_ID",
   "kind": "take",
   "document": {
     "take_id": "T-900", "shot_id": "S-42-PICKUP", "beat_ids": ["B-17"],
@@ -452,6 +458,10 @@ curl -s -X POST "$URL/api/ingest" -H 'content-type: application/json' -d '{
   }
 }'
 ```
+
+An owned run refuses a missing handle or a handle from another session with HTTP
+403. Legacy unowned demo runs still accept their `run_id` without `session_id`;
+omit that field for those runs. Omitting it never unlocks a session-owned run.
 
 `kind` is `take` or `rights_record`. A document that does not match the shape is refused before
 anything is written, and the refusal names the missing and the unexpected fields rather than
