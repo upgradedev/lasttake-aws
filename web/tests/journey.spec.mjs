@@ -14,6 +14,7 @@
 //   npx playwright test --config web/playwright.config.mjs
 
 import { expect, test } from "@playwright/test";
+import { walkToTurnover } from "../support/walk.mjs";
 
 const URL = process.env.LASTTAKE_URL
   ?? "https://1p6s28nyf0.execute-api.eu-west-1.amazonaws.com/";
@@ -156,27 +157,9 @@ test.describe("one shoot day, on the deployed page", () => {
     await page.goto(URL, { waitUntil: "networkidle" });
     await page.locator("#go").waitFor({ timeout: 90_000 });
 
-    // Six moves. Where a human decides, press the control a human would press.
-    for (let move = 0; move < 12; move += 1) {
-      const label = await page.locator("#go").textContent();
-      if (label?.includes("complete")) break;
-
-      await page.locator("#go").click();
-      await page.waitForTimeout(1_500);
-
-      const approve = page.locator("#bYes");
-      if (await approve.count()) {
-        await approve.click();
-        await page.waitForTimeout(2_500);
-        continue;
-      }
-      const accept = page.locator('.card.linked button[data-action="accept_exception"]');
-      if (await accept.count()) {
-        await accept.first().click();
-        await page.waitForTimeout(2_500);
-      }
-      await page.waitForTimeout(2_000);
-    }
+    // Six moves. Wait for each saved result, including chained publication,
+    // before reading the next step. Existing runtime guards stay authoritative.
+    await walkToTurnover(page);
 
     await expect(page.locator("#go")).toHaveText(/complete/, { timeout: 60_000 });
     await expect(page.locator("#vhead")).toHaveText("This scene is ready to hand to editorial.");

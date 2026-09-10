@@ -1,0 +1,43 @@
+name: Legacy browser source contracts
+on:
+  push:
+    branches: [main, "codex/**"]
+    paths: ["web/**", "src/lasttake/**", ".github/workflows/legacy-source-ci.yml"]
+  pull_request:
+    paths: ["web/**", "src/lasttake/**", ".github/workflows/legacy-source-ci.yml"]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  legacy-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      AWS_EC2_METADATA_DISABLED: "true"
+      AWS_DEFAULT_REGION: eu-west-1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install locked browser and offline Python dependencies in CI
+        run: |
+          npm ci --prefix web --ignore-scripts
+          python -m pip install -e '.[dev]'
+      - name: Install the pinned browser in CI
+        working-directory: web
+        run: python ../.github/scripts/install-playwright-chromium.py
+      - name: Legacy journeys and completion negative controls over offline HTTP
+        working-directory: web
+        run: npx playwright test --config playwright.source.config.mjs --forbid-only
+      - name: Retain source results and failure traces
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: legacy-source-${{ github.sha }}-${{ github.run_id }}
+          path: web/test-results/
+          if-no-files-found: error
+          retention-days: 90
