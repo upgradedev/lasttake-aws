@@ -51,7 +51,12 @@ jobs:
           python ../.github/scripts/install-playwright-chromium.py
       - name: One fixed cohort with durable timeout retention, no retries or recordings
         working-directory: frontend
-        run: node scripts/run-hero-benchmark.mjs
+        run: timeout --signal=KILL 1200s node scripts/run-hero-benchmark.mjs
+      - name: Finalize retained slots even if the outer process bound terminated the driver
+        if: always()
+        working-directory: frontend
+        run: |
+          node --input-type=module -e "import {existsSync} from 'node:fs'; import {finalize} from './scripts/hero-measurement.mjs'; const root='test-results/hero-benchmark'; if(existsSync(root+'/slot-20.json')) finalize(root,'WORKFLOW_PROCESS_TERMINATED');"
       - name: Retain every raw slot and source identity even after failure
         if: always()
         uses: actions/upload-artifact@v4

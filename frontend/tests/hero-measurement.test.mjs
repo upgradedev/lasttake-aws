@@ -88,6 +88,8 @@ test('benchmark is manual-only after source verification and preserves the decla
   assert.match(preregistration,/^[a-f0-9]{40}$/);
   const workflow=readFileSync('../.github/workflows/frontend-ci.yml','utf8');
   assert.match(workflow,/source-hero-benchmark:[\s\S]*needs: verify[\s\S]*if: github.event_name == 'workflow_dispatch' && inputs.run_source_benchmark == true/);
+  assert.match(workflow,/timeout --signal=KILL 1200s node scripts\/run-hero-benchmark.mjs/);
+  assert.match(workflow,/WORKFLOW_PROCESS_TERMINATED/);
   const config=readFileSync('playwright.benchmark.config.ts','utf8');
   assert.match(config,/workers:1,retries:0,repeatEach:10/);assert.match(config,/globalTimeout:1140000/);
   assert.match(config,/trace:'off',screenshot:'off',video:'off'/);
