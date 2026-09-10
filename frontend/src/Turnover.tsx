@@ -21,7 +21,7 @@ export function turnoverSummary(state:RunState) {
     `Saved manifest SHA-256: ${value(manifest.record_sha256)}`,
     'Summary derived from the saved manifest by this browser. The summary is not separately sealed or independently verified.',
     '', 'RETAINED EXCEPTIONS (accepted exceptions remain visible)',
-    ...findings.map(f=>`${value(f.requirement_id)} | ${value(f.required_role)} | ${value(f.observation)} | Next: ${value(f.next_action)}`),
+    ...findings.map(f=>`${value(f.requirement_id)} | ${value(f.required_role)} | ${value(f.observation)} | Next: ${value(f.recommended_action)}`),
     '', 'BEAT TO TAKE MAP',
     ...rows(manifest.beat_to_take_map).map(b=>`${value(b.beat_id)} ${value(b.slug)}: ${rows(b.takes).map(t=>`${value(t.take_id)} / slate ${value(t.slate)} / media ${value(t.media_id)} / ${value(t.timecode_in)}`).join('; ') || 'No supplied take'}`),
     '', 'SOURCE DIGESTS',

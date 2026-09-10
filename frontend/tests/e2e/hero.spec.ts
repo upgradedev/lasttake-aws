@@ -3,17 +3,29 @@ import {test,expect} from '@playwright/test';
 const source=await import(new URL('../../../web/video/hero-journey.mjs',import.meta.url).href);
 
 test('LT-HERO complete capture source: changed evidence, human wrap decision and exact turnover downloads',async({page},info)=>{
+  if(info.project.name==='mobile')await page.setViewportSize({width:375,height:812});
   const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
   await page.goto('/');
   await page.getByRole('button',{name:'Start this fictional shoot day'}).click();
   await expect(page.getByRole('button',{name:'Run wrap checkpoint'})).toBeEnabled();
   const scenes=source.heroScenes(page,expect);
-  let result;
+  let result:Record<string,string>={};
   for(const id of source.heroSceneIds){
     await test.step(id,async()=>{result=await scenes[id]();});
     await page.screenshot({path:info.outputPath(`hero-${id}.png`),fullPage:true});
   }
   expect(errors).toEqual([]);
+  await page.context().grantPermissions(['clipboard-read','clipboard-write']);
+  await page.getByRole('button',{name:'Copy handoff summary'}).click();
+  const copied=await page.evaluate(()=>navigator.clipboard.readText());
+  expect(copied).toContain('LASTTAKE | EDITORIAL HANDOFF');
+  expect(copied).toContain(result.package_revision_digest);
+  expect(copied).toContain('not separately sealed');
+  await page.evaluate(()=>{Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async()=>{throw new DOMException('Denied');}}});});
+  await page.getByRole('button',{name:'Copy handoff summary'}).click();
+  await expect(page.getByText(/Clipboard unavailable/)).toBeVisible();
+  await expect(page.getByLabel('Selectable copy text')).toHaveValue(copied);
+  await page.screenshot({path:info.outputPath('hero-copy-fallback.png'),fullPage:true});
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=document.documentElement.clientWidth)).toBe(true);
   await info.attach('hero-saved-records',{body:JSON.stringify(result),contentType:'application/json'});
 });

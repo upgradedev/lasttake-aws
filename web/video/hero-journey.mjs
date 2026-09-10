@@ -108,6 +108,13 @@ export function heroScenes(page,expect) {
       const downloading=page.waitForEvent('download');
       await page.getByRole('button',{name:'Download turnover',exact:true}).click();
       expect(JSON.parse((await downloadBytes(await downloading)).toString('utf8'))).toEqual(manifest);
+      const summaryDownloading=page.waitForEvent('download');
+      await page.getByRole('button',{name:'Download handoff summary'}).click();
+      const summary=(await downloadBytes(await summaryDownloading)).toString('utf8');
+      const recommendations=manifest.outstanding_and_accepted_exceptions.filter(f=>typeof f.recommended_action==='string' && f.recommended_action.length>0);
+      expect(recommendations.length).toBeGreaterThan(0);
+      for(const finding of recommendations)expect(summary).toContain(`Next: ${finding.recommended_action}`);
+      expect(summary).toContain(manifest.record_sha256);
       await page.getByLabel('Receipt purpose').selectOption('wrap');
       await page.getByRole('button',{name:'Prepare receipt'}).click();
       await expect(page.getByRole('heading',{name:'Receipt ready for review'})).toBeVisible();

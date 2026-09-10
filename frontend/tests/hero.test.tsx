@@ -55,6 +55,8 @@ it('input download preserves independent camera disagreement and refuses invalid
   fireEvent.change(screen.getByLabelText('Reported lens (mm)'),{target:{value:'85'}});
   await user.click(screen.getByRole('button',{name:'Download input JSON'}));
   expect(blobs).toHaveLength(1);
+  const downloaded=await new Promise<string>((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result));reader.onerror=()=>reject(reader.error);reader.readAsText(blobs[0]);});
+  expect(JSON.parse(downloaded)).toMatchObject({lens_mm:50,camera_report_row:{lens_mm:85}});
   await user.click(screen.getByLabelText('Advanced JSON entry'));
   fireEvent.change(screen.getByLabelText('Document JSON'),{target:{value:'{'}});
   await user.click(screen.getByRole('button',{name:'Download input JSON'}));
@@ -62,7 +64,7 @@ it('input download preserves independent camera disagreement and refuses invalid
   expect(blobs).toHaveLength(1);
 });
 
-const manifest={run_id:state.run_id,scene_id:scene.scene_id,script_revision:scene.revision,generated_at:'2026-09-10',schema:'lasttake/turnover/v2',policy_version:'1',package_revision_digest:state.package_revision_digest,record_sha256:'seal',wrap_approved_by:{actor:'Synthetic AD',role:'first_ad'},outstanding_and_accepted_exceptions:[{requirement_id:'B-17',required_role:'dit',observation:'Mismatch',next_action:'Review original camera report'}],source_manifest:[{artifact_id:'camera-report',sha256:'source-digest'}],beat_to_take_map:[{beat_id:'B-17',slug:'Reaction',takes:[{take_id:'T-file',slate:'42L/1',media_id:'MEDIA',timecode_in:'00:00'}]},{beat_id:'B-18',takes:[]}],synthetic_corpus_notice:'Fictional production',rights_disclaimer:'Counsel determines legal sufficiency.'};
+const manifest={run_id:state.run_id,scene_id:scene.scene_id,script_revision:scene.revision,generated_at:'2026-09-10',schema:'lasttake/turnover/v2',policy_version:'1',package_revision_digest:state.package_revision_digest,record_sha256:'seal',wrap_approved_by:{actor:'Synthetic AD',role:'first_ad'},outstanding_and_accepted_exceptions:[{requirement_id:'B-17',required_role:'dit',observation:'Mismatch',recommended_action:'Review original camera report'}],source_manifest:[{artifact_id:'camera-report',sha256:'source-digest'}],beat_to_take_map:[{beat_id:'B-17',slug:'Reaction',takes:[{take_id:'T-file',slate:'42L/1',media_id:'MEDIA',timecode_in:'00:00'}]},{beat_id:'B-18',takes:[]}],synthetic_corpus_notice:'Fictional production',rights_disclaimer:'Counsel determines legal sufficiency.'};
 it('handoff includes source provenance and retained exceptions, without modifying the saved manifest',()=>{
   const current={...state,eligible:true,wrap_approved:true,turnover:manifest};
   const before=JSON.stringify(manifest),text=turnoverSummary(current);
@@ -73,6 +75,7 @@ it('handoff includes source provenance and retained exceptions, without modifyin
     expect(turnoverSummary({...current,...patch})).toContain('HISTORICAL');
   }
   expect(turnoverSummary({...current,turnover:{}})).toContain('Unknown');
+  expect(turnoverSummary({...current,turnover:{...manifest,outstanding_and_accepted_exceptions:[{...manifest.outstanding_and_accepted_exceptions[0],recommended_action:null}]}})).toContain('Next: Unknown');
   expect(JSON.stringify(manifest)).toBe(before);
 });
 
