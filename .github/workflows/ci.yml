@@ -11,6 +11,14 @@ on:
   pull_request:
 
   workflow_dispatch:
+    inputs:
+      evaluation_plan:
+        description: 'Exact reviewed private evaluation plan. Empty means source-only.'
+        type: string
+        default: ''
+
+permissions:
+  contents: read
 
 
 
@@ -70,6 +78,52 @@ jobs:
 
 
 
+      - name: Fixed text development evidence, offline only after instrument tests
+        env:
+          AWS_EC2_METADATA_DISABLED: 'true'
+        run: python tools/model_evidence.py --output source-evidence/model-evidence
+
+      - name: Export bounded collector requests and inert cost plan, no credentials or calls
+        env:
+          AWS_EC2_METADATA_DISABLED: 'true'
+        run: python tools/bounded_model_evidence.py export --output source-evidence/bounded-export
+
+      - name: Retain bounded source export, never an activation grant
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bounded-collector-source-${{ github.sha }}-${{ github.run_id }}
+          path: source-evidence/bounded-export/
+          if-no-files-found: warn
+          retention-days: 90
+          overwrite: false
+
+      - name: Export offline supervisor control receipts
+        run: |
+          python -m pytest tests/test_evaluation_runner.py --junitxml=source-evidence/supervisor-junit.xml
+          python tools/evaluation_runner.py template --output source-evidence/supervisor-plan
+
+      - name: Retain supervisor source controls
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: evaluation-supervisor-source-${{ github.sha }}-${{ github.run_id }}
+          path: |
+            source-evidence/supervisor-junit.xml
+            source-evidence/supervisor-plan/
+          if-no-files-found: warn
+          retention-days: 90
+
+      - name: Retain text evidence including failed or unrun slots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: text-development-evidence-${{ github.sha }}-${{ github.run_id }}
+          path: source-evidence/model-evidence/
+          if-no-files-found: warn
+          retention-days: 90
+          overwrite: false
+
       - name: secret scan
 
         run: python tools/secret_scan.py --all-history
@@ -126,6 +180,72 @@ jobs:
           path: build/lambda-artifact/
           if-no-files-found: error
           retention-days: 90
+          overwrite: false
+
+  evaluation-parent:
+    # Not activated by push/PR, empty input, public visibility or absent approval.
+    # The environment and model-only role are prerequisites, not created here.
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      github.event.repository.private == true && github.run_attempt == 1 &&
+      inputs.evaluation_plan != '' && vars.LASTTAKE_EVAL_APPROVED_PLAN_SHA256 != ''
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: lasttake-bounded-evaluation
+    concurrency:
+      group: lasttake-bounded-evaluation
+      cancel-in-progress: false
+    permissions:
+      contents: write
+      id-token: write
+    env:
+      LASTTAKE_EVAL_PLAN_JSON: ${{ inputs.evaluation_plan }}
+      LASTTAKE_EVAL_APPROVED_PLAN_SHA256: ${{ vars.LASTTAKE_EVAL_APPROVED_PLAN_SHA256 }}
+      LASTTAKE_EVAL_ROLE_ARN: ${{ vars.LASTTAKE_EVAL_ROLE_ARN }}
+      AWS_EC2_METADATA_DISABLED: 'true'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install existing dependencies on CI only
+        run: python -m pip install -e .
+      - name: Validate all fixed budget slices and exact run before credentials
+        run: python tools/evaluation_runner.py preflight --output evaluation-run
+      - name: Consume this slice once, preserving cancellation and unknown outcomes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python tools/evaluation_runner.py reserve --output evaluation-run
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.LASTTAKE_EVAL_ROLE_ARN }}
+          aws-region: eu-west-1
+          role-duration-seconds: 900
+          retry-max-attempts: 1
+          inline-session-policy: >-
+            {"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":"bedrock:InvokeModel",
+            "Resource":["arn:aws:bedrock:eu-west-1:*:inference-profile/eu.anthropic.claude-opus-5",
+            "arn:aws:bedrock:eu-*::foundation-model/anthropic.claude-opus-5"]}]}
+      - name: One supervised cohort; no replacement after timeout or cancellation
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python tools/evaluation_runner.py run --output evaluation-run
+      - name: Recover available evidence offline only
+        if: always()
+        run: python tools/evaluation_runner.py recover --output evaluation-run
+      - name: Preserve approved plan, consumed reservation, raw outputs and failures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: evaluation-run-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: evaluation-run/
+          retention-days: 90
+          if-no-files-found: warn
           overwrite: false
 
   hero:

@@ -601,6 +601,169 @@ kinds of input. It is not an evaluation of judgement quality against labelled gr
 supervisor finds the evidence available before wrap and the reconciliation work actually reduced.
 That has not happened, and nothing here should be read as though it had.
 
+### Text interpretation evidence: source preparation, not model accuracy
+
+The fixed [16-case protocol](docs/model-evidence-protocol.json), [supplied text](docs/model-evidence-cases.json)
+and [separate gold labels](docs/model-evidence-gold.json) were committed before the
+instrument. These are assistant-authored synthetic development cases, not held-out
+research data or practitioner labels. Only supplied notes and text descriptions
+are interpreted. There is no footage/audio analysis or creative/legal judgement.
+
+Future integration must preserve preregistration commit
+`c0593b9e5c464f7b3cdb5574aece7ff8aabb71ba` as an ancestor: use a merge preserving
+history, not squash or rebase. CI checks that ancestry and the frozen input hashes.
+Do not rewrite the preregistration or relax the check to accommodate integration.
+
+Source CI first runs malformed/unsafe-response, missing-slot, interrupted-write,
+wrong/stale request-binding and metric-denominator controls. It then runs:
+
+```bash
+python tools/model_evidence.py --output source-evidence/model-evidence
+```
+
+The fresh output directory contains the existing lexical interpreter's raw outputs,
+all16 future-model slots marked `UNRUN`, the existing bounded Bedrock prompts and
+schemas captured without constructing a model, source/request/response hashes,
+and fixed capture, false-positive, false-exception and abstention denominators.
+Gold never enters the prompts. Failed/unrun attempts are not dropped or replaced;
+malformed responses are failures, not successful abstentions. The question-level
+ruler is not the complete production eligibility policy. No model quality threshold
+or independent accuracy claim is attached to these development results.
+
+`--replay <already-captured.json>` reads inert structured responses only, with exact
+protocol and request bindings. It retains original bytes even when refusing them;
+hashes bind bytes, not model origin. Tests use explicitly labelled fake responses.
+The [spent-evidence inventory](docs/model-evidence-inventory.json) found no complete,
+comparable raw semantic cohort in its bounded inspection: two latest successful
+deploy runs list no artifacts, and the newest log retains counts, one truncated
+rationale and a separate connectivity-only `OK` response. None establishes accuracy.
+
+Real-model evaluation remains `NOT_RUN`; LT2/C1 is not closed. The frozen offline
+instrument is unchanged. The separate bounded collector below prepares a future
+owner-activated cohort. Unrecorded model usage/cost and runner/infrastructure cost
+remain `UNKNOWN`; zero model calls describes only offline execution.
+
+### Bounded collector preparation: evaluation only, not production Strands
+
+`tools/bounded_model_evidence.py` wraps the frozen requests and offline replay.
+Source CI runs fake full-flow, budget/binding denial, malformed response, interrupted
+call and immutable raw-retention controls before this credential-free export:
+
+```bash
+python tools/bounded_model_evidence.py export --output source-evidence/bounded-export
+```
+
+The artifact contains every exact SDK request, per-case serialized ASCII byte size,
+request/config/protocol/source hashes, input-token reservation, fixed512 output
+ceiling, reference worst-cost arithmetic and an invalid `NOT_AUTHORIZED` grant
+template. It is not a measurement or authority to spend. The separate supervisor
+below adds an inactive live-capable job, not app changes, IAM setup or deployment.
+
+The candidate is `eu.anthropic.claude-opus-5`, region `eu-west-1`, with thinking
+disabled, one forced `record_opinion` tool result and at most one plain Converse
+request for each of the16 frozen cases. System/user prompts, schemas, gold,
+thresholds, evaluator bytes and preregistration ancestry stay unchanged. Plain
+Converse does not exercise the production Strands structured-output orchestration;
+this transport/config difference prevents a production-adapter equivalence claim.
+There is no tool execution, repair, retry, fallback, warmup or replacement sample.
+The SDK has `total_max_attempts=1`,5-second connect and30-second read timeouts;
+the driver checks a900-second process bound and grant expiry before each call.
+
+Input tokens are conservatively reserved as serialized ASCII request bytes plus
+4096 tokens for hidden model/tool framing, with a16384-byte request ceiling. This
+counts the whole schema and escaped supplied text. It is an explicit reviewed
+assumption, not a provider-certified tokenizer bound or CountTokens measurement.
+The parent must accept this exact allowance or refuse activation. Actual usage
+above the bound, unknown usage, errors or expiry stop further calls. Reference
+rates5.50/27.50 USD per million input/output tokens are illustrative geo pricing,
+not an active grant. Only exact positive finite Decimal rate strings in the
+parent's digest-bound grant can authorize the plan. The entire worst-case cohort
+must fit that app's allocated share before SDK initialization; the shared USD5
+pool is never inferred as LastTake's available balance.
+
+### Private supervisor: prepared, inactive, live verification NOT_RUN
+
+`tools/evaluation_runner.py` and the separate `evaluation-parent` job prepare the
+parent boundary around this collector. Push and pull-request CI export an inert
+plan and exercise injected fake GitHub/model responses only. They cannot activate
+that job. The frozen evaluator, requests and `e1a0901`/`c0593b9` ancestry remain.
+The supervisor and its AWS authority have not been exercised against live services.
+
+Activation requires a reviewed exact-source manual dispatch, a separately approved
+`lasttake-bounded-evaluation` environment with required reviewer protection, and a
+model-only OIDC role in `LASTTAKE_EVAL_ROLE_ARN`. None is provisioned by this code.
+No deploy keys or application role are a fallback. The inline session policy can
+only restrict an existing role; it cannot grant missing permission. Configure the
+exact plan-byte SHA256 as the **repository-level** variable
+`LASTTAKE_EVAL_APPROVED_PLAN_SHA256` so the job-level condition can inspect it.
+Keep this empty until the parent has reviewed the source, price, bound and authority.
+
+CI exports `supervisor-plan/plan-NOT_APPROVED.json`. A parent must supply all three
+source/request/config/protocol hashes, fixed dollar slices whose sum is at most
+USD5, reviewed token bounds, verified Decimal prices, one budget ID, exact future
+manual workflow run numbers and refs, and issue/expiry timestamps within one hour.
+The current run ID is bound by the supervisor after dispatch, not guessed in advance.
+An intervening run number change refuses activation and requires a fresh review.
+Changing whitespace in the approved JSON also invalidates its configured digest.
+
+This implementation consumes **LastTake's slice only**. Merismos and Archon must
+remain inactive until their runners consume their own slices from the same fixed
+parent plan. The sum check is not a deployed distributed budget controller, an AWS
+billing limit, or permission to give each application a fresh USD5 grant.
+
+Before AWS credentials, the supervisor verifies the actual private repository ID
+and creates one annotated reservation at `eval-reservations/<budget-id>/lasttake`.
+Duplicate, failed or uncertain ref creation never retries or refunds the slice.
+Before launching, it verifies the remote ref and tag payload, exact source, run
+and local grant; a create-only launch marker prevents duplicate child launches.
+GitHub tokens and OIDC request credentials are removed from the child environment.
+Repository administrators can alter Git refs: this is a cooperative trusted-runner
+record, **not WORM**, owner authentication or protection against privileged writers.
+No code here deletes or rewrites a reservation. Reference API contracts:
+[create a ref](https://docs.github.com/en/rest/git/refs#create-a-reference) and
+[create an annotated tag](https://docs.github.com/en/rest/git/tags#create-a-tag-object).
+
+The child command below illustrates the same collector boundary. **Do not invoke
+it directly to bypass the supervisor or its consumed reservation**:
+
+```bash
+timeout --signal=TERM --kill-after=5s 960s python tools/bounded_model_evidence.py collect --grant /private/grant.json --output /private/lasttake-cohort
+```
+
+The supervisor stops and reaps the child process group on timeout, SIGTERM or SIGINT;
+SIGKILL and a lost host cannot be caught. Its job is capped at20 minutes.
+Only GitHub manual `workflow_dispatch`, run attempt1 and matching grant/context
+are accepted. Before each call, the create-only journal fsyncs the reservation and
+full request; after it, the full SDK-decoded response is fsynced before semantic
+parsing. Each record also prints as a flushed base64 stdout backup. It preserves
+request IDs and usage, not just a rationale. These are SDK receipts, not original
+HTTP wire bytes or independently authenticated model origin. Request hashes are
+mechanical provenance, not model-authored citations. Unknown outcomes consume
+their entire worst reservation, with no refund or retry. All16 failed/unrun slots
+remain in the frozen evaluator's denominators. Recorded usage-cost arithmetic is
+not an AWS bill; runner/infra cost and response-body byte count stay `UNKNOWN`.
+
+The normal exit seals an immutable `final/` copy and replays only those captured
+bytes through the frozen evaluator. If the process is killed, the parent must
+first terminate it, then run the following **offline** finalizer only if `final/`
+does not exist. The supervisor's offline `recover` also verifies the final seal;
+an incomplete final is preserved and replayed from raw into a fresh `recovery/`
+snapshot. An interrupted recovery is refused, never overwritten. Never rerun
+`collect`. Missing/corrupt denominator files retain
+available raw bytes, refusal report and hashes, without a successful summary:
+
+```bash
+python tools/bounded_model_evidence.py finalize --output /private/lasttake-cohort
+```
+
+The prepared job uploads the journal and `final/` with `if: always()`, even on
+failure. A fully lost or forcibly cancelled runner can still lose artifacts or
+unflushed service logs; stdout backup is not a durability guarantee. Reference contracts:
+[Converse](https://docs.aws.amazon.com/boto3/latest/reference/services/bedrock-runtime/client/converse.html),
+[single SDK attempt](https://docs.aws.amazon.com/botocore/latest/reference/config.html),
+[model profile](https://docs.aws.amazon.com/bedrock/latest/userguide/model-card-anthropic-claude-opus-5.html),
+[pricing to re-verify before grant](https://platform.claude.com/docs/en/about-claude/pricing).
+
 ## What "covered" rests on, and why two readers count differently
 
 `[PRIMARY]` 2026-09-08, deploy run 34195514875, which runs `lasttake checkpoint --bedrock` on the
@@ -639,8 +802,8 @@ the count above what the evidence supports: the deploy asserts that required bea
 covered may fall and may never rise.
 
 What this exposes is the gap already declared in [`docs/assurance.md`](docs/assurance.md), that
-there is no evaluation set for the model's judgement on its two bounded questions. It has a size
-now instead of only a sentence. Closing it means labelled ground truth for "does this take contain
+there is no independent, real-model evaluation on its two bounded questions. The source-only
+development set above does not close that gap. Closing it means labelled ground truth for "does this take contain
 this beat", which this corpus does not have and one shoot day would not settle.
 
 ## The numbers, and the commands that produce them
