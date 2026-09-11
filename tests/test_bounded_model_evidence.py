@@ -319,9 +319,12 @@ def test_request_ceiling_and_frozen_evaluator_are_fail_closed(monkeypatch):
     with pytest.raises(ValueError, match="Frozen evaluator"): B.plan()
 
 
-def test_ci_only_exports_no_paid_job_or_credentials():
+def test_source_ci_only_exports_no_credentials_even_with_separate_manual_supervisor():
     workflow = (E.ROOT / ".github/workflows/ci.yml").read_text()
     assert "python tools/bounded_model_evidence.py export" in workflow
     assert "bounded_model_evidence.py collect" not in workflow
-    assert "configure-aws-credentials" not in workflow
+    source_jobs = workflow.split("  evaluation-parent:")[0] + workflow.split("  hero:")[1]
+    assert "configure-aws-credentials" not in source_jobs
+    assert "role-to-assume" not in source_jobs
+    assert "evaluation_runner.py run" not in source_jobs
     assert "LASTTAKE_EVAL_GRANT_SHA256" not in workflow

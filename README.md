@@ -681,24 +681,50 @@ parent's digest-bound grant can authorize the plan. The entire worst-case cohort
 must fit that app's allocated share before SDK initialization; the shared USD5
 pool is never inferred as LastTake's available balance.
 
-Activation belongs to the parent private manual runner, after source CI review.
-It must preserve `e1a090192df6b3470489d36349d9aba2960cda9d` and `c0593b9` ancestry,
-check out the exact collector SHA, consume a unique grant once in its durable
-shared ledger, and reserve the app allocation before providing existing scoped
-AWS credentials. It must verify private-repository context, scope the existing
-credential session to the reviewed model/profile resources, and retain its own
-single-use reservation receipt. This CLI does not implement cross-run locking,
-verify the remote ledger, grant IAM authority, or authenticate its caller's
-environment variables; the trusted parent runner owns those controls. Hashes
-bind bytes, not owner identity. Do not reuse a consumed grant in another directory.
+### Private supervisor: prepared, inactive, live verification NOT_RUN
 
-The parent fills the exported template with exact source/model/config/request
-manifest/protocol bindings, current run ID/repository/workflow ref, attempt1,
-unique grant ID, reservation receipt hash, verified rates and an expiry within
-one hour. It supplies the independently configured hash of the exact grant bytes
-as `LASTTAKE_EVAL_GRANT_SHA256` and sets `LASTTAKE_EVAL_PRIVATE_RUNNER=true` only
-after verifying that context. There is no activation boolean in this repo's CI.
-Future parent command format, **not executed during source preparation**:
+`tools/evaluation_runner.py` and the separate `evaluation-parent` job prepare the
+parent boundary around this collector. Push and pull-request CI export an inert
+plan and exercise injected fake GitHub/model responses only. They cannot activate
+that job. The frozen evaluator, requests and `e1a0901`/`c0593b9` ancestry remain.
+The supervisor and its AWS authority have not been exercised against live services.
+
+Activation requires a reviewed exact-source manual dispatch, a separately approved
+`lasttake-bounded-evaluation` environment with required reviewer protection, and a
+model-only OIDC role in `LASTTAKE_EVAL_ROLE_ARN`. None is provisioned by this code.
+No deploy keys or application role are a fallback. The inline session policy can
+only restrict an existing role; it cannot grant missing permission. Configure the
+exact plan-byte SHA256 as the **repository-level** variable
+`LASTTAKE_EVAL_APPROVED_PLAN_SHA256` so the job-level condition can inspect it.
+Keep this empty until the parent has reviewed the source, price, bound and authority.
+
+CI exports `supervisor-plan/plan-NOT_APPROVED.json`. A parent must supply all three
+source/request/config/protocol hashes, fixed dollar slices whose sum is at most
+USD5, reviewed token bounds, verified Decimal prices, one budget ID, exact future
+manual workflow run numbers and refs, and issue/expiry timestamps within one hour.
+The current run ID is bound by the supervisor after dispatch, not guessed in advance.
+An intervening run number change refuses activation and requires a fresh review.
+Changing whitespace in the approved JSON also invalidates its configured digest.
+
+This implementation consumes **LastTake's slice only**. Merismos and Archon must
+remain inactive until their runners consume their own slices from the same fixed
+parent plan. The sum check is not a deployed distributed budget controller, an AWS
+billing limit, or permission to give each application a fresh USD5 grant.
+
+Before AWS credentials, the supervisor verifies the actual private repository ID
+and creates one annotated reservation at `eval-reservations/<budget-id>/lasttake`.
+Duplicate, failed or uncertain ref creation never retries or refunds the slice.
+Before launching, it verifies the remote ref and tag payload, exact source, run
+and local grant; a create-only launch marker prevents duplicate child launches.
+GitHub tokens and OIDC request credentials are removed from the child environment.
+Repository administrators can alter Git refs: this is a cooperative trusted-runner
+record, **not WORM**, owner authentication or protection against privileged writers.
+No code here deletes or rewrites a reservation. Reference API contracts:
+[create a ref](https://docs.github.com/en/rest/git/refs#create-a-reference) and
+[create an annotated tag](https://docs.github.com/en/rest/git/tags#create-a-tag-object).
+
+The child command below illustrates the same collector boundary. **Do not invoke
+it directly to bypass the supervisor or its consumed reservation**:
 
 ```bash
 timeout --signal=TERM --kill-after=5s 960s python tools/bounded_model_evidence.py collect --grant /private/grant.json --output /private/lasttake-cohort
@@ -726,8 +752,9 @@ available raw bytes, refusal report and hashes, without a successful summary:
 python tools/bounded_model_evidence.py finalize --output /private/lasttake-cohort
 ```
 
-The private runner must upload the journal and `final/` with `if: always()`, even
-on failure, and retain stdout when the runner itself is lost. Reference contracts:
+The prepared job uploads the journal and `final/` with `if: always()`, even on
+failure. A fully lost or forcibly cancelled runner can still lose artifacts or
+unflushed service logs; stdout backup is not a durability guarantee. Reference contracts:
 [Converse](https://docs.aws.amazon.com/boto3/latest/reference/services/bedrock-runtime/client/converse.html),
 [single SDK attempt](https://docs.aws.amazon.com/botocore/latest/reference/config.html),
 [model profile](https://docs.aws.amazon.com/bedrock/latest/userguide/model-card-anthropic-claude-opus-5.html),
