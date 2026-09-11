@@ -2,7 +2,9 @@
 from copy import deepcopy
 import json
 import os
+import signal
 import socket
+import subprocess
 import sys
 from unittest.mock import Mock
 
@@ -216,6 +218,52 @@ def test_timeout_does_not_refund_or_offer_replacement(tmp_path):
 def test_real_subprocess_timeout_and_normal_exit_without_network():
     assert R.supervise([sys.executable, "-c", "raise SystemExit(7)"], dict(os.environ)) == 7
     assert R.supervise([sys.executable, "-c", "import time; time.sleep(30)"], dict(os.environ), seconds=.1, grace=1) == 124
+
+
+@pytest.mark.skipif(os.name == "nt", reason="CI supervisor uses Linux process groups")
+def test_external_sigterm_stops_and_reaps_uncooperative_child():
+    import select
+    child = "import os,signal,time; signal.signal(signal.SIGTERM, signal.SIG_IGN); print(os.getpid(),flush=True); time.sleep(30)"
+    command = [sys.executable, "-u", "-c", child]
+    outer = subprocess.Popen([sys.executable, "-u", "-c",
+        "import os; from tools.evaluation_runner import supervise; "
+        f"raise SystemExit(supervise({command!r},dict(os.environ),seconds=20,grace=.2))"],
+        cwd=E.ROOT, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    try:
+        assert select.select([outer.stdout], [], [], 10)[0], "Child did not start"
+        pid = int(outer.stdout.readline().strip())
+        outer.send_signal(signal.SIGTERM)
+        _, error = outer.communicate(timeout=5)
+        assert outer.returncode == 143, error
+        with pytest.raises(ProcessLookupError): os.kill(pid, 0)
+    finally:
+        if outer.poll() is None:
+            outer.kill()
+            outer.wait(timeout=5)
+
+
+@pytest.mark.parametrize("damage", ["missing_seal", "partial_seal", "changed_summary"])
+def test_partial_final_is_preserved_and_replayed_without_model_calls(tmp_path, monkeypatch, damage):
+    test_complete_supervisor_to_frozen_collector_and_replay(tmp_path, monkeypatch)
+    output = tmp_path / "run"
+    final = output / "cohort/final"
+    assert R.recover(output) == final
+    if damage == "missing_seal": (final / "manifest.json").unlink()
+    if damage == "partial_seal": (final / "manifest.json").write_text('{"partial":')
+    if damage == "changed_summary": (final / "summary.json").write_text('{"partial":')
+    before = {str(path): path.read_bytes() for path in final.rglob("*") if path.is_file()}
+    recovered = R.recover(output)
+    assert recovered == output / "recovery/final" and R.sealed(recovered)
+    assert json.loads((recovered / "summary.json").read_text())["counts"]["COMPLETE"] == 16
+    assert before == {str(path): path.read_bytes() for path in final.rglob("*") if path.is_file()}
+    assert R.recover(output) == recovered
+
+
+def test_no_cohort_recovery_is_inert_and_partial_recovery_is_not_overwritten(tmp_path):
+    assert R.recover(tmp_path) is None
+    (tmp_path / "cohort/final").mkdir(parents=True)
+    (tmp_path / "recovery").mkdir()
+    with pytest.raises(FileExistsError): R.recover(tmp_path)
 
 
 def test_ledger_has_no_update_delete_redirect_or_arbitrary_origin():

@@ -656,8 +656,8 @@ python tools/bounded_model_evidence.py export --output source-evidence/bounded-e
 The artifact contains every exact SDK request, per-case serialized ASCII byte size,
 request/config/protocol/source hashes, input-token reservation, fixed512 output
 ceiling, reference worst-cost arithmetic and an invalid `NOT_AUTHORIZED` grant
-template. It is not a measurement or authority to spend. No new dependency, app
-change, IAM setup, deployment step or live job is added to product workflows.
+template. It is not a measurement or authority to spend. The separate supervisor
+below adds an inactive live-capable job, not app changes, IAM setup or deployment.
 
 The candidate is `eu.anthropic.claude-opus-5`, region `eu-west-1`, with thinking
 disabled, one forced `record_opinion` tool result and at most one plain Converse
@@ -730,8 +730,9 @@ it directly to bypass the supervisor or its consumed reservation**:
 timeout --signal=TERM --kill-after=5s 960s python tools/bounded_model_evidence.py collect --grant /private/grant.json --output /private/lasttake-cohort
 ```
 
-The outer timeout is mandatory in the private runner, whose job is also capped at
-20 minutes. Only GitHub manual `workflow_dispatch`, run attempt1 and matching grant/context
+The supervisor stops and reaps the child process group on timeout, SIGTERM or SIGINT;
+SIGKILL and a lost host cannot be caught. Its job is capped at20 minutes.
+Only GitHub manual `workflow_dispatch`, run attempt1 and matching grant/context
 are accepted. Before each call, the create-only journal fsyncs the reservation and
 full request; after it, the full SDK-decoded response is fsynced before semantic
 parsing. Each record also prints as a flushed base64 stdout backup. It preserves
@@ -745,7 +746,10 @@ not an AWS bill; runner/infra cost and response-body byte count stay `UNKNOWN`.
 The normal exit seals an immutable `final/` copy and replays only those captured
 bytes through the frozen evaluator. If the process is killed, the parent must
 first terminate it, then run the following **offline** finalizer only if `final/`
-does not exist. Never rerun `collect`. Missing/corrupt denominator files retain
+does not exist. The supervisor's offline `recover` also verifies the final seal;
+an incomplete final is preserved and replayed from raw into a fresh `recovery/`
+snapshot. An interrupted recovery is refused, never overwritten. Never rerun
+`collect`. Missing/corrupt denominator files retain
 available raw bytes, refusal report and hashes, without a successful summary:
 
 ```bash

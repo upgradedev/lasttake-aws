@@ -246,30 +246,94 @@ def verify_bundle(raw, approved_digest, p, ctx, now, role_arn, output, ledger):
 
 
 def supervise(command, environment, seconds=960, grace=5):
-    """Outer timeout terminates the process group; never starts a replacement call."""
-    child = subprocess.Popen(command, env=environment, start_new_session=os.name != "nt")
+    """Timeout and external termination stop/reap the group, with no replacement."""
+    class Cancelled(BaseException):
+        pass
+
+    child, received = None, None
+    watched = (signal.SIGTERM, signal.SIGINT)
+    previous = {number: signal.getsignal(number) for number in watched}
+
+    def cancelled(number, frame):
+        nonlocal received
+        received = number
+        # During Popen construction remember cancellation without losing its handle.
+        if child is not None:
+            raise Cancelled()
+
+    for number in watched:
+        signal.signal(number, cancelled)
     try:
-        return child.wait(timeout=seconds)
-    except (subprocess.TimeoutExpired, KeyboardInterrupt):
+        child = subprocess.Popen(command, env=environment, start_new_session=os.name != "nt")
+        if received is not None:
+            raise Cancelled()
         try:
-            if os.name == "nt":
-                child.terminate()
-            else:
-                os.killpg(child.pid, signal.SIGTERM)
-        except ProcessLookupError:
-            pass  # Child exit raced with the timeout; still no replacement.
-        try:
-            child.wait(timeout=grace)
-        except subprocess.TimeoutExpired:
+            return child.wait(timeout=seconds)
+        except (subprocess.TimeoutExpired, KeyboardInterrupt, Cancelled):
+            pass
+    except Cancelled:
+        pass
+    finally:
+        # Repeated termination must not interrupt reaping. SIGKILL cannot be handled.
+        for number in watched:
+            signal.signal(number, signal.SIG_IGN)
+        if child is not None and child.poll() is None:
             try:
                 if os.name == "nt":
-                    child.kill()
+                    child.terminate()
                 else:
-                    os.killpg(child.pid, signal.SIGKILL)
+                    os.killpg(child.pid, signal.SIGTERM)
             except ProcessLookupError:
                 pass
-            child.wait(timeout=grace)
-        return 124
+            try:
+                child.wait(timeout=grace)
+            except subprocess.TimeoutExpired:
+                try:
+                    if os.name == "nt":
+                        child.kill()
+                    else:
+                        os.killpg(child.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+                child.wait(timeout=grace)
+        for number, handler in previous.items():
+            signal.signal(number, handler)
+    return 128 + received if received is not None else 124
+
+
+def sealed(directory):
+    try:
+        manifest = E.strict_json((directory / "manifest.json").read_bytes())
+        actual = {str(path.relative_to(directory)).replace("\\", "/"): E.digest(path.read_bytes())
+                  for path in directory.rglob("*") if path.is_file() and path.name != "manifest.json"}
+        return (manifest.get("schema") == "lasttake/source-evidence-hashes/v1"
+                and manifest.get("files") == actual
+                and ((directory / "summary.json").is_file() or (directory / "error.json").is_file()))
+    except (OSError, ValueError, AttributeError):
+        return False
+
+
+def recover(output):
+    """After producer exit only. Preserve partial final bytes; replay a fresh snapshot."""
+    cohort = output / "cohort"
+    if not cohort.exists():
+        return None
+    final = cohort / "final"
+    if not final.exists():
+        return B.finalize(cohort)
+    if sealed(final):
+        return final
+    snapshot = output / "recovery"
+    if sealed(snapshot / "final"):
+        return snapshot / "final"
+    snapshot.mkdir(exist_ok=False)  # Never overwrite an interrupted recovery either.
+    for path in sorted(cohort.iterdir()):
+        if path.is_file():
+            B.write_bytes_once(snapshot / path.name, path.read_bytes())
+    B.write_once(snapshot / "recovery-notice.json", {
+        "original_partial_final": "../cohort/final", "original_bytes_preserved": True,
+        "replacement_model_calls": 0, "source": "retained top-level collector journal"})
+    return B.finalize(snapshot)
 
 
 def run_bundle(raw, digest, p, ctx, now, role, output, ledger, launch=supervise):
@@ -298,10 +362,8 @@ def main():
         B.write_once(args.output / "plan-NOT_APPROVED.json", template(B.plan()))
         return 0
     if args.mode == "recover":
-        cohort = args.output / "cohort"
-        if cohort.exists() and not (cohort / "final").exists():
-            B.finalize(cohort)  # Offline snapshot only after the supervisor has exited.
-        return 0
+        final = recover(args.output)
+        return int(final is not None and not (final / "summary.json").is_file())
     p, ctx = B.plan(), context()
     if B.git("status", "--porcelain", "--untracked-files=no") or B.git("rev-parse", "HEAD") != ctx["GITHUB_SHA"]:
         raise ValueError("Clean exact-source checkout required")
