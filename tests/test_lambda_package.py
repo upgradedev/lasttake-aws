@@ -4,6 +4,7 @@ import hashlib
 import importlib.util
 import json
 from pathlib import Path
+import re
 import zipfile
 
 import pytest
@@ -105,11 +106,15 @@ def test_ci_identity_is_observed_not_assumed(monkeypatch, mismatch, dirty):
 
 def test_package_job_is_branch_only_read_only_and_never_invokes_release():
     workflow = (ROOT / ".github/workflows/ci.yml").read_text()
-    job = workflow.split("  lambda-package:\n", 1)[1].split("  hero:\n", 1)[0]
+    # Stop at ANY sibling job, not a formerly adjacent job name. A separate
+    # manually gated supervisor must not be mistaken for package-job authority.
+    job = re.split(r"\n  [A-Za-z_][A-Za-z0-9_-]*:\n",
+                   workflow.split("  lambda-package:\n", 1)[1], maxsplit=1)[0]
     assert "needs: [test, hero]" in job
     assert "github.ref == 'refs/heads/codex/security-boundaries-20260910'" in job
     assert "github.ref == 'refs/heads/codex/history-pagination-20260910'" in job
     assert "contents: read" in job and "persist-credentials: false" in job
+    assert "contents: write" not in job
     assert "manylinux2014_aarch64" in job and "--only-binary=:all:" in job
     assert "tools/package_lambda.py" in job and "actions/upload-artifact@v4" in job
     assert "retention-days: 90" in job and "overwrite: false" in job
