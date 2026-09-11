@@ -368,11 +368,13 @@ def from_environment():
             "approval when the container is recycled."
         )
 
-    endpoint = os.environ.get("LASTTAKE_DSQL_ENDPOINT")
-    if endpoint:
+    from .dsql_config import from_environment as dsql_configuration
+    config = dsql_configuration(os.environ)
+    if config is not None:
         from .dsql import DsqlRunStore
 
-        runs = DsqlRunStore(endpoint=endpoint)
+        runs = DsqlRunStore(endpoint=config.endpoint, user=config.user,
+                            auth_mode=config.auth_mode, bootstrap=config.bootstrap)
     else:
         runs = S3RunStore(bucket=bucket)
 
@@ -385,4 +387,5 @@ def from_environment():
 
 def run_store_kind() -> str:
     """Which store is actually in use, for the API to report rather than imply."""
-    return "aurora-dsql" if os.environ.get("LASTTAKE_DSQL_ENDPOINT") else "s3"
+    from .dsql_config import from_environment as dsql_configuration
+    return "aurora-dsql" if dsql_configuration(os.environ) is not None else "s3"

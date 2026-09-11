@@ -185,9 +185,10 @@ Resources:
                 Effect: Allow
                 Action: events:DescribeEventBus
                 Resource: !GetAtt EventBus.Arn
-              # Connect only. The role cannot create, alter or delete a
-              # cluster, so a compromised function cannot destroy the record it
-              # is writing to.
+              # No cluster lifecycle API permission is granted here. However,
+              # DbConnectAdmin still gives broad SQL database/schema authority;
+              # this does not protect records from a compromised function.
+              # Keep the legacy policy until a separately approved cutover.
               - Sid: ConnectToOurClusterOnly
                 Effect: Allow
                 Action: dsql:DbConnectAdmin
