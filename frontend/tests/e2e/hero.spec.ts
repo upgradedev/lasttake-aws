@@ -13,6 +13,10 @@ test('LT-HERO complete capture source: changed evidence, human wrap decision and
   await expect(page.getByTestId('execution-mode')).toContainText('No footage/audio analysis');
   const start=page.getByRole('button',{name:'Start this fictional shoot day'});
   await expect(start).toBeInViewport({ratio:1});
+  const firstAction=await start.boundingBox();
+  expect(firstAction).not.toBeNull();
+  expect(firstAction!.y).toBeGreaterThanOrEqual(0);
+  expect(firstAction!.y+firstAction!.height).toBeLessThanOrEqual(page.viewportSize()!.height);
   await page.screenshot({path:info.outputPath('product-wave-cold-viewport.png')});
   // Traverse real tab order from the untouched cold page, including the skip link.
   for(let i=0;i<24 && !await start.evaluate(el=>el===document.activeElement);i++)await page.keyboard.press('Tab');
