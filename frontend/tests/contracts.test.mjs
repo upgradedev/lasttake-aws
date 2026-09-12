@@ -56,6 +56,25 @@ test('public proof assets ship under existing CSP without a built-in success rec
   assert.match(await readFile('UAT.testbook.html', 'utf8'), /href="\/acceptance.html"/);
 });
 
+test('product wave retains exact-release freshness and independent human gates in both testbooks',async()=>{
+  const book=JSON.parse(await readFile('UAT.testbook.json','utf8'));
+  const html=await readFile('UAT.testbook.html','utf8');
+  for(const id of ['UX-LT-10S','QA-LT-FRESH']){
+    assert.equal(book.cases.filter(row=>row.id===id).length,1);
+    assert.ok(html.includes(`id="${id}"`));
+    assert.equal(book.cases.find(row=>row.id===id).human_signoff,'NOT_RUN');
+  }
+  assert.match(book.product_wave_20260912.human_requirement,/independent first-time user/);
+  assert.match(book.product_wave_20260912.human_requirement,/C3/);
+  const fixture=JSON.parse(await readFile('proof-tests/receipt.fixture.json','utf8'));
+  const release={commit:fixture.frontend_commit};
+  const health={commit:fixture.backend_commit,ok:true,run_state_store:'aurora-dsql'};
+  const observed=Date.parse(fixture.observed_at);
+  assert.equal(assess(release,health,fixture,structuredClone(fixture),observed+23*3600000,release.commit).status,'CURRENT_AUTOMATED_PASS');
+  assert.equal(assess(release,health,fixture,structuredClone(fixture),observed+24*3600000+1,release.commit).status,'HISTORICAL');
+  assert.equal(assess({...release,commit:'e'.repeat(40)},health,fixture,fixture,observed,'e'.repeat(40)).status,'HISTORICAL');
+});
+
 function assertWorkspaceEvidence(book) {
   const revision=book.current_workspace_revision;
   assert.ok(['PENDING_CI','AUTOMATION_PASS'].includes(revision.status));

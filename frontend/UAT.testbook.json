@@ -1,5 +1,13 @@
 {
   "schema": "lasttake/uat/v1",
+  "product_wave_20260912": {
+    "items": ["UX-LT-10S", "QA-LT-FRESH"],
+    "status": "PENDING_CI",
+    "evidence": "Consult frontend-evidence-<exact source SHA> and ui-screenshots-<exact source SHA>, product-wave-source-context and the existing JUnit/JSON reports. Static source does not certify its own execution; earlier evidence remains historical.",
+    "runtime_owner": "Coordinator: exact deployed frontend/backend pair and existing bounded aws-uat. No worker dispatch or production change.",
+    "human_signoff": "NOT_RUN",
+    "human_requirement": "An independent first-time user's actual understanding after 10 seconds must be recorded separately in C3. Browser checks and screenshots cannot establish it."
+  },
   "current_public_proof": {
     "url": "https://d3kf6hquzlli8g.cloudfront.net/acceptance.html",
     "latest_receipt": "/acceptance.json",
@@ -15,6 +23,30 @@
     "scope": "HISTORICAL_RELEASE_ONLY: the named frontend SHA and run validate the earlier UX, not the current dashboard/workspace."
   },
   "cases": [
+    {
+      "id": "UX-LT-10S",
+      "persona": "First-time or returning script supervisor, 1st AD and assistant editor",
+      "requirement": "Explain the user, pre-wrap problem, saved result and first action; connect evidence, blocked/eligible reason, exact human wrap decision and understandable editorial turnover. Keep material limitations visible and technical metadata optional.",
+      "preconditions": "Fresh isolated synthetic session on exact source CI or coordinator-approved exact deployed release; desktop/mobile and keyboard. Existing API, selectors, controls and cases retained.",
+      "steps": ["Read cold screen; reach existing start CTA through Tab and Enter", "Checkpoint; return to Dashboard and inspect cause, evidence and responsible role before metrics", "Complete existing evidence-change journey and separate exact 1st AD wrap approval", "Publish and reload; read retained exceptions and search saved take map; recover empty search", "Change evidence after turnover and reload; old handoff stays inspectable and historical", "Lose transport and refresh; current-decision wording returns only after recovery"],
+      "expected_outcome": "Functional backend drives every result. Pickup is separate from wrap; eligibility is not approval; approval enables but does not publish turnover. Retained exceptions and delivery/creative/legal/media limits stay explicit.",
+      "negative_recovery_case": "Missing assessment/cause never implies a pass. Stale requests retain refusal/decline recovery; transport failure requires refresh; empty search clears; changed evidence cannot make old turnover current.",
+      "automation_mapping": ["tests/product-wave.test.tsx", "tests/e2e/hero.spec.ts: LT-HERO", "tests/e2e/workspaces.spec.ts: LT-DASH and LT-OFFLINE", "tests/e2e/journeys.spec.ts: LT03", "tests/contracts.test.mjs"],
+      "observed_result_evidence": "PENDING_CI: exact-head artifacts must contain product-wave cold-keyboard, blocked-return, editorial-completion and historical-return screenshots. Existing expected cases, retry and freshness checks are unchanged. Independent 10-second understanding remains coordinator-owned C3, NOT_RUN.",
+      "human_signoff": "NOT_RUN"
+    },
+    {
+      "id": "QA-LT-FRESH",
+      "persona": "Release coordinator",
+      "requirement": "Fresh bounded AWS acceptance for the exact active frontend/backend pair, retaining previous and failed attempts and the existing 24-hour threshold.",
+      "preconditions": "Coordinator authorizes existing bounded runtime workflow for the exact deployed release. Source CI alone cannot satisfy this item.",
+      "steps": ["Record deployed frontend/backend pair", "Execute existing aws-uat with all retained and extended cases", "Link immutable run/artifact, exact deployed SHA and timestamp", "Treat changed releases or expired proof as historical"],
+      "expected_outcome": "Immutable receipt identifies the observed release pair. Existing failure, retry, expected-case and freshness rules stay enforced; previous attempts remain available.",
+      "negative_recovery_case": "Missing, malformed, failed, changed-release or expired receipts never establish a current pass. No paid model cohort, DB/IAM change or inferred human UAT.",
+      "automation_mapping": ["../.github/workflows/aws-uat.yml (coordinator only)", "../infra/test_frontend_acceptance.py", "proof-tests/renderer.spec.ts", "acceptance-tests/live.spec.ts", "tests/contracts.test.mjs"],
+      "observed_result_evidence": "NOT_RUN for this wave: source preparation only. Coordinator owns runtime execution and exact-release proof. Historical acceptance stays historical.",
+      "human_signoff": "NOT_RUN"
+    },
     {
       "id": "LT-HISTORY",
       "persona": "Returning script supervisor",

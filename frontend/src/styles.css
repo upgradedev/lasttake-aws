@@ -33,6 +33,18 @@
   .workflow-next {display:flex;align-items:center;justify-content:space-between;gap:16px;border:1px solid #455074;border-radius:12px;padding:16px;margin-bottom:18px;background:#182043;flex-wrap:wrap}
   .workflow-next>div {flex:1;min-width:min(100%,260px)}
   .workflow-next p {font-size:.875rem;max-width:85ch}
+  .decision-brief {align-items:start}
+  .decision-brief>.decision-context {flex:2;min-width:min(100%,420px)}
+  .decision-brief>.decision-next {flex:1;border-left:1px solid var(--line);padding-left:16px}
+  .decision-stages {display:flex;flex-wrap:wrap;gap:12px;margin:16px 0;padding:12px 0;border-block:1px solid var(--line)}
+  .decision-stages>div {flex:1;min-width:130px}
+  .decision-stages dt {font-size:.8rem;color:var(--secondary)}
+  .decision-stages dd {margin:6px 0 0;font-size:.9rem}
+  .decision-reasons ul {list-style:none;padding:0;margin:0}
+  .decision-reasons li {border-top:1px solid var(--line);padding:10px 0}
+  .decision-reasons li p {margin:4px 0}
+  .decision-reasons li a {display:inline-block;min-height:44px;padding:10px 0}
+  .editorial-exceptions,.wrap-decision-scope {border-block:1px solid var(--line);padding:12px 0;margin:16px 0}
   .handoff-provenance {overflow-wrap:anywhere}
   .app-shell {@apply min-h-screen;display:grid;grid-template-columns:192px minmax(0,1fr)}
   .navigation {background:#0b0f1e;color:#e8ebf5;padding:26px 14px;position:sticky;top:0;height:100dvh;display:flex;flex-direction:column;border-right:1px solid var(--line)}
@@ -212,6 +224,7 @@
   .page-heading {align-items:flex-start;flex-direction:column;gap:12px}
 }
 @media (max-width:760px) {
+  .decision-brief>.decision-next {border-left:0;border-top:1px solid var(--line);padding:14px 0 0}
   .app-shell {display:block}
   .navigation {height:auto;position:static;padding:16px;border-right:0;border-bottom:1px solid var(--line)}
   .brand {font-size:1rem}

@@ -98,11 +98,15 @@ test('LT03 saved Strands approval resumes, retry acts once, then approved turnov
   await page.getByLabel('Demo role').selectOption('first_ad');
   await page.getByRole('button',{name:'Review wrap readiness'}).click();
   await page.getByRole('button',{name:'Request wrap approval'}).click();
+  await expect(page.getByTestId('wrap-decision-scope')).toContainText('For SC-042, script');
+  await expect(page.getByTestId('wrap-decision-scope')).toContainText('does not publish it');
+  await expect(page.getByTestId('wrap-decision-scope')).toContainText('Declining leaves wrap unapproved');
   await expect(page.getByText('Wrap decision saved by the server',{exact:true})).toHaveCount(0);
   await page.getByText('Current package fingerprint · SHA-256',{exact:true}).click();
   const reviewedFingerprint=await page.locator('.approval-proof code').textContent();
   expect(reviewedFingerprint).toMatch(/^[a-f0-9]{64}$/);
-  await page.getByRole('button',{name:'Approve wrap'}).click();
+  await page.getByRole('button',{name:'Approve wrap'}).focus();
+  await page.keyboard.press('Enter');
   await expect(page.getByText(/1st AD wrap decision is on record/)).toBeVisible();
   await expect(page.getByText('Wrap decision saved by the server',{exact:true})).toBeVisible();
   await page.emulateMedia({reducedMotion:'reduce'});
