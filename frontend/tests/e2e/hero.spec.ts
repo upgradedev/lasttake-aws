@@ -41,6 +41,9 @@ test('LT-HERO complete capture source: changed evidence, human wrap decision and
   await expect(page.getByText('No saved beat or take matches this search.')).toBeVisible();
   await page.getByRole('button',{name:'Clear turnover search'}).click();
   await page.screenshot({path:info.outputPath('product-wave-editorial-completion.png'),fullPage:true});
+  await page.getByText('Read editorial handoff summary',{exact:true}).click();
+  await page.getByText('Inspect saved manifest',{exact:true}).click();
+  await page.getByRole('region',{name:'Turnover for this run'}).screenshot({path:info.outputPath('product-wave-editorial-section.png')});
   await page.context().grantPermissions(['clipboard-read','clipboard-write']);
   await page.getByRole('button',{name:'Copy handoff summary'}).click();
   const copied=await page.evaluate(()=>navigator.clipboard.readText());
