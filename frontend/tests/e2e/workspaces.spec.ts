@@ -84,6 +84,15 @@ test('LT-DASH scoped metrics drill into matching evidence, and desktop/mobile co
   await expect(page.getByTestId('metric-releases').locator('strong')).toHaveText(String(current.counts.without_release_record));
   await expect(page.getByTestId('metric-takes').locator('strong')).toHaveText(String(scene.take_count));
   await expect(page.getByTestId('metric-eligibility')).toContainText('Blocked');
+  const brief=page.getByTestId('workflow-next');
+  await expect(brief.getByTestId('decision-headline')).toHaveText('Wrap blocked by the supplied evidence');
+  await expect(brief).toContainText(current.causes[0].reason);
+  await expect(brief.getByRole('heading',{name:'Why wrap is blocked'})).toBeVisible();
+  const positions=await page.evaluate(()=>({decision:document.querySelector('.decision-brief')!.getBoundingClientRect().top,metrics:document.querySelector('.metrics')!.getBoundingClientRect().top}));
+  expect(positions.decision).toBeLessThan(positions.metrics);
+  await page.reload();
+  await expect(brief.getByTestId('decision-headline')).toHaveText('Wrap blocked by the supplied evidence');
+  await page.screenshot({path:info.outputPath('product-wave-blocked-return.png'),fullPage:true});
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await page.evaluate(()=>window.scrollTo(0,0));
   await page.screenshot({path:info.outputPath('dashboard-success.png'),fullPage:true});
@@ -158,9 +167,11 @@ test('LT-OFFLINE transport outage freezes decisions, preserves the run and recov
   await context.setOffline(true);
   await page.getByRole('button',{name:'Refresh saved state'}).click();
   await expect(page.getByRole('alert')).toContainText('Displayed evidence may be out of date');
+  await expect(page.getByTestId('decision-headline')).toHaveText('Refresh before deciding');
   await expect(page.getByRole('button',{name:'Record decision'})).toBeDisabled();
   await context.setOffline(false);
   await page.getByRole('button',{name:'Retry loading saved state'}).click();
   await expect(page.getByRole('button',{name:'Record decision'})).toBeEnabled();
+  await expect(page.getByTestId('decision-headline')).toHaveText('Wrap blocked by the supplied evidence');
   expect((await saved(page)).run_id).toBe(run);expect(writes).toBe(0);
 });
