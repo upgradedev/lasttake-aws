@@ -22,13 +22,13 @@ describe('documentation and showcase views',()=>{
     expect(screen.getByText('The 4 Production Assurance Journeys')).toBeVisible();
     expect(screen.getByText('Camera & Sound Log Ingest')).toBeVisible();
     fireEvent.click(screen.getByRole('button',{name:/STAGE 01/}));
-    expect(screen.getByText(/On a fast-paced set/)).toBeVisible();
+    expect(screen.getAllByText(/On a fast-paced set/)[0]).toBeVisible();
     fireEvent.click(screen.getByRole('button',{name:/STAGE 02/}));
-    expect(screen.getByText(/Script Lined Beats & Coverage Reconciliation/)).toBeVisible();
+    expect(screen.getAllByText(/Script Lined Beats & Coverage Reconciliation/)[0]).toBeVisible();
     fireEvent.click(screen.getByRole('button',{name:/STAGE 03/}));
-    expect(screen.getByText(/10-Minute Pre-Wrap Alert & 1st AD Approval/)).toBeVisible();
+    expect(screen.getAllByText(/10-Minute Pre-Wrap Alert & 1st AD Approval/)[0]).toBeVisible();
     fireEvent.click(screen.getByRole('button',{name:/STAGE 04/}));
-    expect(screen.getByText(/Editorial Turnover & Immutable S3 Handoff/)).toBeVisible();
+    expect(screen.getAllByText(/Editorial Turnover & Immutable S3 Handoff/)[0]).toBeVisible();
   });
 
   it('renders architecture view and switches layers',()=>{
@@ -37,15 +37,15 @@ describe('documentation and showcase views',()=>{
     fireEvent.click(screen.getByRole('button',{name:/Reconciliation/}));
     expect(screen.getAllByText(/Lambda Fleet/)[0]).toBeVisible();
     fireEvent.click(screen.getByRole('button',{name:/Production Edge/}));
-    expect(screen.getByText(/Strict Origin Access Control/)).toBeVisible();
+    expect(screen.getAllByText(/Strict Origin Access Control/)[0]).toBeVisible();
     fireEvent.click(screen.getByRole('button',{name:/Serverless HTTP/}));
     expect(screen.getAllByText(/Amazon API Gateway v2/)[0]).toBeVisible();
     fireEvent.click(screen.getByRole('button',{name:/Strands Agentic/}));
-    expect(screen.getByText(/AWS Strands SDK & Amazon Bedrock/)).toBeVisible();
+    expect(screen.getAllByText(/AWS Strands SDK & Amazon Bedrock/)[0]).toBeVisible();
     fireEvent.click(screen.getByRole('button',{name:/Operational Ledger/}));
-    expect(screen.getByText(/Single-table design/)).toBeVisible();
+    expect(screen.getAllByText(/Single-table design/)[0]).toBeVisible();
     fireEvent.click(screen.getByRole('button',{name:/Editorial Turnover/}));
-    expect(screen.getByText(/S3 Object Lock/)).toBeVisible();
+    expect(screen.getAllByText(/S3 Object Lock/)[0]).toBeVisible();
   });
 
   it('renders production ROI view',()=>{
