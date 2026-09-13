@@ -24,11 +24,11 @@ describe('documentation and showcase views',()=>{
     fireEvent.click(screen.getByRole('button',{name:/STAGE 01/}));
     expect(screen.getByText(/On a fast-paced set/)).toBeVisible();
     fireEvent.click(screen.getByRole('button',{name:/STAGE 02/}));
-    expect(screen.getByText(/Deterministic Anti-Join Engine/)).toBeVisible();
+    expect(screen.getByText(/Script Lined Beats & Coverage Reconciliation/)).toBeVisible();
     fireEvent.click(screen.getByRole('button',{name:/STAGE 03/}));
-    expect(screen.getByText(/Human Gatekeeping & AD Sign-off/)).toBeVisible();
+    expect(screen.getByText(/10-Minute Pre-Wrap Alert & 1st AD Approval/)).toBeVisible();
     fireEvent.click(screen.getByRole('button',{name:/STAGE 04/}));
-    expect(screen.getByText(/Sealed S3 Turnover & Post Delivery/)).toBeVisible();
+    expect(screen.getByText(/Editorial Turnover & Immutable S3 Handoff/)).toBeVisible();
   });
 
   it('renders architecture view and switches layers',()=>{
@@ -39,7 +39,7 @@ describe('documentation and showcase views',()=>{
     fireEvent.click(screen.getByRole('button',{name:/Production Edge/}));
     expect(screen.getByText(/Strict Origin Access Control/)).toBeVisible();
     fireEvent.click(screen.getByRole('button',{name:/Serverless HTTP/}));
-    expect(screen.getByText(/Amazon API Gateway v2/)).toBeVisible();
+    expect(screen.getAllByText(/Amazon API Gateway v2/)[0]).toBeVisible();
     fireEvent.click(screen.getByRole('button',{name:/Strands Agentic/}));
     expect(screen.getByText(/AWS Strands SDK & Amazon Bedrock/)).toBeVisible();
     fireEvent.click(screen.getByRole('button',{name:/Operational Ledger/}));
@@ -53,6 +53,6 @@ describe('documentation and showcase views',()=>{
     expect(screen.getByText('Production ROI & Market Wedge')).toBeVisible();
     expect(screen.getByText('$50k – $250k')).toBeVisible();
     expect(screen.getByText('ScriptE Systems')).toBeVisible();
-    expect(screen.getByText('Market Wedge: Narrative & Commercials')).toBeVisible();
+    expect(screen.getByText('What LastTake Replaces on the Production Cart')).toBeVisible();
   });
 });

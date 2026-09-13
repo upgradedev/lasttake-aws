@@ -47,10 +47,6 @@ export function App() {
         <p className="synthetic">Synthetic demo</p>
         <p>One fictional production.<br/>Evidence before decisions.</p>
         <button className="guide-toggle" aria-pressed={guided} onClick={()=>setGuided(!guided)}>{guided?'Close guided demo':'Open guided demo'}</button>
-        <div style={{marginTop:'8px',fontSize:'0.75rem',display:'flex',flexDirection:'column',gap:'4px'}}>
-          <a href="/acceptance.html" style={{color:'var(--muted)'}}>Current automated acceptance</a>
-          <a href="/UAT.testbook.html" style={{color:'var(--muted)'}}>UAT testbook</a>
-        </div>
       </div>
     </aside>
 
@@ -95,7 +91,6 @@ export function App() {
             </div>
             <p className="fine">Synthetic records are already supplied. No upload or account is required.</p>
             <div className="toolbar" style={{ marginTop: '12px' }}>
-              <button className="primary" onClick={()=>void w.create()}>Start this fictional shoot day</button>
               <button onClick={()=>void w.create()}>New shoot-day run</button>
               <a className="button" href={link('journeys', route.run)}>4 User Journeys →</a>
               <a className="button" href={link('architecture', route.run)}>Architecture →</a>
