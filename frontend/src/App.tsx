@@ -43,14 +43,14 @@ export function App() {
   const isDocPage=route.page==='journeys' || route.page==='architecture' || route.page==='roi';
   const writesBlocked=w.busy || w.requiresRefresh;
   const inRun=Boolean(state && scene);
-  const showLanding=!isDocPage && !route.run && !w.busy && !w.error;
+  const showLanding=!isDocPage && !route.run && !w.busy;
 
   return <div className="app-shell">
     <a href="#main" className="skip-link" onClick={e=>{e.preventDefault();document.getElementById('main')?.focus();}}>Skip to main content</a>
     <aside className="navigation">
       <a className="brand" href="#overview"><span className="brand-mark" aria-hidden="true">L<span>◢</span></span><span>LASTTAKE<small>BEFORE THE SET COMES DOWN</small></span></a>
       <nav aria-label="Main navigation">
-        {NAV.map(key=><a key={key} aria-label={pages[key]} href={link(key,state?.run_id ?? route.run,undefined,selection)} aria-current={route.page===key || (key==='scene' && route.page==='actions')?'page':undefined}><span className="nav-name">{pages[key]}</span><small>{pageTasks[key]}</small></a>)}
+        {NAV.map(key=><a key={key} href={link(key,state?.run_id ?? route.run,undefined,selection)} aria-current={route.page===key || (key==='scene' && route.page==='actions')?'page':undefined}>{pages[key]}</a>)}
       </nav>
       <div className="nav-bottom">
         <p>Proof of this release</p>
@@ -73,7 +73,7 @@ export function App() {
         {guided && <section className="guide panel"><h2>Walk through a fictional shoot day</h2><ol><li>Start the shoot day and run the wrap checkpoint.</li><li>Review the script and sources in Scene review, then answer the pickup request as the 1st AD.</li><li>Add evidence using the labelled synthetic examples.</li><li>Select changed findings and review them as the script supervisor and DIT.</li><li>Request a new wrap approval, answer as the 1st AD, then publish the turnover in Handoff.</li></ol><p>This demo uses a scripted planner and an offline lexical interpreter with real Strands interrupts. No Bedrock inference, footage/audio analysis, email or payment occurs in these demo flows. AWS event-bus requests are real; acceptance does not establish downstream completion.</p></section>}
         {storageNotice() && <p className="warning" role="status">{storageNotice()}</p>}
         {w.busy && !inRun && <div className="loading" role="status"><span className="spinner" aria-hidden="true"/>{w.progress || 'Reading the saved shoot day…'}</div>}
-        {w.error && <div className="error" role="alert"><h2>We couldn't complete that request</h2><p>{w.error}</p><p>{w.requiresRefresh?'Refresh saved state before retrying a write. Your form entries are kept. Displayed evidence may be out of date.':'The server refused the invalid request. Correct the supplied fields and submit again; your entries are kept.'}</p><div className="toolbar"><button disabled={w.busy} onClick={()=>void w.refresh()}>Retry loading saved state</button>{!state && <button disabled={w.busy} onClick={()=>void w.recover()}>Start a separate session</button>}{!state && <a className="button" href="#overview">Back to the start</a>}</div></div>}
+        {w.error && !showLanding && !isDocPage && <div className="error" role="alert"><h2>We couldn't complete that request</h2><p>{w.error}</p><p>{w.requiresRefresh?'Refresh saved state before retrying a write. Your form entries are kept. Displayed evidence may be out of date.':'The server refused the invalid request. Correct the supplied fields and submit again; your entries are kept.'}</p><div className="toolbar"><button disabled={w.busy} onClick={()=>void w.refresh()}>Retry loading saved state</button>{!state && <button disabled={w.busy} onClick={()=>void w.recover()}>Start a separate session</button>}{!state && <a className="button" href="#overview">Back to the start</a>}</div></div>}
 
         {isDocPage && route.page==='journeys' && <UserJourneysView runId={state?.run_id ?? route.run ?? undefined}/>}
         {isDocPage && route.page==='architecture' && <ArchitectureView runId={state?.run_id ?? route.run ?? undefined}/>}
