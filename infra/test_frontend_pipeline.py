@@ -117,6 +117,33 @@ class MainAcceptanceContract(unittest.TestCase):
         for value in ("timeout:90000", "retries:0", "workers:1", "maxFailures:1"):
             self.assertIn(value, config)
 
+    def test_webkit_matrix_is_bounded_separate_and_real(self):
+        """QA-WEBKIT: a real WebKit pass over the critical journeys, in CI only.
+
+        Three things must hold. The Chromium command is unchanged, so every
+        existing receipt keeps its meaning. WebKit is a second invocation of the
+        same helper, not a second helper. And its JUnit lands in its own file, so
+        the public acceptance receipt, which reads test-results/e2e.xml, cannot
+        silently gain or lose cases from this matrix.
+        """
+        self.assertEqual(browser.command_for("chromium"), browser.COMMAND)
+        self.assertEqual(browser.command_for("webkit"), ["npx", "playwright", "install", "--with-deps", "webkit"])
+        with self.assertRaises(ValueError):
+            browser.command_for("chrome; rm -rf /")
+        steps = read_workflow("frontend-ci.yml")["jobs"]["verify"]["steps"]
+        install = next(step for step in steps if step.get("run", "").endswith("install-playwright-chromium.py webkit"))
+        self.assertEqual(install["working-directory"], "frontend")
+        self.assertNotIn("continue-on-error", install)
+        run = next(step for step in steps if "playwright.webkit.config.ts" in step.get("run", ""))
+        self.assertIn("--forbid-only", run["run"])
+        self.assertNotIn("continue-on-error", run)
+        config = (ROOT / "frontend/playwright.webkit.config.ts").read_text()
+        for value in ("timeout:90000", "retries:0", "workers:1", "maxFailures:1", "test-results/webkit-junit.xml", "devices['iPhone 13']"):
+            self.assertIn(value, config)
+        self.assertNotIn("defaultBrowserType", config, "the point of this matrix is the engine WebKit, not an emulated one")
+        self.assertNotIn("outputFile:'test-results/e2e.xml'", config, "the public receipt's JUnit must not be shared with this matrix")
+        self.assertNotIn("outputFile:'test-results/e2e-results.json'", config)
+
     def test_browser_reporting_cannot_silently_narrow_history_scan(self):
         workflow = read_workflow("frontend-ci.yml")
         steps = workflow["jobs"]["verify"]["steps"]

@@ -30,6 +30,7 @@ frontend/coverage/
 frontend/test-results/
 frontend/playwright-report/
 frontend/.lasttake-ui/
+frontend/.lasttake-ui-webkit/
 frontend/acceptance-observations/
 frontend/acceptance-report/
 frontend/proof-report/

@@ -1,6 +1,6 @@
 export type Role = 'script_supervisor' | 'first_ad' | 'dit' | 'production_coordinator' | 'editorial';
 export type Check = 'coverage' | 'continuity' | 'metadata' | 'rights';
-export type Page = 'overview' | 'scene' | 'actions' | 'records' | 'history';
+export type Page = 'overview' | 'scene' | 'actions' | 'records' | 'history' | 'journeys' | 'architecture' | 'roi';
 export interface Selection {beat?:string|null; finding?:string|null; filter?:string|null; record?:string|null; q?:string|null}
 export type Document = Record<string, unknown>;
 export interface Take { take_id: string; slate: string; shot_id: string; lens_mm: number; camera_roll: string; sound_roll: string; media_id: string; timecode_in: string; timecode_out: string; preferred: boolean; usable: boolean; note: string; visible_people: string[]; visible_assets: string[]; captured_at: string; camera_report: {media_id: string; lens_mm: number; camera_roll: string} | null }
@@ -16,3 +16,4 @@ export interface SavedRun {run_id:string; created_at:string; production_id:strin
 export interface Session {session_id:string; runs:SavedRun[]; identity_mode:string; next_cursor?:string|null; has_more?:boolean; page_size?:number; history_scope?:string}
 export interface EventRow {event_id:string; event_type:string; occurred_at:string; payload:Document}
 export interface Receipt extends Document {human_readable?:string; kind:string; run_id:string; schema:string; package_revision_digest:string; policy_version:string; record_sha256:string; still_open_count:number; still_open:{finding_id:string; responsible_role:Role; next_action:string; what_was_observed:string}[]; what_this_does_not_say:string[]; synthetic_corpus_notice:string}
+export interface ScenePreview {schema:string; production_id:string; scene_id:string; scene_heading:string; revision:string; required_beats:number; optional_beats:number; supplied_takes:number; opening_beats:{beat_id:string; page:string; line:number; slug:string}[]; synthetic_notice:string}

@@ -1,6 +1,10 @@
 import type { Beat, Decision, Finding, Page, Role, Selection } from './types';
 export const roles: Record<Role,string> = {script_supervisor:'Script supervisor', first_ad:'1st AD', dit:'DIT / data manager', production_coordinator:'Production coordinator', editorial:'Assistant editor'};
-export const pages: Record<Page,string> = {overview:'Dashboard', scene:'Workspace', records:'Records', history:'History', actions:'My actions'};
+// Navigation is named after what the person is there to do, not after the
+// screen's furniture. The hash routes underneath are unchanged, so every saved
+// link, testbook entry and deep link keeps working.
+export const pages: Record<Page,string> = {overview:'Dashboard', scene:'Workspace', records:'Records', history:'History', actions:'My actions', journeys:'Journeys', architecture:'Architecture', roi:'Production ROI'};
+export const pageTasks: Record<Page,string> = {overview:'What still blocks wrap, and who owns it', scene:'Lined script, evidence and the human decision', records:'The supplied takes, beats, findings and releases', history:'Turnover, receipts and saved runs', actions:'Decisions for the selected role', journeys:'4 on-set verification stages', architecture:'AWS Strands & Bedrock serverless topology', roi:'Film economics and pickup day prevention'};
 export function readRoute() {
   const [raw, query] = location.hash.slice(1).split('?');
   const page = raw==='dashboard'?'overview':raw==='workspace'?'scene':Object.hasOwn(pages, raw) ? raw as Page : 'overview';
