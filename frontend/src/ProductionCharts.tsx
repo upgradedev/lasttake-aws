@@ -362,6 +362,7 @@ export function ProductionCharts({ scene, state, events }: ProductionChartsProps
             return (
               <button
                 key={beat.beat_id}
+                className="beat-matrix-card"
                 onClick={() => setSelectedBeat(isSelected ? null : beat.beat_id)}
                 style={{
                   display: 'flex',
