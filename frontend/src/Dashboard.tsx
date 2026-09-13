@@ -92,8 +92,10 @@ export function Dashboard({
                 </li>
               ))}
             </ul>
-          ) : (
+          ) : state.eligible ? (
             <p className="empty">No current eligibility blockers. Review the separate human wrap decision before turnover.</p>
+          ) : (
+            <p className="warning">The gate is not satisfied and returned no causes. Refresh saved state; do not infer eligibility from an empty list.</p>
           )}
           {causes.length > 6 && (
             <a href={link('scene', state.run_id, undefined, { filter: 'approval' })}>Review all {causes.length} eligibility causes</a>

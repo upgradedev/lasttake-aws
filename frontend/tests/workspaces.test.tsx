@@ -43,6 +43,9 @@ describe('dashboard scope and actions',()=>{
     expect(screen.getByText(/Evidence changed; review again/)).toBeVisible();
     expect(screen.getByRole('region',{name:'Priority work'}).querySelectorAll('li')).toHaveLength(6);
     rerender(<Dashboard scene={scene} state={{...state,causes:[],pending_approval:null}} session={session} events={[]} busy={false} checkpoint={save()}/>);
+    expect(screen.getByText(/returned no causes/)).toBeVisible();
+    expect(screen.queryByText(/No current eligibility blockers/)).toBeNull();
+    rerender(<Dashboard scene={scene} state={{...state,causes:[],pending_approval:null,eligible:true}} session={session} events={[]} busy={false} checkpoint={save()}/>);
     expect(screen.getByText(/No current eligibility blockers/)).toBeVisible();
   });
 });

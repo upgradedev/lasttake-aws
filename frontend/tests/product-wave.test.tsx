@@ -100,7 +100,10 @@ it('missing manifest fields remain unknown and historical records remain inspect
   const {rerender}=render(<Turnover state={{...state,turnover:{}}} busy={false} publish={vi.fn()}/>);
   expect(screen.getByText(/No exception entries were supplied/)).toBeVisible();
   expect(screen.getByText(/No beat-to-take map was supplied/)).toBeVisible();
-  expect(screen.getByTestId('editorial-decision')).toHaveTextContent('Unknown · Unknown');
+  expect(screen.getByTestId('editorial-decision')).toHaveTextContent('Unknown (demo role, no name recorded)');
+  rerender(<Turnover state={{...state,eligible:true,wrap_approved:true,turnover:{...manifest,wrap_approved_by:{actor:'1st AD',role:'first_ad'}}}} busy={false} publish={vi.fn()}/>);
+  expect(screen.getByTestId('editorial-decision')).toHaveTextContent('1st AD (demo role, no name recorded)');
+  expect(screen.getByTestId('editorial-decision')).not.toHaveTextContent('1st AD · 1st AD');
   rerender(<Turnover state={{...state,eligible:true,wrap_approved:true,package_revision_digest:'new-evidence',turnover:manifest}} busy={false} publish={vi.fn()}/>);
   expect(screen.getByTestId('editorial-decision')).toHaveTextContent('Historical record');
   expect(screen.getByText(/Evidence has changed since this turnover/)).toBeVisible();

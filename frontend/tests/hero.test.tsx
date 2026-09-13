@@ -19,6 +19,12 @@ it('next step follows server state through checkpoint, changed evidence, approva
   expect(nextStep({...state,pending_approval:{...state.pending_approval!,evidence_changed:true}}).detail).toContain('must be declined');
   const {rerender}=render(<WorkflowNext state={state}/>);
   expect(screen.getByRole('link')).toHaveAttribute('href',expect.stringContaining('filter=approval'));
+  rerender(<WorkflowNext state={state} currentPage="scene"/>);
+  expect(screen.getByRole('link',{name:'Go to the decision'})).toHaveAttribute('href','#decision-pane');
+  rerender(<WorkflowNext state={{...state,counts:null,pending_approval:null}} currentPage="scene"/>);
+  expect(screen.queryByRole('link')).toBeNull();
+  rerender(<WorkflowNext state={state} currentPage="overview"/>);
+  expect(screen.getByRole('link',{name:'Open review workspace'})).toBeVisible();
   rerender(<WorkflowNext state={{...clear,turnover:{}}}/>);
   expect(screen.getByRole('link')).toHaveTextContent('Open turnover & receipts');
 });

@@ -1,7 +1,7 @@
 import {link,roles} from './model';
 import {uniqueBy} from './projection';
 import {turnoverIsCurrent} from './Turnover';
-import type {RunState,Scene} from './types';
+import type {Page,RunState,Scene} from './types';
 
 export function wrapHeadline(state:RunState,requiresRefresh=false) {
   if(requiresRefresh)return 'Refresh before deciding';
@@ -22,8 +22,14 @@ export function nextStep(state:RunState) {
   return {title:'Resolve the evidence gaps and review the exceptions',detail:'Use Add take or release for missing records. Select each remaining finding and record a reasoned decision in its named role. Then review wrap readiness.',page:'scene' as const};
 }
 
-export function WorkflowNext({state,scene,requiresRefresh=false,detailed=false}:{state:RunState;scene?:Scene;requiresRefresh?:boolean;detailed?:boolean}) {
+export function WorkflowNext({state,scene,requiresRefresh=false,detailed=false,currentPage}:{state:RunState;scene?:Scene;requiresRefresh?:boolean;detailed?:boolean;currentPage?:Page}) {
   const next=nextStep(state);
+  // A card that says "Open review workspace" while you are on the workspace is
+  // a second, competing call to action. When the next step lives on this page,
+  // the control points at the pane that holds it, or steps aside for the
+  // primary button already on screen.
+  const samePage=currentPage!==undefined && (next.page===currentPage || (next.page==='scene' && currentPage==='actions'));
+  const paneJump=(e:React.MouseEvent)=>{e.preventDefault();const pane=document.getElementById('decision-pane');pane?.focus({preventScroll:true});pane?.scrollIntoView({block:'start'});};
   const causes=uniqueBy(state.causes,c=>`${c.finding_id}:${c.requirement_id}:${c.reason}`);
   return <section className={'workflow-next'+(detailed?' decision-brief':' compact')} aria-label="Next step" data-testid="workflow-next">
     {detailed && <div className="decision-context"><p className="eyebrow">Before the set comes down</p><h2 data-testid="decision-headline">{wrapHeadline(state,requiresRefresh)}</h2>
@@ -38,6 +44,8 @@ export function WorkflowNext({state,scene,requiresRefresh=false,detailed=false}:
       <li data-state={requiresRefresh?'unknown':state.counts?'done':'open'}><span>1</span>Evidence<small>{requiresRefresh?'refresh first':state.needs_checkpoint?'checkpoint required':state.counts?'assessed':'not assessed'}</small></li>
       <li data-state={requiresRefresh?'unknown':state.wrap_approved?'done':state.pending_approval?.reason.kind==='wrap'?'waiting':'open'}><span>2</span>Human decision<small>{requiresRefresh?'recheck':state.wrap_approved?'1st AD approved':state.pending_approval?.reason.kind==='wrap'?'waiting for the 1st AD':'not approved'}</small></li>
       <li data-state={state.turnover?(turnoverIsCurrent(state)?'done':'historical'):'open'}><span>3</span>Turnover<small>{state.turnover?(requiresRefresh?'currency unknown':turnoverIsCurrent(state)?'saved':'historical'):'not published'}</small></li>
-    </ol>}<div className="decision-next">{detailed?<p className="eyebrow">Next step</p>:<p className="eyebrow" data-testid="decision-headline">{wrapHeadline(state,requiresRefresh)}</p>}<h2>{next.title}</h2><p>{requiresRefresh?'Refresh saved state above. Existing sources and downloads remain available for inspection.':state.turnover && !turnoverIsCurrent(state)?'Keep this historical handoff for reference. Start a new shoot-day run for a new turnover; the old record cannot approve changed evidence.':next.detail}</p></div><a className="button" href={link(next.page,state.run_id,undefined,next.page==='scene' && (state.pending_approval || state.eligible)?{filter:'approval'}:undefined)}>{next.page==='history'?'Open turnover & receipts':'Open review workspace'}</a>
+    </ol>}<div className="decision-next">{detailed?<p className="eyebrow">Next step</p>:<p className="eyebrow" data-testid="decision-headline">{wrapHeadline(state,requiresRefresh)}</p>}<h2>{next.title}</h2><p>{requiresRefresh?'Refresh saved state above. Existing sources and downloads remain available for inspection.':state.turnover && !turnoverIsCurrent(state)?'Keep this historical handoff for reference. Start a new shoot-day run for a new turnover; the old record cannot approve changed evidence.':next.detail}</p></div>{samePage
+      ? (next.page==='scene' && state.counts ? <a className="button" href="#decision-pane" onClick={paneJump}>Go to the decision</a> : null)
+      : <a className="button" href={link(next.page,state.run_id,undefined,next.page==='scene' && (state.pending_approval || state.eligible)?{filter:'approval'}:undefined)}>{next.page==='history'?'Open turnover & receipts':'Open review workspace'}</a>}
   </section>;
 }

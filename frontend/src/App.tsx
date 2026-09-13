@@ -104,7 +104,7 @@ export function App() {
           {w.busy && <div className="loading" role="status"><span className="spinner" aria-hidden="true"/>{w.progress || 'Reading the saved shoot day…'}</div>}
           {state.needs_checkpoint && <section className="warning" role="status"><h2>Fresh checkpoint required</h2><p>{state.recovery_reason}</p>{state.pending_approval?<p>Open the pending approval in Scene review and decline it before checking again.</p>:<button disabled={writesBlocked} onClick={()=>void w.act('checkpoint')}>Run fresh checkpoint</button>}</section>}
           {w.message && <p className="saved" role="status">{w.message}</p>}
-          <WorkflowNext state={state} scene={scene} requiresRefresh={w.requiresRefresh} detailed={route.page==='overview'}/>
+          <WorkflowNext state={state} scene={scene} requiresRefresh={w.requiresRefresh} detailed={route.page==='overview'} currentPage={route.page}/>
           {route.page==='overview' && <Dashboard scene={scene} state={state} session={w.session} events={w.events} busy={writesBlocked} checkpoint={()=>void w.act('checkpoint')}/>}
           {(route.page==='scene'||route.page==='records') && <>
             <WrapBoard state={state} scene={scene}/>
