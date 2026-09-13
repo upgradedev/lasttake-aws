@@ -10,6 +10,7 @@ import { UserJourneysView } from './UserJourneysView';
 import { ArchitectureView } from './ArchitectureView';
 import { GtmProductionView } from './GtmProductionView';
 import { link, pages, roles } from './model';
+import { ProductionCharts } from './ProductionCharts';
 import { useWorkspace } from './useWorkspace';
 import { readPreference, writePreference, storageNotice } from './storage';
 import type { Page, Role } from './types';
@@ -266,6 +267,7 @@ export function App() {
                     <a className="button" href={link('roi', route.run)}>Production ROI →</a>
                   </div>
                 </section>
+                <ProductionCharts scene={scene} state={state} events={events} />
               )}
 
               {w.busy && (
