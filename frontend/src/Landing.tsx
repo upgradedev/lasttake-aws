@@ -66,7 +66,7 @@ export function Landing({session,busy,page,start,onNavigate}:{session:Session|nu
           <dl className="landing-facts">
             <div><dt>Required beats</dt><dd>{preview.required_beats}</dd></div>
             <div><dt>Supplied takes</dt><dd>{preview.supplied_takes}</dd></div>
-            <div><dt>Script revision</dt><dd>{preview.revision}</dd></div>
+            <div><dt>Script revision</dt><dd className="fact-id">{preview.revision}</dd></div>
           </dl>
           <ol className="landing-script" aria-label="Opening beats of the lined script">
             {preview.opening_beats.map(b=><li key={b.beat_id}><span className="page-line">{b.page}:{b.line}</span><span>{b.slug}</span></li>)}
@@ -86,7 +86,7 @@ export function Landing({session,busy,page,start,onNavigate}:{session:Session|nu
           <li><strong>Human decision.</strong> The script supervisor and the DIT review each exception in their own role. Only the 1st AD can approve a pickup or the wrap, and the run waits for them across a real process boundary: it can be approved the next morning, in a different process, from the session saved on S3.</li>
           <li><strong>Turnover.</strong> After the approval, a sealed manifest and a portable receipt go to editorial with every accepted exception still on them.</li>
         </ol>
-        <p className="fine">Built on the Strands Agents SDK on AWS Lambda, with Aurora DSQL, S3 and EventBridge. A scripted planner and an offline lexical interpreter on this public deployment; no footage or audio is analysed and nothing is cleared in law. <a href={link('architecture',newest?.run_id)} onClick={go('architecture',newest?.run_id)}>What is deployed</a>.</p>
+        <p className="fine">Built on the Strands Agents SDK on AWS Lambda, with Aurora DSQL, S3 and EventBridge. This public deployment uses a scripted planner and an offline lexical interpreter; no footage or audio is analysed and nothing is cleared in law. <a href={link('architecture',newest?.run_id)} onClick={go('architecture',newest?.run_id)}>What is deployed</a>.</p>
       </article>
     </div>
   </section>;

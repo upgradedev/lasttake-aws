@@ -1,8 +1,8 @@
 import {describe,it,expect} from 'vitest';
 import {aboutBeat,link,readRoute} from '../src/model';
-import {beatMatches,beatsFor,count,exceptions,metrics,recentEvents,reviewLabel,selectEvidence,uniqueBy} from '../src/projection';
+import {beatMatches,beatsFor,count,exceptions,hasApprovedPickup,metrics,recentEvents,reviewLabel,selectEvidence,uniqueBy} from '../src/projection';
 import {finding,scene,state,take} from './fixtures';
-import type {Decision,Finding} from '../src/types';
+import type {Decision,Delivery,Finding} from '../src/types';
 
 describe('current-scene projections',()=>{
   it('rejects absent, non-finite and invalid counts while preserving observed zero',()=>{
@@ -28,7 +28,7 @@ describe('current-scene projections',()=>{
     expect(approval(state)).toBe('Not approved');
     expect(approval({...state,pending_approval:pending})).toBe('Pending 1st AD');
     expect(approval({...state,pending_approval:{...pending,evidence_changed:true}})).toBe('Needs new review');
-    expect(approval({...state,wrap_approved:true})).toBe('Recorded');
+    expect(approval({...state,wrap_approved:true})).toBe('Approved');
     expect(metrics(scene,{...state,eligible:true}).find(m=>m.id==='eligibility')?.value).toBe('Eligible');
     expect(metrics(scene,state).find(m=>m.id==='eligibility')?.value).toBe('Blocked');
   });
@@ -75,6 +75,36 @@ describe('current-scene projections',()=>{
     const decided={...state,decisions:[{...d,finding_sha256:finding.record_sha256}]};
     expect(reviewLabel(finding,decided)).toBe('Decision recorded · exception retained');
     expect(metrics(scene,decided).find(m=>m.id==='exceptions')?.value).toBe('3');
+  });
+  it('names a finding with no requirement id as an advisory the gate never counts',()=>{
+    const advisory=state.exceptions[2];
+    expect(advisory.requirement_id).toBeNull();
+    expect(reviewLabel(advisory,state)).toBe('Advisory, not a wrap blocker');
+    // policy.py skips only a missing requirement id; an empty one still gates.
+    expect(reviewLabel({...advisory,requirement_id:''},state)).toBe('Needs review');
+    const d:Decision={decision_id:'d2',finding_id:advisory.finding_id,action:'confirm',actor:'Sue',role:advisory.required_role,reason:'Seen',finding_sha256:advisory.record_sha256,at:'date'};
+    expect(reviewLabel(advisory,{...state,decisions:[d]})).toBe('Decision recorded · exception retained');
+    expect(reviewLabel(advisory,{...state,decisions:[{...d,finding_sha256:'old'}]})).toBe('Review changed evidence');
+  });
+  it('finds an approved pickup only on its coverage beat and only once the bus accepted it',()=>{
+    const gap:Finding={...finding,finding_id:'f-b17',check_type:'coverage',requirement_id:'B-17',truth_state:'missing'};
+    const base:Delivery={idempotency_key:'pickup-1',event_type:'pickup.requested',status:'accepted',accepted:true,reference:'receipt-1',detail:'Bus accepted',retry_supported:true};
+    const row=(payload:unknown,patch:Partial<Delivery>={}):Delivery=>Object.assign({},base,patch,{payload});
+    const saved=(...rows:Delivery[])=>({...state,delivery_outcomes:rows});
+    expect(hasApprovedPickup(gap,saved(row({beat_id:'B-17'})))).toBe(true);
+    expect(hasApprovedPickup(gap,saved(row({beat_id:'B-01'}),row({beat_id:'B-17'})))).toBe(true);
+    expect(hasApprovedPickup(gap,state)).toBe(false);
+    expect(hasApprovedPickup(gap,saved())).toBe(false);
+    for(const status of ['pending','unknown','rejected'])expect(hasApprovedPickup(gap,saved(row({beat_id:'B-17'},{status,accepted:false})))).toBe(false);
+    expect(hasApprovedPickup(gap,saved(row({beat_id:'B-17'},{accepted:false})))).toBe(false);
+    expect(hasApprovedPickup(gap,saved(row({beat_id:'B-17'},{event_type:'wrap.ready'})))).toBe(false);
+    for(const payload of [undefined,null,'B-17',{},{beat_id:'B-01'},{beat_id:17}])expect(hasApprovedPickup(gap,saved(row(payload)))).toBe(false);
+    const withPickup=saved(row({beat_id:'B-17'}));
+    expect(hasApprovedPickup({...gap,check_type:'rights'},withPickup)).toBe(false);
+    expect(hasApprovedPickup({...gap,requirement_id:null},withPickup)).toBe(false);
+    expect(hasApprovedPickup({...gap,requirement_id:''},saved(row({beat_id:''})))).toBe(false);
+    // The pickup is shown beside the review state; it never answers the review.
+    expect(reviewLabel(gap,withPickup)).toBe('Needs review');
   });
   it('sorts unique events without mutating source order or inventing dates',()=>{
     const events=[{event_id:'b',event_type:'take.captured',occurred_at:'2026-09-08T01:00:00Z',payload:{}},{event_id:'c',event_type:'x',occurred_at:'2026-09-09T01:00:00Z',payload:{}},{event_id:'a',event_type:'x',occurred_at:'2026-09-09T01:00:00Z',payload:{}}];

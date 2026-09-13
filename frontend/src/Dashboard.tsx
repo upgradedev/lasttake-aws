@@ -127,7 +127,7 @@ export function Dashboard({
         <summary>Advanced: observed session outcomes</summary>
         <h2>Observed session outcomes</h2>
         <p>
-          {session?.runs.length ?? 0} saved runs on the loaded history page; {session?.runs.filter(r => r.checked).length ?? 0} with findings; {session?.runs.filter(r => r.wrap_approved).length ?? 0} currently wrap-approved; {session?.runs.filter(r => r.turnover_published).length ?? 0} with a stored turnover. These are page counts, not session totals. Open History to load older runs.
+          {session?.runs.length ?? 0} {session?.runs.length === 1 ? 'saved run' : 'saved runs'} on the loaded Handoff page; {session?.runs.filter(r => r.checked).length ?? 0} with findings; {session?.runs.filter(r => r.wrap_approved).length ?? 0} currently wrap-approved; {session?.runs.filter(r => r.turnover_published).length ?? 0} with a stored turnover. These are page counts, not session totals. Open Handoff to load older runs.
         </p>
         <p>
           Selected run: {state.decisions.length} recorded decisions, including {state.decisions.length - new Set(state.decisions.map(d => d.finding_id)).size} later decisions on previously reviewed findings. Storage is not downstream delivery.

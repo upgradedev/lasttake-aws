@@ -1,7 +1,7 @@
 import {it,expect,vi} from 'vitest';
 import {fireEvent,render,screen,within} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import {WorkflowNext,wrapHeadline} from '../src/WorkflowNext';
+import {nextStep,WorkflowNext,wrapHeadline} from '../src/WorkflowNext';
 import {ApprovalConsole} from '../src/Actions';
 import {Turnover} from '../src/Turnover';
 import {link} from '../src/model';
@@ -110,4 +110,74 @@ it('missing manifest fields remain unknown and historical records remain inspect
   expect(screen.getByRole('button',{name:'Download turnover'})).toBeEnabled();
   fireEvent.click(screen.getByText('Source fingerprints'));
   expect(screen.getByText(state.package_revision_digest)).toBeVisible();
+});
+
+it('a historical turnover never reads as eligible or ready for editorial, and leads to a fresh run',async()=>{
+  const user=userEvent.setup(),onNewRun=vi.fn();
+  const published={...state,pending_approval:null,eligible:true,wrap_approved:true,turnover:{package_revision_digest:state.package_revision_digest}};
+  const changed={...published,wrap_approved:false,package_revision_digest:'new-evidence'};
+  expect(wrapHeadline(changed)).toBe('Evidence changed after this turnover');
+  expect(wrapHeadline({...published,turnover_current:false})).toBe('This turnover is out of date');
+  // A manifest that records no package fingerprint is out of date; it is never
+  // described as changed evidence.
+  expect(wrapHeadline({...published,turnover:{}})).toBe('This turnover is out of date');
+  expect(wrapHeadline(changed,true)).toBe('Refresh before deciding');
+  expect(wrapHeadline(published)).toBe('Human wrap approval recorded');
+  const {rerender}=render(<WorkflowNext state={changed} currentPage="history" onNewRun={onNewRun}/>);
+  const card=screen.getByTestId('workflow-next');
+  expect(screen.getByTestId('decision-headline')).toHaveTextContent('Evidence changed after this turnover');
+  expect(card).not.toHaveTextContent('Eligible for a human wrap decision');
+  expect(card).not.toHaveTextContent('Read the turnover before handing it to editorial');
+  expect(screen.getByRole('heading',{name:'This turnover is historical: start a fresh run'})).toBeVisible();
+  expect(card).toHaveTextContent('Keep this historical handoff for reference. Start a new shoot-day run for a new turnover; the old record cannot approve changed evidence.');
+  const fresh=screen.getByRole('button',{name:'Start a fresh shoot-day run'});
+  expect(fresh).toHaveClass('primary');expect(fresh).toBeEnabled();
+  await user.click(fresh);expect(onNewRun).toHaveBeenCalledOnce();
+  expect(screen.queryByRole('link')).toBeNull();
+  rerender(<WorkflowNext state={changed} detailed onNewRun={onNewRun} newRunDisabled/>);
+  expect(screen.getByTestId('decision-headline')).toHaveTextContent('Evidence changed after this turnover');
+  expect(screen.getByTestId('workflow-next')).not.toHaveTextContent('Eligible for a human wrap decision');
+  expect(screen.getByTestId('workflow-next')).not.toHaveTextContent('Read the turnover before handing it to editorial');
+  expect(screen.getByRole('button',{name:'Start a fresh shoot-day run'})).toBeDisabled();
+  expect(screen.getByRole('link',{name:'Open turnover & receipts'})).toBeVisible();
+  rerender(<WorkflowNext state={changed} currentPage="history"/>);
+  expect(screen.queryByRole('button')).toBeNull();
+  rerender(<WorkflowNext state={published} currentPage="history" onNewRun={onNewRun}/>);
+  expect(screen.queryByRole('button',{name:'Start a fresh shoot-day run'})).toBeNull();
+  expect(screen.getByRole('heading',{name:'Read the turnover before handing it to editorial'})).toBeVisible();
+  rerender(<Turnover state={{...changed,turnover:manifest}} busy={false} publish={vi.fn()}/>);
+  expect(screen.getByText('A sealed turnover is kept for this run, but it is out of date.')).toHaveClass('sealed-historical');
+  expect(screen.queryByText('A sealed turnover is saved for this run.')).toBeNull();
+  rerender(<Turnover state={{...published,turnover:manifest}} busy={false} publish={vi.fn()}/>);
+  expect(screen.getByText('A sealed turnover is saved for this run.')).toHaveClass('verified-text');
+  expect(screen.queryByText('A sealed turnover is kept for this run, but it is out of date.')).toBeNull();
+});
+
+it('scopes the compact stage rail to the wrap decision',()=>{
+  render(<WorkflowNext state={state}/>);
+  const rail=screen.getByRole('list',{name:'Stages'});
+  expect(rail).toHaveTextContent('2Wrap decisionnot approved');
+  expect(rail).not.toHaveTextContent('Human decision');
+});
+
+it('a historical turnover never hides a waiting request or a required checkpoint',()=>{
+  const onNewRun=vi.fn();
+  const historical={...state,pending_approval:null,eligible:true,wrap_approved:false,turnover:{package_revision_digest:'old'}};
+  expect(nextStep(historical).title).toBe('This turnover is historical: start a fresh run');
+  const waiting={...historical,pending_approval:{id:'renewed-wrap',reason:{kind:'wrap' as const,required_role:'first_ad' as const,note:'Renewed request'}}};
+  expect(nextStep(waiting).title).toBe('Review the saved wrap request');
+  expect(wrapHeadline(waiting)).toBe('Evidence changed after this turnover');
+  const {rerender}=render(<WorkflowNext state={waiting} currentPage="history" onNewRun={onNewRun}/>);
+  expect(screen.getByRole('heading',{name:'Review the saved wrap request'})).toBeVisible();
+  expect(screen.getByTestId('decision-headline')).toHaveTextContent('Evidence changed after this turnover');
+  expect(screen.queryByRole('button',{name:'Start a fresh shoot-day run'})).toBeNull();
+  expect(screen.queryByRole('heading',{name:'This turnover is historical: start a fresh run'})).toBeNull();
+  const checkpoint={...historical,needs_checkpoint:true};
+  expect(wrapHeadline(checkpoint)).toBe('Evidence needs a fresh checkpoint');
+  expect(nextStep(checkpoint).title).toBe('Start with the wrap checkpoint');
+  rerender(<WorkflowNext state={checkpoint} currentPage="history" onNewRun={onNewRun}/>);
+  expect(screen.getByTestId('decision-headline')).toHaveTextContent('Evidence needs a fresh checkpoint');
+  expect(screen.getByRole('heading',{name:'Start with the wrap checkpoint'})).toBeVisible();
+  expect(screen.queryByRole('button',{name:'Start a fresh shoot-day run'})).toBeNull();
+  expect(onNewRun).not.toHaveBeenCalled();
 });

@@ -9,6 +9,7 @@ import {Evidence} from '../src/Inspector';
 import {ApprovalConsole} from '../src/Actions';
 import {link} from '../src/model';
 import {finding,scene,state,session,take} from './fixtures';
+import type {Delivery,Finding} from '../src/types';
 
 const save=()=>vi.fn().mockResolvedValue(true);
 function api(current=state){
@@ -76,6 +77,19 @@ describe('source inspector and scene mapping',()=>{
     rerender(<Evidence scene={scene} finding={{...finding,locators:[{kind:'take',value:take.take_id},{kind:'page',value:'44'}]}}/>);
     expect(screen.getByText(take.take_id)).toBeInTheDocument();
   });
+  it('shows a standing decision in the Records finding and release inspectors',()=>{
+    const decision={decision_id:'d',finding_id:finding.finding_id,action:'accept_exception',actor:'Sue',role:'script_supervisor' as const,reason:'Intent',finding_sha256:finding.record_sha256,at:'date'};
+    const inspector=()=>within(screen.getByRole('region',{name:'Record inspector'}));
+    const {rerender}=render(<Records scene={scene} state={{...state,decisions:[decision]}} selection={{filter:'findings',record:finding.finding_id}}/>);
+    expect(inspector().getByText(/accept exception by Sue \(Script supervisor\)\. The finding stays on the turnover\./)).toBeVisible();
+    expect(inspector().queryByText('Next action:')).toBeNull();
+    // A confirmation leaves the rights finding blocking wrap, so its next action stays beside the decision.
+    const rights=state.exceptions[1];
+    const confirmed={...decision,decision_id:'r',finding_id:rights.finding_id,action:'confirm',role:'production_coordinator' as const,finding_sha256:rights.record_sha256};
+    rerender(<Records scene={scene} state={{...state,decisions:[confirmed]}} selection={{filter:'releases',record:'BG-07'}}/>);
+    expect(inspector().getByText(/confirm by Sue \(Production coordinator\)/)).toBeVisible();
+    expect(inspector().getByText('Get the signature.')).toBeVisible();
+  });
   it('distinguishes ledger execution flags from current rights findings and expired records',()=>{
     const rights={...state.exceptions[1],observation:'REL-1 expired on 2026-08-01'};
     const {rerender}=render(<Records scene={scene} state={{...state,exceptions:[rights]}} selection={{filter:'releases',record:'BG-07'}}/>);
@@ -102,10 +116,126 @@ describe('source inspector and scene mapping',()=>{
     location.hash=link('scene',state.run_id,'B-01');
     const user=userEvent.setup();
     render(<SceneView scene={scene} state={state} selected="B-01" selection={{filter:'covered'}} act={save()}/>);
-    await user.click(screen.getByRole('link',{name:'02 Evidence'}));expect(document.getElementById('evidence-pane')).toHaveFocus();expect(location.hash).toContain('beat=B-01');
+    // Only the workflow stage rail is numbered; the pane jumps and pane headings are plain names.
+    expect(Array.from(document.querySelectorAll('.workspace-jumps a'),a=>a.textContent)).toEqual(['Script & takes','Evidence','Decision']);
+    expect(Array.from(document.querySelectorAll('.pane-heading'),heading=>heading.textContent)).toEqual(['Scene & script beats','Discrepancy & sources','Human decision']);
+    expect(screen.getByRole('searchbox')).toHaveAttribute('placeholder','Beat, text or page');
+    await user.click(screen.getByRole('link',{name:'Evidence'}));expect(document.getElementById('evidence-pane')).toHaveFocus();expect(location.hash).toContain('beat=B-01');
     expect(document.getElementById('evidence-pane')!.scrollIntoView).toHaveBeenCalledWith({block:'start'});
     await user.selectOptions(screen.getByLabelText('Show'),'missing-releases');
     expect(location.hash).toContain('filter=missing-releases');
+  });
+  it('asks for the checkpoint before any finding exists and colours the wrap status by state',()=>{
+    const status=()=>within(screen.getByTestId('wrap-status'));
+    const {rerender}=render(<SceneView scene={scene} state={{...state,counts:null,pending_approval:null}} selected={null} act={save()}/>);
+    expect(screen.getByText('Run the wrap checkpoint first. Findings to review will appear here.')).toBeVisible();
+    expect(screen.queryByText(/Select a current finding/)).toBeNull();
+    expect(status().getByText('Not assessed')).toHaveClass('state-warn');
+    expect(status().getByText('Not approved')).toHaveClass('state-warn');
+    rerender(<SceneView scene={scene} state={state} selected="B-17" act={save()}/>);
+    expect(screen.getByText('Select a current finding to review its decision. Approval controls remain separate below.')).toBeVisible();
+    expect(screen.queryByText(/Run the wrap checkpoint first/)).toBeNull();
+    expect(status().getByText('Blocked')).toHaveClass('state-warn');
+    expect(status().getByText('Blocked')).not.toHaveClass('state-good');
+    rerender(<SceneView scene={scene} state={{...state,eligible:true,wrap_approved:true,pending_approval:null}} selected="B-17" act={save()}/>);
+    expect(status().getByText('Eligible')).toHaveClass('state-good');
+    expect(status().getByText('Approved')).toHaveClass('state-good');
+    expect(status().queryByText('Recorded')).toBeNull();
+    expect(screen.getByText('Select a current finding to review its decision.')).toBeVisible();
+  });
+  it('leads with the approved wrap result, folds the record id and replaces a decided next action',()=>{
+    const decision={decision_id:'d',finding_id:finding.finding_id,action:'accept_exception',actor:'Sue',role:'script_supervisor' as const,reason:'Intent',finding_sha256:finding.record_sha256,at:'date'};
+    const approvals=()=>screen.getByRole('region',{name:'Pickup & wrap approvals'});
+    const card=()=>screen.getByRole('article',{name:'continuity CR-01'});
+    const {rerender}=render(<SceneView scene={scene} state={state} selected={null} selection={{finding:'f-con'}} role="first_ad" act={save()}/>);
+    expect(card().compareDocumentPosition(approvals()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const id=within(card()).getByText(finding.finding_id);
+    expect(id.closest('details')).not.toHaveAttribute('open');
+    expect(id.closest('details')?.querySelector('summary')).toHaveTextContent('Record id');
+    expect(screen.getByText('Write the intent down.')).toBeVisible();
+    rerender(<SceneView scene={scene} state={{...state,eligible:true,wrap_approved:true,pending_approval:null,decisions:[decision]}} selected={null} selection={{finding:'f-con'}} role="first_ad" act={save()}/>);
+    expect(approvals().compareDocumentPosition(card()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getAllByRole('region',{name:'Pickup & wrap approvals'})).toHaveLength(1);
+    // Rendered by the evidence pane's Evidence; the compact decision card has no Evidence.
+    expect(screen.getByText(/accept exception by Sue \(Script supervisor\)\. The finding stays on the turnover\./)).toBeVisible();
+    expect(screen.queryByText('Write the intent down.')).toBeNull();
+  });
+  it('replaces the next action only with a decision that still applies to the exact finding',()=>{
+    const decision={decision_id:'d',finding_id:finding.finding_id,action:'reject_false_positive',actor:'Sue',role:'script_supervisor' as const,reason:'Intent',finding_sha256:finding.record_sha256,at:'date'};
+    const {rerender}=render(<Evidence scene={scene} finding={finding} decisions={[decision]}/>);
+    expect(screen.getByText('Decision on record:')).toBeVisible();
+    expect(screen.getByText(/reject false positive by Sue \(Script supervisor\)/)).toBeVisible();
+    expect(screen.queryByText('Next action:')).toBeNull();
+    rerender(<Evidence scene={scene} finding={finding} decisions={[{...decision,finding_sha256:'old'}]}/>);
+    expect(screen.getByText('Write the intent down.')).toBeVisible();
+    expect(screen.queryByText('Decision on record:')).toBeNull();
+    rerender(<Evidence scene={scene} finding={finding} decisions={[{...decision,role:'dit'}]}/>);
+    expect(screen.getByText('Write the intent down.')).toBeVisible();
+    rerender(<Evidence scene={scene} finding={finding}/>);
+    expect(screen.getByText('Next action:')).toBeVisible();
+    expect(screen.queryByText('Decision on record:')).toBeNull();
+    // policy.py keeps a confirmed finding blocking wrap, so its next action stays beside the decision.
+    rerender(<Evidence scene={scene} finding={finding} decisions={[{...decision,action:'confirm'}]}/>);
+    expect(screen.getByText('Decision on record:')).toBeVisible();
+    expect(screen.getByText(/confirm by Sue \(Script supervisor\)/)).toBeVisible();
+    expect(screen.getByText('Next action:')).toBeVisible();
+    expect(screen.getByText('Write the intent down.')).toBeVisible();
+    // An acceptance closes the finding only for a role allowed to accept that check.
+    const rights={...finding,check_type:'rights' as const,required_role:'production_coordinator' as const};
+    rerender(<Evidence scene={scene} finding={rights} decisions={[{...decision,action:'accept_exception',role:'production_coordinator'}]}/>);
+    expect(screen.getByText(/accept exception by Sue \(Production coordinator\)/)).toBeVisible();
+    expect(screen.getByText('Write the intent down.')).toBeVisible();
+    rerender(<Evidence scene={scene} finding={finding} decisions={[{...decision,action:'accept_exception'}]}/>);
+    expect(screen.getByText(/accept exception by Sue \(Script supervisor\)/)).toBeVisible();
+    expect(screen.queryByText('Next action:')).toBeNull();
+  });
+  it('carries an accepted pickup onto its gap row and marks the advisory as outside the gate',()=>{
+    const gap:Finding={...finding,finding_id:'f-b17',check_type:'coverage',requirement_id:'B-17',truth_state:'missing',next_action:'Shoot the pickup.'};
+    const base:Delivery={idempotency_key:'pickup-1',event_type:'pickup.requested',status:'accepted',accepted:true,reference:'receipt-1',detail:'Bus accepted',retry_supported:true};
+    const pickup:Delivery=Object.assign({},base,{payload:{beat_id:'B-17'}});
+    const {rerender}=render(<SceneView scene={scene} state={{...state,exceptions:[...state.exceptions,gap],delivery_outcomes:[pickup],pending_approval:null}} selected={null}/>);
+    const row=screen.getByRole('link',{name:/coverage · B-17/});
+    expect(row).toHaveTextContent('missing · Needs review');
+    expect(row).toHaveTextContent('Pickup approved · stays an exception until a take arrives');
+    expect(screen.getAllByText('Pickup approved · stays an exception until a take arrives')).toHaveLength(1);
+    expect(screen.getByRole('link',{name:/coverage · Shot plan advisory/})).toHaveTextContent('unknown · Advisory, not a wrap blocker');
+    expect(screen.getByRole('link',{name:/continuity · CR-01/})).toHaveTextContent('conflicting · Needs review');
+    rerender(<SceneView scene={scene} state={{...state,exceptions:[...state.exceptions,gap],delivery_outcomes:[{...pickup,status:'pending',accepted:false}],pending_approval:null}} selected={null}/>);
+    expect(screen.queryByText(/Pickup approved/)).toBeNull();
+  });
+  it('points an approved wrap at the handoff and keeps readiness review in every other state',()=>{
+    const stages=()=>screen.getByRole('list',{name:'Wrap decision stages'});
+    const {rerender}=render(<ApprovalConsole state={{...state,eligible:true,wrap_approved:true,pending_approval:null}} role="first_ad" busy={false} act={save()}/>);
+    expect(screen.getByRole('link',{name:'Publish the approved turnover next'})).toHaveAttribute('href',link('history',state.run_id));
+    expect(screen.queryByRole('button',{name:'Review wrap readiness'})).toBeNull();
+    expect(screen.queryByText(/Only the 1st AD can approve wrap/)).toBeNull();
+    expect(stages().tagName).toBe('UL');
+    expect(stages()).toHaveTextContent('Wrap approved');
+    expect(stages()).not.toHaveTextContent(/0[123]/);
+    rerender(<ApprovalConsole state={{...state,eligible:true,wrap_approved:true,pending_approval:null,turnover:{}}} role="editorial" busy={false} act={save()}/>);
+    expect(screen.getByRole('link',{name:'Read the saved turnover'})).toHaveAttribute('href',link('history',state.run_id));
+    expect(screen.queryByRole('link',{name:'Publish the approved turnover next'})).toBeNull();
+    rerender(<ApprovalConsole state={{...state,eligible:true,wrap_approved:true,pending_approval:{id:'renewed',reason:{kind:'wrap',required_role:'first_ad',note:'Renewed request'}}}} role="first_ad" busy={false} act={save()}/>);
+    expect(screen.getByRole('button',{name:'Review wrap readiness'})).toBeEnabled();
+    expect(screen.queryByRole('link',{name:/turnover/})).toBeNull();
+    rerender(<ApprovalConsole state={{...state,eligible:true,pending_approval:null}} role="first_ad" busy={false} act={save()}/>);
+    expect(screen.getByRole('button',{name:'Review wrap readiness'})).toBeEnabled();
+    expect(screen.getByText('The evidence gate reports eligible. Only the 1st AD can approve wrap.')).toBeVisible();
+    expect(stages()).toHaveTextContent('Wrap not approved');
+    expect(screen.queryByRole('link',{name:/turnover/})).toBeNull();
+    rerender(<ApprovalConsole state={{...state,counts:null,pending_approval:null}} role="first_ad" busy={false} act={save()}/>);
+    expect(screen.getByRole('button',{name:'Review wrap readiness'})).toBeDisabled();
+    expect(screen.getByText('Run a checkpoint first to assess readiness.')).toBeVisible();
+    // Turnover.tsx refuses to publish without current eligibility, so an approval
+    // with a blocked or missing assessment gets no handoff link.
+    rerender(<ApprovalConsole state={{...state,wrap_approved:true,pending_approval:null}} role="first_ad" busy={false} act={save()}/>);
+    expect(screen.getByRole('button',{name:'Review wrap readiness'})).toBeEnabled();
+    expect(screen.getByText(/prevent wrap eligibility/)).toHaveClass('warning');
+    expect(screen.queryByRole('link',{name:/turnover/})).toBeNull();
+    rerender(<ApprovalConsole state={{...state,exceptions:[],counts:null,pending_approval:null,wrap_approved:true}} role="editorial" busy={false} act={save()}/>);
+    expect(screen.getByRole('button',{name:'Review wrap readiness'})).toBeDisabled();
+    expect(screen.getByText('Run a checkpoint first to assess readiness.')).toBeVisible();
+    expect(screen.queryByRole('link',{name:/turnover/})).toBeNull();
   });
 });
 describe('route focus and snapshot integrity',()=>{

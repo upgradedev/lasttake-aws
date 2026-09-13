@@ -1,7 +1,9 @@
 import {it,expect,vi} from 'vitest';
-import {act,render,renderHook,screen,waitFor} from '@testing-library/react';
+import {act,render,renderHook,screen,waitFor,within} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import {Dashboard} from '../src/Dashboard';
 import {History} from '../src/History';
+import {Landing} from '../src/Landing';
 import {useWorkspace} from '../src/useWorkspace';
 import {scene,session,state} from './fixtures';
 
@@ -33,6 +35,69 @@ it('history controls retain page context, bound loading and label errors without
   expect(refresh).toHaveBeenCalledOnce();
   rerender(<History {...props} session={older}/>);
   expect(screen.getByRole('button',{name:'Load older runs'})).toBeDisabled();
+});
+
+it('names each saved run by its scene, counts a single run in the singular and marks the receipt toolbar',()=>{
+  const props={state,session,events:[],role:'dit' as const,busy:false,act:vi.fn(),handle:vi.fn()};
+  const {rerender}=render(<History {...props}/>);
+  expect(screen.getByText('1 run on this page',{exact:true})).toBeVisible();
+  expect(screen.getByText(/^SC-042 · /,{selector:'.run-list a'})).toHaveAttribute('href',`#history?run=${state.run_id}`);
+  expect(screen.queryByText(/Scene 42/)).not.toBeInTheDocument();
+  expect(screen.getByLabelText('Receipt purpose').closest('.toolbar')).toHaveClass('receipt-toolbar');
+  rerender(<History {...props} session={{...session,runs:[...session.runs,{...session.runs[0],run_id:'demo-second'}],has_more:true}}/>);
+  expect(screen.getByText('2 runs on this page · older runs available',{exact:true})).toBeVisible();
+  expect(screen.getAllByText(/^SC-042 · /,{selector:'.run-list a'})).toHaveLength(2);
+});
+
+it('groups consecutive events of one type on the current page and keeps every event reachable',async()=>{
+  // Oldest first: 7 findings, a take, 13 findings, wrap ready, turnover. Newest
+  // first that pages as 20 events (a burst of 13 and a tail of 4) and then 3.
+  const kinds=[...Array.from({length:7},()=>'finding.recorded'),'take.captured',...Array.from({length:13},()=>'finding.recorded'),'wrap.ready','turnover.generated'];
+  const events=kinds.map((event_type,i)=>({event_id:`event-${i}`,event_type,occurred_at:new Date(Date.UTC(2026,8,13,16,26,i)).toISOString(),payload:{index:i}}));
+  const user=userEvent.setup();
+  render(<History state={state} session={session} events={events} role="dit" busy={false} act={vi.fn()} handle={vi.fn()}/>);
+  const region=screen.getByRole('region',{name:'Recorded events'});
+  const record=within(region);
+  expect(record.getByRole('status')).toHaveTextContent('Events 1–20 of 23');
+  const rows=record.getAllByRole('listitem');
+  expect(rows.map(row=>row.querySelector('strong')?.textContent)).toEqual(['turnover generated','wrap ready','finding recorded ×13','take captured','finding recorded ×4']);
+  expect(region.querySelectorAll('#event-timeline [data-event-id]')).toHaveLength(20);
+  const burst=rows[2];
+  expect(burst.querySelector('time')).toHaveAttribute('datetime',events[20].occurred_at);
+  expect(Array.from(burst.querySelectorAll('[data-event-id]'),entry=>entry.getAttribute('data-event-id'))).toEqual(Array.from({length:13},(_,i)=>`event-${20-i}`));
+  const list=within(burst).getByText('List the 13 events',{exact:true});
+  expect(list.closest('details')).not.toHaveAttribute('open');
+  expect(within(burst).getAllByText('Event details')[0]).not.toBeVisible();
+  await user.click(list);
+  expect(list.closest('details')).toHaveAttribute('open');
+  expect(within(burst).getAllByText('Event details')).toHaveLength(13);
+  expect(within(burst).getAllByText('Event details')[12]).toBeVisible();
+  expect(within(rows[0]).getByText('Event details')).toBeVisible();
+  await user.click(record.getByRole('button',{name:'Older events'}));
+  expect(record.getByRole('status')).toHaveTextContent('Events 21–23 of 23');
+  expect(record.getAllByRole('listitem')).toHaveLength(1);
+  expect(record.getAllByRole('listitem')[0].querySelector('strong')).toHaveTextContent('finding recorded ×3');
+  expect(region.querySelectorAll('#event-timeline [data-event-id]')).toHaveLength(3);
+  await user.click(record.getByRole('button',{name:'Newer events'}));
+  expect(record.getAllByRole('listitem')).toHaveLength(5);
+});
+
+it('overview names the Handoff page where saved runs load, in the singular for one run',()=>{
+  const {rerender}=render(<Dashboard scene={scene} state={state} session={session} events={[]} busy={false} checkpoint={vi.fn()}/>);
+  expect(screen.getByText(/^1 saved run on the loaded Handoff page; 1 with findings;/)).toBeInTheDocument();
+  expect(screen.getByText(/Open Handoff to load older runs\./)).toBeInTheDocument();
+  expect(screen.queryByText(/history page|Open History/)).not.toBeInTheDocument();
+  rerender(<Dashboard scene={scene} state={state} session={null} events={[]} busy={false} checkpoint={vi.fn()}/>);
+  expect(screen.getByText(/^0 saved runs on the loaded Handoff page;/)).toBeInTheDocument();
+});
+
+it('landing keeps the script revision as one identifier and states the public deployment in a full sentence',async()=>{
+  const preview={schema:'lasttake/scene-preview/v1',production_id:scene.production_id,scene_id:scene.scene_id,scene_heading:scene.scene_heading,revision:scene.revision,required_beats:34,optional_beats:2,supplied_takes:40,opening_beats:[{beat_id:'B-01',page:'41',line:3,slug:'Mara at the window'}],synthetic_notice:'Fictional production.'};
+  vi.stubGlobal('fetch',vi.fn(async()=>new Response(JSON.stringify(preview),{status:200,headers:{'Content-Type':'application/json'}})));
+  render(<Landing session={session} busy={false} page="overview" start={vi.fn()}/>);
+  expect(await screen.findByText('Blue-2026-08-19',{exact:true})).toHaveClass('fact-id');
+  expect(screen.getByText(/This public deployment uses a scripted planner and an offline lexical interpreter; no footage or audio is analysed and nothing is cleared in law\./)).toBeVisible();
+  expect(document.body.textContent).not.toContain('A scripted planner and an offline lexical interpreter on this public deployment');
 });
 
 it('loads one page only on request, replaces rather than accumulates it, and preserves selected run',async()=>{

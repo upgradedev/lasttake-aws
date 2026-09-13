@@ -1,8 +1,8 @@
 import {it,expect,vi} from 'vitest';
-import {fireEvent,render,screen,waitFor} from '@testing-library/react';
+import {fireEvent,render,screen,waitFor,within} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {nextStep,WorkflowNext} from '../src/WorkflowNext';
-import {CopyText,turnoverIsCurrent,turnoverSummary,Turnover} from '../src/Turnover';
+import {CopyText,revisionLabel,staleTurnoverCause,turnoverEvidenceChanged,turnoverIsCurrent,turnoverSummary,Turnover} from '../src/Turnover';
 import {parseEvidenceDocument,readEvidenceFile,EVIDENCE_FILE_LIMIT} from '../src/evidenceFile';
 import {Intake} from '../src/Intake';
 import {History} from '../src/History';
@@ -13,9 +13,15 @@ it('next step follows server state through checkpoint, changed evidence, approva
   expect(nextStep({...clear,counts:null}).title).toContain('checkpoint');
   expect(nextStep({...clear,needs_checkpoint:true}).title).toContain('checkpoint');
   expect(nextStep(clear).title).toContain('evidence gaps');
+  // The blocked card's own control is "Go to the decision", so its instruction
+  // starts with what happens in the decision pane.
+  expect(nextStep(clear).detail).toBe('Select each remaining finding in the decision pane and record a reasoned decision in its named role. Missing records go in through Add take or release. Then review wrap readiness.');
   expect(nextStep({...clear,eligible:true}).title).toContain('separate wrap decision');
   expect(nextStep({...clear,eligible:true,wrap_approved:true}).page).toBe('history');
-  expect(nextStep({...clear,turnover:{}}).title).toContain('Read the turnover');
+  const published={...clear,eligible:true,wrap_approved:true,turnover:{package_revision_digest:state.package_revision_digest}};
+  expect(nextStep(published).title).toContain('Read the turnover');
+  expect(nextStep({...clear,turnover:{}}).title).toContain('This turnover is historical: start a fresh run');
+  expect(nextStep({...clear,turnover:{}}).title).not.toContain('Read the turnover');
   expect(nextStep({...state,pending_approval:{...state.pending_approval!,evidence_changed:true}}).detail).toContain('must be declined');
   const {rerender}=render(<WorkflowNext state={state}/>);
   expect(screen.getByRole('link')).toHaveAttribute('href',expect.stringContaining('filter=approval'));
@@ -121,4 +127,95 @@ it('a refreshed decision labels an already prepared receipt historical without o
   rerender(<History {...props} state={{...state,package_revision_digest:'changed'}}/>);
   await waitFor(()=>expect(screen.getByText(/prepared receipt is historical/)).toBeVisible());
   expect(screen.getByRole('button',{name:'Download receipt'})).toBeEnabled();
+});
+
+it('names a revision in words: the base revision and what was added to it',()=>{
+  expect(revisionLabel('Blue-2026-08-19+late+rights+rights')).toBe('Blue-2026-08-19 · late take added · 2 rights records added');
+  expect(revisionLabel('Blue-2026-08-19+late+late+rights')).toBe('Blue-2026-08-19 · 2 late takes added · rights record added');
+  expect(revisionLabel('Blue-2026-08-19+rights+rights-2+notes')).toBe('Blue-2026-08-19 · 2 rights records added · notes update');
+  expect(revisionLabel('Blue+notes+notes')).toBe('Blue · 2 notes updates');
+  expect(revisionLabel('Blue-2026-08-19')).toBe('Blue-2026-08-19');
+  expect(revisionLabel('Blue+constructor+toString')).toBe('Blue · constructor update · toString update');
+  const current={...state,eligible:true,wrap_approved:true,turnover:{...manifest,script_revision:'Blue-2026-08-19+late+rights+rights'}};
+  render(<Turnover state={current} busy={false} publish={vi.fn()}/>);
+  expect(screen.getByTestId('editorial-decision')).toHaveTextContent(`${scene.scene_id} / Blue-2026-08-19 · late take added · 2 rights records added`);
+  expect(screen.getByTestId('editorial-decision')).not.toHaveTextContent('+rights');
+});
+
+it('states the one reason a saved turnover stopped being current, never an either-or',()=>{
+  const current={...state,eligible:true,wrap_approved:true,turnover:manifest};
+  expect(staleTurnoverCause({...current,turnover:null})).toBe('');
+  expect(staleTurnoverCause(current)).toBe('');
+  expect(staleTurnoverCause({...current,package_revision_digest:'changed',wrap_approved:false})).toBe('Evidence has changed since this turnover was sealed.');
+  expect(staleTurnoverCause({...current,wrap_approved:false,eligible:false})).toBe('The wrap approval this turnover relied on is no longer current.');
+  expect(staleTurnoverCause({...current,eligible:false})).toBe('The evidence gate no longer reports eligible.');
+  expect(staleTurnoverCause({...current,turnover_current:false})).toBe('The server marked this turnover no longer current.');
+  const {rerender}=render(<Turnover state={{...current,eligible:false}} busy={false} publish={vi.fn()}/>);
+  expect(screen.getByText(/^The evidence gate no longer reports eligible\. This is the historical record; it does not approve the changed package\. Start a new run for a new turnover\.$/)).toHaveClass('warning');
+  expect(screen.queryByText(/, or its approval/)).toBeNull();
+  rerender(<Turnover state={{...current,turnover_current:false}} busy={false} publish={vi.fn()}/>);
+  expect(screen.getByText(/^The server marked this turnover no longer current\. This is the historical record/)).toHaveClass('warning');
+  rerender(<Turnover state={{...current,wrap_approved:false}} busy={false} publish={vi.fn()}/>);
+  expect(screen.getByText(/^The wrap approval this turnover relied on is no longer current\. This is the historical record/)).toHaveClass('warning');
+  rerender(<Turnover state={{...current,package_revision_digest:'changed'}} busy={false} publish={vi.fn()}/>);
+  expect(screen.getByText(/^Evidence has changed since this turnover was sealed\. This is the historical record/)).toHaveClass('warning');
+  // A manifest that records no package fingerprint is out of date, but nothing
+  // may claim the evidence changed from a field that is not there.
+  const unsealed={...current,turnover:{...manifest,package_revision_digest:undefined}};
+  expect(turnoverEvidenceChanged(unsealed)).toBe(false);
+  expect(turnoverEvidenceChanged({...current,turnover:null})).toBe(false);
+  expect(turnoverEvidenceChanged({...current,package_revision_digest:'changed'})).toBe(true);
+  expect(staleTurnoverCause(unsealed)).toBe('This turnover does not record which evidence it was sealed against.');
+  rerender(<Turnover state={unsealed} busy={false} publish={vi.fn()}/>);
+  expect(screen.getByText(/^This turnover does not record which evidence it was sealed against\. This is the historical record/)).toHaveClass('warning');
+  expect(screen.queryByText(/Evidence has changed/)).toBeNull();
+  rerender(<Turnover state={current} busy={false} publish={vi.fn()}/>);
+  expect(document.querySelector('.warning')).toBeNull();
+});
+
+it('heads a retained finding without a requirement as a shot plan advisory, never Unknown',()=>{
+  const advisory={...manifest,outstanding_and_accepted_exceptions:[{required_role:'script_supervisor',observation:'Shot S-42C-ORPHAN plans for B-99.',recommended_action:'Review the shot plan.'}]};
+  const current={...state,eligible:true,wrap_approved:true,turnover:advisory};
+  expect(turnoverSummary(current)).toContain('Shot plan advisory | script_supervisor | Shot S-42C-ORPHAN plans for B-99. | Next: Review the shot plan.');
+  expect(turnoverSummary({...current,turnover:{...advisory,outstanding_and_accepted_exceptions:[{...advisory.outstanding_and_accepted_exceptions[0],requirement_id:'  '}]}})).toContain('Shot plan advisory | script_supervisor');
+  render(<Turnover state={current} busy={false} publish={vi.fn()}/>);
+  const retained=screen.getByRole('region',{name:'Retained exceptions for editorial'});
+  expect(within(retained).getByText('Shot plan advisory · Script supervisor')).toBeVisible();
+  expect(retained).not.toHaveTextContent('Unknown');
+});
+
+it('shows when the turnover was saved in local time and keeps the exact saved value',()=>{
+  const saved='2026-09-13T16:27:56.185088+00:00';
+  const current={...state,eligible:true,wrap_approved:true,turnover:{...manifest,generated_at:saved}};
+  const {rerender}=render(<Turnover state={current} busy={false} publish={vi.fn()}/>);
+  const time=screen.getByTitle(saved);
+  expect(time.tagName).toBe('TIME');
+  expect(time).toHaveAttribute('datetime',saved);
+  expect(time.textContent).toBe(new Date(saved).toLocaleString());
+  expect(screen.getByTestId('editorial-decision')).not.toHaveTextContent(saved);
+  rerender(<Turnover state={{...current,turnover:{...manifest,generated_at:'not a date'}}} busy={false} publish={vi.fn()}/>);
+  expect(screen.getByTitle('not a date').textContent).toBe('not a date');
+  rerender(<Turnover state={{...current,turnover:{...manifest,generated_at:null}}} busy={false} publish={vi.fn()}/>);
+  expect(screen.getByTestId('editorial-decision').querySelector('time')).toBeNull();
+  expect(screen.getByTestId('editorial-decision')).toHaveTextContent('Turnover savedUnknown');
+});
+
+it('jumps to the downloads on Handoff and keeps a historical download secondary',async()=>{
+  const user=userEvent.setup();
+  const current={...state,pending_approval:null,eligible:true,wrap_approved:true,turnover:manifest};
+  const {rerender}=render(<><WorkflowNext state={current} currentPage="history"/><Turnover state={current} busy={false} publish={vi.fn()}/></>);
+  expect(screen.getByRole('button',{name:'Download turnover'})).toHaveClass('primary');
+  const jump=screen.getByRole('link',{name:'Jump to the downloads'});
+  expect(jump).toHaveAttribute('href','#turnover-downloads');
+  await user.click(jump);
+  const downloads=document.getElementById('turnover-downloads')!;
+  expect(downloads).toHaveFocus();
+  expect(downloads.scrollIntoView).toHaveBeenCalledWith({block:'start'});
+  expect(downloads).toContainElement(screen.getByRole('button',{name:'Download turnover'}));
+  expect(location.hash).toBe('');
+  const historical={...current,package_revision_digest:'new-evidence'};
+  rerender(<><WorkflowNext state={historical} currentPage="history"/><Turnover state={historical} busy={false} publish={vi.fn()}/></>);
+  expect(screen.queryByRole('link',{name:'Jump to the downloads'})).toBeNull();
+  expect(screen.getByRole('button',{name:'Download turnover'})).not.toHaveClass('primary');
+  expect(screen.getByRole('button',{name:'Download turnover'})).toBeEnabled();
 });

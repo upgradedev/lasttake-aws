@@ -96,7 +96,19 @@ describe('wrap board',()=>{
     expect(board).toHaveTextContent('Human wrap decisionNot approved');
     rerender(<WrapBoard scene={scene} state={{...state,eligible:true,wrap_approved:true,turnover:{}}}/>);
     expect(board).toHaveTextContent('Evidence gateEligible');
-    expect(board).toHaveTextContent('Recorded by the 1st AD');
+    expect(board).toHaveTextContent('Approved by the 1st AD');
+    expect(board).not.toHaveTextContent('Recorded by the 1st AD');
     expect(board).toHaveTextContent('TurnoverSaved');
+  });
+  it('sets a tile that carries a status instead of a number in the pending style',()=>{
+    const pending=()=>Array.from(screen.getByTestId('wrap-board').querySelectorAll('.tile-pending'),tile=>tile.querySelector('span')?.textContent);
+    const {rerender}=render(<WrapBoard scene={scene} state={{...state,counts:null}}/>);
+    expect(pending()).toEqual(['Covered with evidence','Raising exceptions','No release record']);
+    rerender(<WrapBoard scene={scene} state={state}/>);
+    expect(pending()).toEqual([]);
+    expect(screen.getByTestId('wrap-board').querySelectorAll('.tile')).toHaveLength(4);
+    rerender(<WrapBoard scene={scene} state={{...state,counts:{...state.counts!,raising_exceptions:null}}}/>);
+    expect(pending()).toEqual(['Raising exceptions']);
+    expect(screen.getByTestId('wrap-board')).toHaveTextContent('Raising exceptionsUnknown');
   });
 });

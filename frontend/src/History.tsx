@@ -5,6 +5,24 @@ import {request,saveJson,saveText} from './api';
 import {link,roles,words} from './model';
 import {recentEvents as orderedEvents} from './projection';
 import type {Document,EventRow,Receipt,Role,RunState,Session} from './types';
+
+// Consecutive events of one type on the current page share a row, so a burst of
+// finding notifications reads as one line instead of burying the events around
+// it. Grouping happens after paging: a page still holds exactly twenty events,
+// and every one of them stays reachable inside its row.
+function consecutiveRuns(events:EventRow[]) {
+  const runs:EventRow[][]=[];
+  for(const event of events){
+    const last=runs.at(-1);
+    if(last && last[0].event_type===event.event_type)last.push(event);
+    else runs.push([event]);
+  }
+  return runs;
+}
+function eventLabel(event:EventRow) { return words(event.event_type.replaceAll('.',' ')); }
+function EventTime({event}:{event:EventRow}) { return <time dateTime={event.occurred_at}>{new Date(event.occurred_at).toLocaleString()}</time>; }
+function EventDetails({event}:{event:EventRow}) { return <details><summary>Event details</summary><pre>{JSON.stringify(event.payload,null,2)}</pre><code>{event.event_id}</code></details>; }
+
 export function History({state,session,events,role,busy,act,handle,historyLoading=false,historyError='',olderRuns,newestRuns}:{state:RunState;session:Session;events:EventRow[];role:Role;busy:boolean;act:(path:string,extra?:Document)=>Promise<boolean>;handle:(work:()=>Promise<void>)=>Promise<boolean>;historyLoading?:boolean;historyError?:string;olderRuns?:()=>Promise<void>;newestRuns?:()=>Promise<void>}) {
   const [receipt,setReceipt]=useState<Receipt|null>(null);
   const [receiptSnapshot,setReceiptSnapshot]=useState('');
@@ -17,18 +35,21 @@ export function History({state,session,events,role,busy,act,handle,historyLoadin
   const start=currentPage*20;
   const recentEvents=distinctEvents.slice(start,start+20);
   const mine=receipt?.still_open.filter(item=>item.responsible_role===role);
+  const runCount=session.runs.length;
   return <><Turnover state={state} busy={busy} publish={()=>void act('turnover')}/><DeliveryStatus state={state} role={role} busy={busy} act={act}/><section className="panel"><p className="eyebrow">Portable decision record</p><h2>Receipt for {roles[role]}</h2><p>A receipt carries the current run, policy, evidence digests and every open item. Accepted exceptions remain open on the receipt.</p>
-    <div className="toolbar"><label>Receipt purpose<select disabled={busy} value={kind} onChange={e=>{setKind(e.target.value);setReceipt(null);}}><option value="pickup">Pickup review</option><option value="wrap">Wrap review</option></select></label><button disabled={busy || !state.counts} onClick={()=>void handle(async()=>{const data=await request<{receipt:Receipt}>('receipt',{run_id:state.run_id,session_id:session.session_id,kind});setReceipt(data.receipt);setReceiptSnapshot(currentSnapshot);})}>Prepare receipt</button></div>
+    <div className="toolbar receipt-toolbar"><label>Receipt purpose<select disabled={busy} value={kind} onChange={e=>{setKind(e.target.value);setReceipt(null);}}><option value="pickup">Pickup review</option><option value="wrap">Wrap review</option></select></label><button disabled={busy || !state.counts} onClick={()=>void handle(async()=>{const data=await request<{receipt:Receipt}>('receipt',{run_id:state.run_id,session_id:session.session_id,kind});setReceipt(data.receipt);setReceiptSnapshot(currentSnapshot);})}>Prepare receipt</button></div>
     {receipt && receiptSnapshot!==currentSnapshot && <p className="warning">This prepared receipt is historical: evidence or decisions changed. Prepare a new receipt for the current review. Earlier downloads remain unchanged.</p>}
     {receipt?.human_readable && <CopyText key={receipt.record_sha256} text={receipt.human_readable} label="Copy evidence summary"/>}
     {!state.counts && <p className="fine">Run a checkpoint before preparing a receipt.</p>}
     {receipt && <div className="receipt"><h3>Receipt ready for review</h3>{receipt.human_readable && <><pre className="evidence-summary">{receipt.human_readable}</pre><button onClick={()=>saveText(`${state.run_id}-evidence.txt`,receipt.human_readable!)}>Download evidence summary</button></>}<p>{receipt.still_open_count} open items across all roles. {mine!.length} assigned to {roles[role]}.</p><ul className="action-list">{mine!.map(item=><li key={item.finding_id}>{item.next_action}<small>{item.what_was_observed}</small></li>)}</ul><p className="fine">The download includes every role so context can travel with the record.</p><button onClick={()=>saveJson(`${state.run_id}-${kind}-receipt.json`,receipt)}>Download receipt</button><details><summary>Receipt limits & sealed record</summary>{receipt.what_this_does_not_say.map(limit=><p key={limit}>{limit}</p>)}<pre>{JSON.stringify(receipt,null,2)}</pre></details></div>}
   </section><section className="panel" aria-busy={historyLoading}><h2>Saved shoot-day runs</h2><p className="fine">Only runs owned by this browser's session are listed. These are repeated runs of the same fictional scene. This is one page, not the whole history; older records are retained.</p>
-    <div className="toolbar"><button disabled={busy || historyLoading || !newestRuns} onClick={()=>void newestRuns?.()}>Refresh newest runs</button><button disabled={busy || historyLoading || !session.next_cursor || !olderRuns} onClick={()=>void olderRuns?.()}>Load older runs</button><p role="status">{historyLoading?'Loading saved runs…':`${session.runs.length} runs on this page${session.has_more?' · older runs available':''}`}</p></div>
+    <div className="toolbar"><button disabled={busy || historyLoading || !newestRuns} onClick={()=>void newestRuns?.()}>Refresh newest runs</button><button disabled={busy || historyLoading || !session.next_cursor || !olderRuns} onClick={()=>void olderRuns?.()}>Load older runs</button><p role="status">{historyLoading?'Loading saved runs…':`${runCount} ${runCount===1?'run':'runs'} on this page${session.has_more?' · older runs available':''}`}</p></div>
     {historyError && <p className="error" role="alert">{historyError} Your current page is retained. Refresh newest runs to restart pagination.</p>}
-    <ul className="run-list">{session.runs.map(run=><li key={run.run_id}><a href={link('history',run.run_id)}>Scene 42 · {new Date(run.created_at).toLocaleString()}</a><span>{run.turnover_published?'Turnover saved':run.checked?'Checkpoint saved':'Awaiting checkpoint'}</span><small>{run.run_id}</small></li>)}</ul></section>
+    <ul className="run-list">{session.runs.map(run=><li key={run.run_id}><a href={link('history',run.run_id)}>{run.scene_id} · {new Date(run.created_at).toLocaleString()}</a><span>{run.turnover_published?'Turnover saved':run.checked?'Checkpoint saved':'Awaiting checkpoint'}</span><small>{run.run_id}</small></li>)}</ul></section>
   <section className="panel" aria-labelledby="events-heading"><h2 id="events-heading">Recorded events</h2><p className="fine">Stored event attempts are not delivery receipts. Use Delivery status above for the actual recorded bus response.</p>{distinctEvents.length ? <>
     <div className="toolbar"><p role="status" aria-live="polite">Events {start+1}–{Math.min(start+20,distinctEvents.length)} of {distinctEvents.length} · newest first</p><button aria-controls="event-timeline" disabled={currentPage===0} onClick={()=>setEventPage(currentPage-1)}>Newer events</button><button aria-controls="event-timeline" disabled={currentPage===pageCount-1} onClick={()=>setEventPage(currentPage+1)}>Older events</button></div>
-    <ol id="event-timeline" className="timeline" start={start+1}>{recentEvents.map(event=><li key={event.event_id}><strong>{words(event.event_type.replaceAll('.',' '))}</strong><time dateTime={event.occurred_at}>{new Date(event.occurred_at).toLocaleString()}</time><details><summary>Event details</summary><pre>{JSON.stringify(event.payload,null,2)}</pre><code>{event.event_id}</code></details></li>)}</ol>
+    <ol id="event-timeline" className="timeline" start={start+1}>{consecutiveRuns(recentEvents).map(run=>{const [first]=run;return run.length===1
+      ? <li key={first.event_id} data-event-id={first.event_id}><strong>{eventLabel(first)}</strong><EventTime event={first}/><EventDetails event={first}/></li>
+      : <li key={`run-${first.event_id}`}><strong>{`${eventLabel(first)} ×${run.length}`}</strong><EventTime event={first}/><details><summary>{`List the ${run.length} events`}</summary>{run.map(event=><div key={event.event_id} data-event-id={event.event_id}><EventTime event={event}/><EventDetails event={event}/></div>)}</details></li>;})}</ol>
   </> : <p className="empty">No events yet. A checkpoint or evidence intake starts this run's record.</p>}</section></>;
 }
