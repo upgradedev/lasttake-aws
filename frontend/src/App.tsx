@@ -23,7 +23,7 @@ export function App() {
   });
   const [guided, setGuided] = useState(false);
   const [intake, setIntake] = useState(false);
-  const { state, scene, route } = w;
+  const { state, scene, events, route } = w;
   const previousPage = useRef(route.page);
 
   useEffect(() => {
