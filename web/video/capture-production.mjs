@@ -66,7 +66,7 @@ const appUrl = `${appOrigin}/?release=${releaseSha}`;
 const release = await (await context.request.get(appOrigin + "/release.json")).json();
 if (release.commit !== releaseSha) throw new Error("Frontend release mismatch before recording");
 await page.goto(appUrl, { waitUntil: "networkidle", timeout: 60_000 });
-await page.getByRole("button", { name: "New shoot-day run", exact: true }).click();
+await page.getByRole("button", { name: "Start this fictional shoot day" }).click();
 await page.getByRole("button", { name: "Run wrap checkpoint" }).waitFor();
 const timelineStarted = Date.now();
 

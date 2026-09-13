@@ -2,7 +2,7 @@ import {test,expect,type Page} from '@playwright/test';
 
 async function start(page:Page){
   await page.goto('/');
-  await page.getByRole('button',{name:'New shoot-day run',exact:true}).click();
+  await page.getByRole('button',{name:'Start this fictional shoot day'}).click();
   await expect(page.getByRole('button',{name:'Run wrap checkpoint'})).toBeEnabled();
   return page.evaluate(()=>({session_id:localStorage.getItem('lasttake.session'),run_id:new URLSearchParams(location.hash.split('?')[1]).get('run')}));
 }
@@ -37,7 +37,7 @@ test('LT-RELIABLE-INTAKE editable refusal, correction, and missing-report recove
   expect(saved.exceptions.find((f:{check_type:string;requirement_id:string})=>f.check_type==='metadata' && f.requirement_id==='T-900').truth_state).toBe('missing');
   const scene=await (await page.request.post('/api/scene',{data:body})).json();
   expect(scene.beats.flatMap((b:{takes:unknown[]})=>b.takes).find((t:{take_id:string})=>t.take_id==='T-900').camera_report).toBeNull();
-  await page.getByRole('navigation').getByRole('link',{name:'History',exact:true}).click();
+  await page.getByRole('navigation').getByRole('link',{name:'Handoff',exact:true}).click();
   await page.getByRole('button',{name:'Prepare receipt'}).click();
   await expect(page.getByRole('button',{name:'Download evidence summary'})).toBeVisible();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
@@ -69,7 +69,7 @@ test('LT-RELIABLE-WRAP both API routes refuse stale review, decline recovers, ne
   expect((await call('wrap',{interrupt_id:renewed.id,approve:false})).wrap_approved).toBe(false);
   expect((await call('turnover')).message).toContain('Refusing');
   await page.reload();
-  await page.getByRole('navigation').getByRole('link',{name:'History',exact:true}).click();
+  await page.getByRole('navigation').getByRole('link',{name:'Handoff',exact:true}).click();
   await expect(page.getByRole('button',{name:'Publish approved turnover'})).toBeDisabled();
   await expect(page.getByText('wrap.ready: Bus accepted')).toBeVisible();
   await info.attach('wrap-review-outcome',{body:JSON.stringify(await call('state')),contentType:'application/json'});

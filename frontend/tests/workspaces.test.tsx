@@ -112,8 +112,8 @@ describe('route focus and snapshot integrity',()=>{
     const search=await screen.findByRole('searchbox',{name:'Search records'});
     await user.type(search,'MEDIA');
     await waitFor(()=>expect(search).toHaveValue('MEDIA'));expect(search).toHaveFocus();expect(location.hash).toContain('q=MEDIA');
-    await user.click(within(screen.getByRole('navigation')).getByRole('link',{name:'Workspace'}));
-    expect(await screen.findByRole('heading',{level:1,name:'Workspace'})).toHaveFocus();expect(location.hash).toContain('beat=B-01');
+    await user.click(within(screen.getByRole('navigation')).getByRole('link',{name:'Scene review'}));
+    expect(await screen.findByRole('heading',{level:1,name:'Scene review'})).toHaveFocus();expect(location.hash).toContain('beat=B-01');
     expect(screen.getByLabelText('Show')).toHaveValue('all');
     expect(document.querySelectorAll('.beat')).toHaveLength(scene.beats.length);
     await act(async()=>{location.hash=link('records',state.run_id,'B-01',{filter:'takes',record:'T-1',q:'MEDIA'});});

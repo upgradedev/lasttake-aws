@@ -55,7 +55,7 @@ export function heroScenes(page,expect) {
       await expect(page.getByTestId('wrap-status')).toContainText('Not approved');
     },
     sponsor:async()=>{
-      await nav('Workspace');
+      await nav('Scene review');
       await page.getByRole('button',{name:'Open guided demo'}).click();
       await page.getByRole('button',{name:'Add take or release'}).click();
       await page.getByRole('button',{name:'Try valid take'}).click();
@@ -95,7 +95,7 @@ export function heroScenes(page,expect) {
       await expect(page.getByTestId('workflow-next')).toContainText('Prepare the editorial handoff');
     },
     close:async()=>{
-      await nav('History');
+      await nav('Handoff');
       await page.getByRole('button',{name:'Publish approved turnover'}).click();
       await expect(page.getByRole('button',{name:'Download turnover',exact:true})).toBeVisible();
       await page.reload();

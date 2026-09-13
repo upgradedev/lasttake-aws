@@ -3,20 +3,22 @@ export const roles: Record<Role,string> = {script_supervisor:'Script supervisor'
 // Navigation is named after what the person is there to do, not after the
 // screen's furniture. The hash routes underneath are unchanged, so every saved
 // link, testbook entry and deep link keeps working.
-export const pages: Record<Page,string> = {overview:'Dashboard', scene:'Workspace', records:'Records', history:'History', actions:'My actions', journeys:'Journeys', architecture:'Architecture', roi:'Production ROI'};
-export const pageTasks: Record<Page,string> = {overview:'What still blocks wrap, and who owns it', scene:'Lined script, evidence and the human decision', records:'The supplied takes, beats, findings and releases', history:'Turnover, receipts and saved runs', actions:'Decisions for the selected role', journeys:'4 on-set verification stages', architecture:'AWS Strands & Bedrock serverless topology', roi:'Film economics and pickup day prevention'};
+export const pages: Record<Page,string> = {overview:'Wrap status', scene:'Scene review', records:'Records', history:'Handoff', actions:'My actions', architecture:'Architecture'};
+export const pageTasks: Record<Page,string> = {overview:'What still blocks wrap, and who owns it', scene:'Lined script, evidence and the human decision', records:'The supplied takes, beats, findings and releases', history:'Turnover, receipts and saved runs', actions:'Decisions for the selected role', architecture:'What is deployed, tier by tier'};
 export function readRoute() {
   const searchParams = new URLSearchParams(location.search);
   const [rawHash, query] = location.hash.slice(1).split('?');
   const hashParams = new URLSearchParams(query);
-  const raw = searchParams.get('page') || searchParams.get('tab') || rawHash;
+  // The hash wins: it is what every in-run link sets, and a stale ?page= left
+  // over from the cold screen must never pin a run to the wrong page.
+  const raw = rawHash || searchParams.get('page') || searchParams.get('tab') || '';
   const page = raw==='dashboard'?'overview':raw==='workspace'?'scene':Object.hasOwn(pages, raw) ? raw as Page : 'overview';
-  const run = searchParams.get('run') || hashParams.get('run');
-  const beat = searchParams.get('beat') || hashParams.get('beat');
-  const finding = searchParams.get('finding') || hashParams.get('finding');
-  const filter = searchParams.get('filter') || hashParams.get('filter');
-  const record = searchParams.get('record') || hashParams.get('record');
-  const q = searchParams.get('q') || hashParams.get('q');
+  const run = hashParams.get('run') || searchParams.get('run');
+  const beat = hashParams.get('beat') || searchParams.get('beat');
+  const finding = hashParams.get('finding') || searchParams.get('finding');
+  const filter = hashParams.get('filter') || searchParams.get('filter');
+  const record = hashParams.get('record') || searchParams.get('record');
+  const q = hashParams.get('q') || searchParams.get('q');
   return {page, run, beat, finding, filter, record, q};
 }
 export function link(page:Page, run?:string|null, beat?:string, selection:Selection={}) {

@@ -58,7 +58,7 @@ test('LT-HERO complete capture source: changed evidence, human wrap decision and
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=document.documentElement.clientWidth)).toBe(true);
   await info.attach('hero-saved-records',{body:JSON.stringify(result),contentType:'application/json'});
   // A subsequent evidence change must keep the existing turnover historical.
-  await page.getByRole('navigation').getByRole('link',{name:'Workspace',exact:true}).click();
+  await page.getByRole('navigation').getByRole('link',{name:'Scene review',exact:true}).click();
   await page.getByRole('button',{name:'Open guided demo'}).click();
   await page.getByRole('button',{name:'Add take or release'}).click();
   await page.getByLabel('Record type').selectOption('rights_record');
@@ -66,7 +66,7 @@ test('LT-HERO complete capture source: changed evidence, human wrap decision and
   await page.getByLabel('Record identifier').fill('REL-AFTER-TURNOVER');
   await page.getByRole('button',{name:'Save evidence & rerun checks'}).click();
   await expect(page.getByRole('heading',{name:'Add evidence to this shoot day'})).toBeHidden();
-  await page.getByRole('navigation').getByRole('link',{name:'History',exact:true}).click();
+  await page.getByRole('navigation').getByRole('link',{name:'Handoff',exact:true}).click();
   await page.reload();
   await expect(page.getByTestId('editorial-decision')).toContainText('Historical record');
   await expect(page.getByTestId('workflow-next')).toContainText('Start a new shoot-day run for a new turnover');
@@ -76,7 +76,7 @@ test('LT-HERO complete capture source: changed evidence, human wrap decision and
 });
 
 test('LT-FILE ordinary JSON files remain owned, editable and durable; missing camera evidence stays missing',async({page},info)=>{
-  await page.goto('/');await page.getByRole('button',{name:'New shoot-day run',exact:true}).click();
+  await page.goto('/');await page.getByRole('button',{name:'Start this fictional shoot day'}).click();
   await page.getByRole('button',{name:'Add take or release'}).click();
   const body=await page.evaluate(()=>({session_id:localStorage.getItem('lasttake.session'),run_id:new URLSearchParams(location.hash.split('?')[1]).get('run')}));
   const readState=async()=>await (await page.request.post('/api/state',{data:body})).json();
