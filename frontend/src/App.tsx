@@ -32,13 +32,14 @@ const NAV:Page[]=['overview','scene','records','history','architecture'];
 
 // Server messages carry event-bus receipt ids. A 36-character UUID breaks the
 // line on a phone and says nothing a person reads, so the banner shows its
-// first eight characters and keeps the full value in the title. Every other
+// first eight characters, like a short commit id, with no ellipsis that would
+// run into the sentence's own full stop, and keeps the full value in the title. Every other
 // character of the message is printed exactly as the server wrote it. A run
 // waiting at an approval interrupt is not finished, so it is not shown in the
 // saved (success) style.
 const RECEIPT_ID=/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i;
 export function ServerMessage({text,waiting}:{text:string;waiting:boolean}) {
-  return <p className={waiting?'message-waiting':'saved'} role="status">{text.split(RECEIPT_ID).map((part,i)=>i%2?<code key={i} title={part}>{part.slice(0,8)}…</code>:part)}</p>;
+  return <p className={waiting?'message-waiting':'saved'} role="status">{text.split(RECEIPT_ID).map((part,i)=>i%2?<code key={i} title={part}>{part.slice(0,8)}</code>:part)}</p>;
 }
 
 export function App() {
@@ -92,7 +93,7 @@ export function App() {
 
     <div className="workspace">
       <header className="topbar">
-        <div className="topbar-title"><span className="production-dot" aria-hidden="true"/>The Last Ferry <span className="muted" title={scene?.revision}>/ {scene?.scene_id ?? 'Fictional scene'}{scene?.revision?` · ${revisionLabel(scene.revision)}`:''}</span></div>
+        <div className="topbar-title"><span className="production-dot" aria-hidden="true"/>The Last Ferry <span className="muted" title={scene?.revision?revisionLabel(scene.revision):undefined}>/ {scene?.scene_id ?? 'Fictional scene'}{scene?.revision?` · ${scene.revision.split('+')[0]}`:''}</span></div>
         <div className="execution-mode" data-testid="execution-mode">Synthetic demo · No footage/audio analysis or legal clearance. Demo roles are not staff authentication. <details><summary>How this demo checks evidence</summary>Scripted planner · {state?.interpreter ?? 'Offline lexical interpreter'} · Real Strands approvals. The workflow reconciles supplied records and keeps material decisions with people.</details></div>
         <div className="topbar-controls">
           <label>Demo role<select value={role} onChange={e=>{setRole(e.target.value as Role);writePreference('lasttake.role',e.target.value);}}>{Object.entries(roles).map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></label>

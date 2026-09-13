@@ -19,6 +19,16 @@ export function revisionLabel(revision:string) {
   const changes=[...counts].map(([token,count])=>{const known=Object.hasOwn(REVISION_CHANGES,token)?REVISION_CHANGES[token]:undefined;const [one,many]=known ?? [`${token} update`,`${token} updates`];return count===1?one:`${count} ${many}`;});
   return [base,...changes].filter(Boolean).join(' · ');
 }
+// What was supplied after a turnover was sealed, read from the suffixes the
+// current revision carries beyond the sealed one. Empty when the sealed
+// revision is not a prefix of the current one, so nothing is guessed.
+const ADDED_WORDS:Partial<Record<string,[string,string]>>={late:['a late take was added','late takes were added'],rights:['a rights record was added','rights records were added']};
+export function addedSinceSealed(sealed:unknown,current:string) {
+  if(typeof sealed!=='string' || !sealed || !current.startsWith(`${sealed}+`))return '';
+  const counts=new Map<string,number>();
+  for(const suffix of current.slice(sealed.length+1).split('+')){const token=suffix.replace(/-\d+$/,'');if(token)counts.set(token,(counts.get(token) ?? 0)+1);}
+  return [...counts].map(([token,count])=>{const known=Object.hasOwn(ADDED_WORDS,token)?ADDED_WORDS[token]:undefined;const [one,many]=known ?? [`a ${token} update was added`,`${token} updates were added`];return count===1?one:`${count} ${many}`;}).join(' and ');
+}
 const rows=(v:unknown):Document[]=>Array.isArray(v)?v.filter((item):item is Document=>!!item && typeof item==='object' && !Array.isArray(item)):[];
 const roleLabel=(v:unknown)=>roles[value(v) as Role] ?? value(v);
 // The backend records the approving role and, when no name was supplied, the
@@ -40,7 +50,7 @@ export function turnoverEvidenceChanged(state:RunState) {
 export function staleTurnoverCause(state:RunState) {
   if(!state.turnover || turnoverIsCurrent(state))return '';
   if(typeof state.turnover.package_revision_digest!=='string')return 'This turnover does not record which evidence it was sealed against.';
-  if(turnoverEvidenceChanged(state))return 'Evidence has changed since this turnover was sealed.';
+  if(turnoverEvidenceChanged(state)){const added=addedSinceSealed(state.turnover.script_revision,state.revision ?? '');return added?`Evidence has changed since this turnover was sealed: ${added}.`:'Evidence has changed since this turnover was sealed.';}
   if(!state.wrap_approved)return 'The wrap approval this turnover relied on is no longer current.';
   if(!state.eligible)return 'The evidence gate no longer reports eligible.';
   return 'The server marked this turnover no longer current.';

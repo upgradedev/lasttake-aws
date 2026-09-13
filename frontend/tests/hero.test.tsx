@@ -150,6 +150,10 @@ it('states the one reason a saved turnover stopped being current, never an eithe
   expect(staleTurnoverCause({...current,wrap_approved:false,eligible:false})).toBe('The wrap approval this turnover relied on is no longer current.');
   expect(staleTurnoverCause({...current,eligible:false})).toBe('The evidence gate no longer reports eligible.');
   expect(staleTurnoverCause({...current,turnover_current:false})).toBe('The server marked this turnover no longer current.');
+  // What was supplied after sealing is named from the revision suffixes, and only when the sealed revision is a prefix.
+  expect(staleTurnoverCause({...current,package_revision_digest:'changed',revision:`${scene.revision}+rights`})).toBe('Evidence has changed since this turnover was sealed: a rights record was added.');
+  expect(staleTurnoverCause({...current,package_revision_digest:'changed',revision:`${scene.revision}+late+rights+rights-2`})).toBe('Evidence has changed since this turnover was sealed: a late take was added and 2 rights records were added.');
+  expect(staleTurnoverCause({...current,package_revision_digest:'changed',revision:'Green-2026-08-20+rights'})).toBe('Evidence has changed since this turnover was sealed.');
   const {rerender}=render(<Turnover state={{...current,eligible:false}} busy={false} publish={vi.fn()}/>);
   expect(screen.getByText(/^The evidence gate no longer reports eligible\. This is the historical record; it does not approve the changed package\. Start a new run for a new turnover\.$/)).toHaveClass('warning');
   expect(screen.queryByText(/, or its approval/)).toBeNull();

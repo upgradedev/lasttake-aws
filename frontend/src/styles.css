@@ -417,6 +417,9 @@
   .stage-rail {flex-direction:column;gap:6px}
   .matrix-grid {grid-template-columns:repeat(2,minmax(0,1fr))}
   .toolbar.receipt-toolbar label {flex:1 0 100%}
+  /* The fixed beat-id width costs a phone row about 10px; the row's gap and
+     side padding give it back, so short beat titles keep one line. */
+  .landing-script li {gap:8px;padding-inline:8px}
 }
 /* Desktop, where the execution notice shares the top bar's row: a long run
    title (a revision with added records) gives way before the notice does. */

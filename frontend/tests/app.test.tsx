@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import {App,ServerMessage} from '../src/App';
 import {useWorkspace} from '../src/useWorkspace';
 import {state,scene,session} from './fixtures';
-function server(options:{empty?:boolean;unchecked?:boolean;turnover?:Record<string,unknown>;message?:string;noPending?:boolean}={}) {
+function server(options:{empty?:boolean;unchecked?:boolean;turnover?:Record<string,unknown>;message?:string;noPending?:boolean;sceneRevision?:string}={}) {
   let created=!options.empty;
   let checked=!options.unchecked;
   const fetcher=vi.fn(async(url:string,init:RequestInit)=>{
@@ -12,7 +12,7 @@ function server(options:{empty?:boolean;unchecked?:boolean;turnover?:Record<stri
     if(url==='/api/reset'){created=true;return {ok:true,json:async()=>({run_id:state.run_id})};}
     if(url==='/api/checkpoint')checked=true;
     const body=JSON.parse(init.body as string);
-    return {ok:true,json:async()=>url==='/api/scene'?scene:url==='/api/events'?{events:[]}:{...state,run_id:body.run_id,pending_approval:checked && !options.noPending?state.pending_approval:null,counts:checked?state.counts:null,headline:checked?state.headline:null,turnover:options.turnover ?? null,message:options.message ?? 'Checkpoint saved.'}};
+    return {ok:true,json:async()=>url==='/api/scene'?{...scene,revision:options.sceneRevision ?? scene.revision}:url==='/api/events'?{events:[]}:{...state,run_id:body.run_id,pending_approval:checked && !options.noPending?state.pending_approval:null,counts:checked?state.counts:null,headline:checked?state.headline:null,turnover:options.turnover ?? null,message:options.message ?? 'Checkpoint saved.'}};
   });vi.stubGlobal('fetch',fetcher);return fetcher;
 }
 
@@ -37,12 +37,12 @@ it('prints a server message exactly, with receipt ids shortened, and a waiting r
   const {rerender}=render(<ServerMessage text={`Pickup approved for B-17 by the 1st AD. Bus accepted. Receipt ${id}. Downstream completion is not established.`} waiting/>);
   const banner=screen.getByRole('status');
   expect(banner).toHaveClass('message-waiting');expect(banner).not.toHaveClass('saved');
-  expect(banner.textContent).toBe('Pickup approved for B-17 by the 1st AD. Bus accepted. Receipt d0d933cf…. Downstream completion is not established.');
+  expect(banner.textContent).toBe('Pickup approved for B-17 by the 1st AD. Bus accepted. Receipt d0d933cf. Downstream completion is not established.');
   expect(screen.getByTitle(id).tagName).toBe('CODE');
-  expect(screen.getByTitle(id).textContent).toBe('d0d933cf…');
+  expect(screen.getByTitle(id).textContent).toBe('d0d933cf');
   rerender(<ServerMessage text={`Saved ${id.toUpperCase()} and ${id}`} waiting={false}/>);
   expect(screen.getByRole('status')).toHaveClass('saved');expect(screen.getByRole('status')).not.toHaveClass('message-waiting');
-  expect(screen.getByRole('status').textContent).toBe('Saved D0D933CF… and d0d933cf…');
+  expect(screen.getByRole('status').textContent).toBe('Saved D0D933CF and d0d933cf');
   expect(screen.getByRole('status').querySelectorAll('code')).toHaveLength(2);
   rerender(<ServerMessage text="Checkpoint saved." waiting={false}/>);
   expect(screen.getByRole('status').textContent).toBe('Checkpoint saved.');
@@ -59,11 +59,11 @@ it('shows the saved approval message in the waiting style while a request still 
   const receipt=await screen.findByTitle(id);
   const banner=receipt.closest('p')!;
   expect(banner).toHaveAttribute('role','status');expect(banner).toHaveClass('message-waiting');
-  expect(banner.textContent).toBe('Pickup approved for B-17 by the 1st AD. Bus accepted. Receipt d0d933cf…. Downstream completion is not established.');
+  expect(banner.textContent).toBe('Pickup approved for B-17 by the 1st AD. Bus accepted. Receipt d0d933cf. Downstream completion is not established.');
 });
 it('leads a historical turnover to a fresh run and names the scene and revision in words',async()=>{
   // No request is waiting, so the historical turnover is the card's next step.
-  const fetcher=server({noPending:true,turnover:{package_revision_digest:'old',scene_id:scene.scene_id,script_revision:`${scene.revision}+late+rights+rights`,generated_at:'2026-09-13T16:27:56Z'}});
+  const fetcher=server({noPending:true,sceneRevision:`${scene.revision}+late+rights+rights`,turnover:{package_revision_digest:'old',scene_id:scene.scene_id,script_revision:`${scene.revision}+late+rights+rights`,generated_at:'2026-09-13T16:27:56Z'}});
   location.hash=`#history?run=${state.run_id}`;const user=userEvent.setup();render(<App/>);
   const fresh=await screen.findByRole('button',{name:'Start a fresh shoot-day run'});
   await waitFor(()=>expect(fresh).toBeEnabled());
@@ -74,6 +74,10 @@ it('leads a historical turnover to a fresh run and names the scene and revision 
   expect(screen.getByText('Shoot day · SC-042')).toBeVisible();
   expect(screen.queryByText(`Shoot day · ${scene.revision}`)).toBeNull();
   expect(screen.getByTestId('editorial-decision')).toHaveTextContent('SC-042 / Blue-2026-08-19 · late take added · 2 rights records added');
+  // The top bar keeps the base revision on one line; what was added is in its title.
+  const crumb=document.querySelector('.topbar-title .muted')!;
+  expect(crumb.textContent).toBe('/ SC-042 · Blue-2026-08-19');
+  expect(crumb).toHaveAttribute('title','Blue-2026-08-19 · late take added · 2 rights records added');
   expect(screen.getByText(/^Evidence has changed since this turnover was sealed\./)).toBeVisible();
   await user.click(fresh);
   await waitFor(()=>expect(fetcher.mock.calls.some(([url])=>url==='/api/reset')).toBe(true));
