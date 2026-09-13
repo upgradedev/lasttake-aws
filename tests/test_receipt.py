@@ -200,3 +200,179 @@ def test_the_orphan_advisory_is_not_told_to_shoot_a_beat_that_is_gone():
     )
     assert "Shoot one more setup" in missing["next_action"]
     assert missing["next_action"] != orphan["next_action"]
+
+
+# -- the summary a person pastes, once a human has decided ------------------
+
+
+def _media_mismatch(findings):
+    return next(
+        f
+        for f in findings
+        if f.check_type.value == "metadata" and f.truth_state.value == "conflicting"
+    )
+
+
+def _summary_line(manifest, finding_id):
+    return next(
+        line
+        for line in manifest["human_readable"].splitlines()
+        if line.startswith(f"{finding_id}:")
+    )
+
+
+def _decided(finding, action, role, decision_id="dec-w", digest=None):
+    return policy.HumanDecision(
+        decision_id=decision_id,
+        finding_id=finding.finding_id,
+        action=action,
+        actor="Synthetic reviewer",
+        role=role,
+        reason="Reviewed the supplied sources for this fictional scene.",
+        finding_sha256=digest or finding.record_sha256,
+    )
+
+
+def _receipt_with(package, findings, decisions):
+    return receipt.build(
+        kind="wrap",
+        run_id=RUN,
+        package=package,
+        findings=findings,
+        decisions=decisions,
+        policy_version=policy.POLICY_VERSION,
+    )
+
+
+def test_an_accepted_exception_is_summarised_as_decided_not_as_work_to_do():
+    """The DIT accepted the identifier mismatch.
+
+    The receipt must not then tell somebody to reconcile it before it is
+    cleared, and it must still say the finding is open.
+    """
+    package = load_package(CORPUS)
+    findings = findings_for(package)
+    mismatch = _media_mismatch(findings)
+    accepted = _decided(mismatch, policy.DecisionAction.ACCEPT_EXCEPTION, policy.Role.DIT)
+    manifest = _receipt_with(package, findings, [accepted])
+    assert receipt.verify(manifest)
+
+    line = _summary_line(manifest, mismatch.finding_id)
+    assert "Exception accepted by Synthetic reviewer (DIT / data manager)" in line
+    assert "stays open on the turnover" in line
+    assert "Next:" not in line
+    assert "before it is cleared" not in line
+    assert "(dit)" not in line and "accept_exception" not in line
+
+    row = next(r for r in manifest["still_open"] if r["finding_id"] == mismatch.finding_id)
+    assert line.endswith(row["next_action"]), "the field and the summary say one thing"
+    assert "before it is cleared" not in row["next_action"]
+    # The sealed record of the decision itself is unchanged.
+    assert row["a_human_decided"]["action"] == "accept_exception"
+    assert row["a_human_decided"]["role"] == "dit"
+    assert "not a fixed one" in row["a_human_decided"]["still_open_because"]
+
+    text = json.dumps(manifest).lower()
+    for clearance in ("clear to shoot", "cleared to shoot", "rules verified",
+                      "no issues found", "safe to wrap.", "legally cleared"):
+        assert clearance not in text, clearance
+
+
+def test_the_summary_gives_the_same_next_step_as_the_turnover():
+    """One handoff page shows both documents, and they must not give two next steps."""
+    from lasttake.domain import turnover
+
+    package = load_package(CORPUS)
+    findings = findings_for(package)
+    manifest = _receipt_with(package, findings, [])
+    packet = policy.evaluate(RUN, package, findings, [])
+    handoff = turnover.generate(
+        RUN, package, findings, [], packet, approved_by="a 1st AD", approved_role="first_ad"
+    ).manifest
+
+    retained = handoff["outstanding_and_accepted_exceptions"]
+    assert retained, "the corpus ships with open items on purpose"
+    for item in retained:
+        assert item["recommended_action"], item["finding_id"]
+        line = _summary_line(manifest, item["finding_id"])
+        assert line.endswith(f"Next: {item['recommended_action']}"), line
+
+
+def test_a_confirmed_finding_keeps_its_instruction_and_names_who_confirmed_it():
+    """Confirming agrees the problem is real. It settles nothing, so the next step stands."""
+    package = load_package(CORPUS)
+    findings = findings_for(package)
+    mismatch = _media_mismatch(findings)
+    confirmed = _decided(mismatch, policy.DecisionAction.CONFIRM, policy.Role.DIT)
+    manifest = _receipt_with(package, findings, [confirmed])
+
+    line = _summary_line(manifest, mismatch.finding_id)
+    assert "Confirmed by Synthetic reviewer (DIT / data manager); the finding is still open." in line
+    assert line.endswith(f"Next: {mismatch.recommended_action}")
+    row = next(r for r in manifest["still_open"] if r["finding_id"] == mismatch.finding_id)
+    assert row["next_action"] == receipt.next_action(mismatch)
+
+
+def test_a_rejected_false_positive_is_summarised_as_decided_and_still_listed():
+    package = load_package(CORPUS)
+    findings = findings_for(package)
+    conflict = next(
+        f for f in findings if f.check_type.value == "continuity" and f.requirement_id
+    )
+    rejected = _decided(
+        conflict, policy.DecisionAction.REJECT_FALSE_POSITIVE, policy.Role.SCRIPT_SUPERVISOR
+    )
+    manifest = _receipt_with(package, findings, [rejected])
+
+    line = _summary_line(manifest, conflict.finding_id)
+    assert "Rejected as a false positive by Synthetic reviewer (Script supervisor)" in line
+    assert "stays open on the record" in line
+    assert "Next:" not in line
+
+
+def test_a_decision_the_evidence_outran_is_not_summarised_as_standing():
+    package = load_package(CORPUS)
+    findings = findings_for(package)
+    conflict = next(
+        f for f in findings if f.check_type.value == "continuity" and f.requirement_id
+    )
+    stale = _decided(
+        conflict,
+        policy.DecisionAction.ACCEPT_EXCEPTION,
+        policy.Role.SCRIPT_SUPERVISOR,
+        digest="0" * 64,
+    )
+    manifest = _receipt_with(package, findings, [stale])
+
+    line = _summary_line(manifest, conflict.finding_id)
+    assert "An earlier decision no longer applies" in line
+    assert "Exception accepted" not in line
+    assert line.endswith(f"Next: {conflict.recommended_action}")
+
+
+def test_the_summary_names_roles_the_way_the_page_does():
+    manifest = a_receipt()
+    items = [
+        line for line in manifest["human_readable"].splitlines() if line.startswith(f"{RUN}:")
+    ]
+    assert items
+    body = "\n".join(items)
+    for stored in ("script_supervisor", "production_coordinator", "; dit"):
+        assert stored not in body, stored
+    for label in ("Script supervisor", "DIT / data manager", "Production coordinator"):
+        assert label in body, label
+
+
+def test_every_role_has_the_label_the_interface_shows():
+    """Copied from frontend/src/model.ts, so one role does not read two ways on one screen."""
+    assert receipt.ROLE_LABELS == {
+        "script_supervisor": "Script supervisor",
+        "first_ad": "1st AD",
+        "dit": "DIT / data manager",
+        "production_coordinator": "Production coordinator",
+        "assistant_editor": "Assistant editor",
+    }
+    for role in policy.Role:
+        assert receipt.role_label(role) == receipt.ROLE_LABELS[role.value]
+        assert receipt.role_label(role.value) == receipt.ROLE_LABELS[role.value]
+    assert receipt.action_words(policy.DecisionAction.ACCEPT_EXCEPTION) == "accept exception"

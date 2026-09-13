@@ -25,9 +25,16 @@ from __future__ import annotations
 
 from typing import Optional
 
-from .findings import Finding, TruthState
+from .findings import Finding, Role, TruthState
 from .package import ScenePackage
-from .policy import HumanDecision, latest_decision, decision_applies, evaluate
+from .policy import (
+    DecisionAction,
+    HumanDecision,
+    _resolution,
+    decision_applies,
+    evaluate,
+    latest_decision,
+)
 from .sealing import seal, utc_now_iso, verify_seal
 from .turnover import RIGHTS_DISCLAIMER, SYNTHETIC_NOTICE
 
@@ -55,8 +62,12 @@ LIMITS = (
 )
 
 #: The next action for each kind of exception, phrased for the person who has to
-#: take it. The same words the page shows, kept here so a receipt read away from
-#: the page says the same thing the page said.
+#: take it. The same words the page shows beside a finding, and the receipt's
+#: ``next_action`` field carries them, so a receipt read away from the page says
+#: the same thing the page said. The receipt's human-readable summary quotes the
+#: finding's own ``recommended_action`` when it has one instead, because that is
+#: the text the turnover prints for the same finding, and the summary and the
+#: turnover sit on one handoff page.
 NEXT_ACTION = {
     "coverage": "Shoot one more setup against this beat, while the lighting is up.",
     "continuity": "Take one more take, or write the intent down on the spot.",
@@ -77,11 +88,119 @@ NEXT_ACTION_UNKNOWN = {
 }
 
 
-def next_action(finding: Finding) -> str:
+#: How each role reads on the page. The labels match the interface's, so a
+#: receipt pasted into an email names the role the way the screen did, rather
+#: than as a stored identifier like ``dit``. Keyed by the stored value.
+ROLE_LABELS = {
+    "script_supervisor": "Script supervisor",
+    "first_ad": "1st AD",
+    "dit": "DIT / data manager",
+    "production_coordinator": "Production coordinator",
+    "assistant_editor": "Assistant editor",
+}
+
+#: A standing decision stated as what happened, not as its stored action value.
+DECISION_OUTCOME = {
+    "confirm": "Confirmed",
+    "reject_false_positive": "Rejected as a false positive",
+    "accept_exception": "Exception accepted",
+}
+
+
+def role_label(role: Role | str) -> str:
+    """The label a person reads for a role, from the enum or its stored value."""
+    value = getattr(role, "value", role)
+    return ROLE_LABELS.get(value, str(value).replace("_", " "))
+
+
+def action_words(action: DecisionAction | str) -> str:
+    """A decision action in words: ``accept_exception`` reads ``accept exception``."""
+    return str(getattr(action, "value", action)).replace("_", " ")
+
+
+def decision_phrase(decision: HumanDecision) -> str:
+    """Who decided what, by role: ``Exception accepted by Sue (Script supervisor)``."""
+    outcome = DECISION_OUTCOME.get(
+        decision.action.value, action_words(decision.action).capitalize()
+    )
+    return f"{outcome} by {decision.actor} ({role_label(decision.role)})"
+
+
+def _settles(finding: Finding, decision: Optional[HumanDecision]) -> bool:
+    """True when this decision stands on the current reading and closes it for the gate.
+
+    The finding still travels under ``still_open`` either way. What changes is
+    that nobody is left with something to fix, so an instruction to fix it would
+    be stale. A confirmation settles nothing: the role agreed the problem is
+    real, and the instruction still stands.
+    """
+    return decision is not None and _resolution(finding, [decision]) is True
+
+
+def _settled_statement(decision: HumanDecision) -> str:
+    if decision.action is DecisionAction.ACCEPT_EXCEPTION:
+        return (
+            f"{decision_phrase(decision)}. It stays open on the turnover: an "
+            "accepted exception is a known problem, not a fixed one."
+        )
+    return (
+        f"{decision_phrase(decision)}. The original finding stays open on the "
+        "record beside that review."
+    )
+
+
+def next_action(finding: Finding, decision: Optional[HumanDecision] = None) -> str:
+    """What the responsible role does next, or the decision that settled it.
+
+    Asked about the finding alone, as the page asks, this is the instruction for
+    the kind of exception. Given the decision that stands over the finding, and
+    when that decision settles it, the answer is the decision: a DIT who accepted
+    an identifier mismatch should not then be told to reconcile it.
+    """
+    if _settles(finding, decision):
+        return _settled_statement(decision)
     kind = finding.check_type.value
     if finding.truth_state is TruthState.UNKNOWN and kind in NEXT_ACTION_UNKNOWN:
         return NEXT_ACTION_UNKNOWN[kind]
     return NEXT_ACTION.get(kind, "Route this to the responsible role.")
+
+
+def _unverified(findings: list[Finding]) -> list[Finding]:
+    """The findings a receipt lists as open, in the order it lists them."""
+    return [
+        f
+        for f in sorted(findings, key=lambda f: f.finding_id)
+        if f.truth_state is not TruthState.VERIFIED
+    ]
+
+
+def _summary_line(finding: Finding, decisions: list[HumanDecision]) -> str:
+    """One open item as it reads pasted into an email.
+
+    The instruction quoted is the finding's own recommended action, the text the
+    turnover prints for the same finding, so the receipt and the turnover on one
+    handoff page give one next step rather than two. A decision that settles the
+    finding replaces the instruction with what was decided and by which role,
+    and says the finding is still open.
+
+    Everything on the line is read from the finding and the decisions, never
+    from a row built elsewhere, so a line cannot pair one finding's id with
+    another's role. The settled wording is the same ``next_action`` call the
+    row's field makes, so the field and the line say one thing.
+    """
+    head = f"{finding.finding_id}: {finding.truth_state.value}; {role_label(finding.required_role)}."
+    instruction = finding.recommended_action or next_action(finding)
+    decision = latest_decision(finding, decisions)
+    if not decision_applies(finding, decision):
+        standing = (
+            "An earlier decision no longer applies: the evidence changed."
+            if decision
+            else "No current decision."
+        )
+        return f"{head} {standing} Next: {instruction}"
+    if _settles(finding, decision):
+        return f"{head} {next_action(finding, decision)}"
+    return f"{head} {decision_phrase(decision)}; the finding is still open. Next: {instruction}"
 
 
 def _open_items(
@@ -94,9 +213,7 @@ def _open_items(
     finding it was taken about, and evidence that has moved since outran it.
     """
     rows = []
-    for finding in sorted(findings, key=lambda f: f.finding_id):
-        if finding.truth_state is TruthState.VERIFIED:
-            continue
+    for finding in _unverified(findings):
         decision = latest_decision(finding, decisions)
         applies = decision_applies(finding, decision)
         rows.append(
@@ -107,7 +224,7 @@ def _open_items(
                 "requirement_id": finding.requirement_id,
                 "what_was_observed": finding.observation,
                 "responsible_role": finding.required_role.value,
-                "next_action": next_action(finding),
+                "next_action": next_action(finding, decision if applies else None),
                 "read_from": [
                     {"artifact_id": s.artifact_id, "sha256": s.sha256}
                     for s in finding.sources
@@ -178,10 +295,7 @@ def build(
         lines.append(recovery["recovery_reason"])
     lines.append("Recovery: refresh saved state; correct refused evidence; obtain a fresh review after changes. Retry only a definite rejection. Pending or unknown external outcomes require operator reconciliation.")
     lines.append("Human-active time and measured benefits: unknown.")
-    for row in still_open:
-        decision = row["a_human_decided"]
-        review = f"{decision['action']} by {decision['actor']}" if decision else "current decision absent"
-        lines.append(f"{row['finding_id']}: {row['truth_state']}; {row['responsible_role']}; {review}. Next: {row['next_action']}")
+    lines.extend(_summary_line(finding, decisions) for finding in _unverified(findings))
     for delivery in deliveries or []:
         if delivery.get("event_type") in ("pickup.requested", "wrap.ready", "turnover.generated") or delivery.get("status") != "accepted":
             lines.append(f"Delivery {delivery['event_type']}: {delivery['status']}; receipt {delivery['reference']}.")
