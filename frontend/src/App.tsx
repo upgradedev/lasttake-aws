@@ -97,9 +97,9 @@ export function App() {
             <div className="toolbar" style={{ marginTop: '12px' }}>
               <button className="primary" onClick={()=>void w.create()}>Start this fictional shoot day</button>
               <button onClick={()=>void w.create()}>New shoot-day run</button>
-              <a className="button" href={link('journeys', state?.run_id ?? route.run)}>4 User Journeys →</a>
-              <a className="button" href={link('architecture', state?.run_id ?? route.run)}>Architecture →</a>
-              <a className="button" href={link('roi', state?.run_id ?? route.run)}>Production ROI →</a>
+              <a className="button" href={link('journeys', route.run)}>4 User Journeys →</a>
+              <a className="button" href={link('architecture', route.run)}>Architecture →</a>
+              <a className="button" href={link('roi', route.run)}>Production ROI →</a>
             </div>
           </section>}
 
