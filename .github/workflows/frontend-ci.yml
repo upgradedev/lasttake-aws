@@ -244,6 +244,20 @@ jobs:
       - name: Exercise receipt parser on actual source-run product JUnit without publishing
         if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.browser.outcome == 'success' }}
         run: python infra/frontend_acceptance.py inspect-junit
+      # QA-WEBKIT. Every other mobile journey in this repository is Chromium with an
+      # iPhone viewport, which proves the layout and nothing about the engine a
+      # judge's iPhone actually runs. This is a real WebKit pass over the critical
+      # journeys only. Its JUnit is a separate file, so the public acceptance
+      # receipt keeps counting exactly the Chromium product cases.
+      - name: WebKit runtime in CI only
+        id: webkit
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.browser.outcome == 'success' }}
+        working-directory: frontend
+        run: python ../.github/scripts/install-playwright-chromium.py webkit
+      - name: Critical mobile journeys on real WebKit
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.webkit.outcome == 'success' }}
+        working-directory: frontend
+        run: npx playwright test --config playwright.webkit.config.ts --forbid-only
       - name: Secret and prose regressions
         if: ${{ !cancelled() }}
         run: |

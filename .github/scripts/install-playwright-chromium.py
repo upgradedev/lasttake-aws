@@ -1,13 +1,21 @@
-"""CI-only Chromium preparation without the runner's unrelated Chrome apt source."""
+"""CI-only browser preparation without the runner's unrelated Chrome apt source.
+
+Chromium by default. QA-WEBKIT adds a bounded WebKit matrix, so the browser is an
+optional positional argument: ``python install-playwright-chromium.py webkit``.
+The apt-source handling is the same for every engine, because ``--with-deps``
+runs apt on all of them and the stray Chrome source breaks apt for all of them.
+"""
 import os
 import re
 import stat
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
 
 COMMAND = ["npx", "playwright", "install", "--with-deps", "chromium"]
+BROWSERS = ("chromium", "webkit", "firefox")
 SOURCE_NAMES = ("google-chrome.list", "google-chrome.sources")
 CHROME_URIS = {
     f"{scheme}://dl.google.com/linux/{product}/deb"
@@ -64,7 +72,14 @@ def move_source(source, destination):
     subprocess.run(["sudo", "--", "mv", "--", str(source), str(destination)], check=True)
 
 
-def install(sources, temporary_root, *, move=move_source, run=subprocess.run):
+def command_for(browser):
+    if browser not in BROWSERS:
+        raise ValueError(f"Unsupported Playwright browser: {browser!r}")
+    return COMMAND[:-1] + [browser]
+
+
+def install(sources, temporary_root, *, move=move_source, run=subprocess.run, browser="chromium"):
+    command = command_for(browser)
     selected = []
     for name in SOURCE_NAMES:
         path = sources / name
@@ -73,7 +88,7 @@ def install(sources, temporary_root, *, move=move_source, run=subprocess.run):
             if chrome_only(path):
                 selected.append((path, original))
     if not selected:
-        return run(COMMAND, check=False).returncode
+        return run(command, check=False).returncode
     saved = Path(tempfile.mkdtemp(prefix="lasttake-chrome-sources-", dir=temporary_root))
     moved = []
     try:
@@ -84,7 +99,7 @@ def install(sources, temporary_root, *, move=move_source, run=subprocess.run):
             if snapshot(backup) != original:
                 raise RuntimeError(f"Apt source changed while moving: {path.name}")
         print("Temporarily excluded Chrome-only apt sources; apt verification is unchanged.", flush=True)
-        return run(COMMAND, check=False).returncode
+        return run(command, check=False).returncode
     finally:
         errors = []
         for path, backup, original in reversed(moved):
@@ -105,7 +120,8 @@ def install(sources, temporary_root, *, move=move_source, run=subprocess.run):
 def main():
     if os.environ.get("GITHUB_ACTIONS") != "true" or os.environ.get("RUNNER_OS") != "Linux" or os.environ.get("GITHUB_REPOSITORY") != "upgradedev/lasttake-aws":
         raise RuntimeError("This helper is restricted to LastTake Linux CI.")
-    return install(Path("/etc/apt/sources.list.d"), Path(os.environ["RUNNER_TEMP"]))
+    browser = sys.argv[1] if len(sys.argv) > 1 else "chromium"
+    return install(Path("/etc/apt/sources.list.d"), Path(os.environ["RUNNER_TEMP"]), browser=browser)
 
 
 if __name__ == "__main__":
