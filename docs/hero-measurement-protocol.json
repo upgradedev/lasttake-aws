@@ -7,7 +7,7 @@
   "supersedes": {
     "commit": "176b58b7678f61309becea47a5e1f67725498373",
     "path": "docs/hero-measurement-protocol.json",
-    "reason": "Explicit parent resume changes the baseline and fixes the cohort at20 (10 desktop,10 mobile). The previous declared_at literal11:34:00Z was ahead of the observed11:33:25Z clock; it was not a truthful commit timestamp. That unmeasured protocol remains unchanged on its retained branch. This corrected declaration is committed before any instrumentation or measurement."
+    "reason": "Explicit parent resume changes the baseline and fixes the cohort at 20 (10 desktop, 10 mobile). The previous declared_at literal 11:34:00Z was ahead of the observed 11:33:25Z clock; it was not a truthful commit timestamp. That unmeasured protocol remains unchanged on its retained branch. This corrected declaration is committed before any instrumentation or measurement."
   },
   "baseline": {
     "commit": "65ae01fdaf63101b72ce402a50a179105f0647e9",
@@ -29,9 +29,9 @@
     "playwright_global_timeout_ms": 1140000,
     "process_timeout_ms": 1200000,
     "job_timeout_minutes": 25,
-    "schedule": "Preallocate slots1..10 desktop1440x1000 and11..20 mobile375x812 using existing Chromium/iPhone13 settings. One unchanged full hero helper per slot, fresh browser context/owned synthetic session; sequential desktop repetitions then mobile repetitions, same local server processes. Record actual start order.",
+    "schedule": "Preallocate slots 1..10 desktop 1440x1000 and 11..20 mobile 375x812 using existing Chromium/iPhone13 settings. One unchanged full hero helper per slot, fresh browser context/owned synthetic session; sequential desktop repetitions then mobile repetitions, same local server processes. Record actual start order.",
     "warmup": "None. No first-run discard, retry, replacement or extra attempt. Ordinary source CI is separate validation and never added to this cohort.",
-    "budget": "One manual opt-in source benchmark dispatch after normal source checks and instrument negative fixtures pass. At most20 attempted slots and20 minutes for the benchmark process including setup/servers/finalization. Failures continue within the remaining fixed budget; timeout/cancellation retains all20 slots. No rerun without a separately recorded parent decision."
+    "budget": "One manual opt-in source benchmark dispatch after normal source checks and instrument negative fixtures pass. At most 20 attempted slots and 20 minutes for the benchmark process including setup/servers/finalization. Failures continue within the remaining fixed budget; timeout/cancellation retains all 20 slots. No rerun without a separately recorded parent decision."
   },
   "timing": {
     "clock": "Monotonic performance.now() in the browser driver; raw unrounded milliseconds.",
@@ -40,13 +40,13 @@
     "stages": ["trigger", "live", "sponsor", "evidence", "close"],
     "included": "Checkpoint, saved pickup approval/reload, ordinary-file evidence change and invalidated earlier decision, fresh role decisions, fresh wrap approval, turnover publication and verified downloads; browser/API waits and instrumentation inside the boundary. This is scripted automation completion, not human-active time or model inference time.",
     "excluded": "Install/build/browser-server startup, initial navigation/run creation/hook/surface, provenance pre/postflight, clipboard extras, screenshot/video/trace recording and artifact upload. No narration holds.",
-    "failure_rule": "Retain started/stage/elapsed records durably before awaiting each action. Incomplete/failed elapsed is separate from successful full-workflow duration; absent time is null, never0 success."
+    "failure_rule": "Retain started/stage/elapsed records durably before awaiting each action. Incomplete/failed elapsed is separate from successful full-workflow duration; absent time is null, never 0 success."
   },
   "network_and_cost": {
     "frontend_origin": "http://127.0.0.1:4173",
     "backend_origin": "http://127.0.0.1:8765",
     "policy": "Credential-free source job; refuse browser requests outside local frontend origin and Python outbound socket/AWS client attempts with counted fail-closed guards. Use actual existing local server configuration and verify local adapters/offline interpreter/scripted planner, not a substitute API. Guard counters and identities are durably retained.",
-    "model_calls": "External model calls/model cost may be0 only with complete verified offline guard evidence and no refused attempts; missing/failed guard evidence means unknown, not0. Count scripted planner activity separately; it is not semantic AI or paid inference.",
+    "model_calls": "External model calls/model cost may be 0 only with complete verified offline guard evidence and no refused attempts; missing/failed guard evidence means unknown, not 0. Count scripted planner activity separately; it is not semantic AI or paid inference.",
     "model_cost_usd": "0 only under verified source-offline conditions",
     "infrastructure_cost_usd": null,
     "runner_cost_usd": null,
@@ -56,8 +56,8 @@
   "reporting": {
     "denominator": 20,
     "raw": "Preallocated per-slot durable JSON snapshots plus every raw stage/request observation: index, viewport, actual start, status, start/end/elapsed, request method/path/status/body bytes and guard deltas. Bodies, headers, session handles and arbitrary error text are excluded. Unknown byte observations remain null. Preserve failures, incomplete and NOT_RUN slots; snapshots use atomic replacement and file fsync, with finalization after timeout where possible.",
-    "statistics": "Success/failure/incomplete/NOT_RUN counts over20. Successful-duration p50 is the middle sorted value or mean of the two middle values; p95 is nearest-rank ceil(0.95*successful_n). Report successful_n with each overall/viewport/stage aggregate. Empty aggregates are null. Failed elapsed stays raw and outside successful quantiles. No exclusion, outlier trimming or inference of advantage.",
-    "retention": "Always upload raw snapshots, identity/guard evidence, actual Playwright reports and readable HTML with SHA256 manifest for90 days, including failures. Never overwrite historical measurement.json or earlier protocol/results.",
+    "statistics": "Success/failure/incomplete/NOT_RUN counts over 20. Successful-duration p50 is the middle sorted value or mean of the two middle values; p95 is nearest-rank ceil(0.95*successful_n). Report successful_n with each overall/viewport/stage aggregate. Empty aggregates are null. Failed elapsed stays raw and outside successful quantiles. No exclusion, outlier trimming or inference of advantage.",
+    "retention": "Always upload raw snapshots, identity/guard evidence, actual Playwright reports and readable HTML with SHA256 manifest for 90 days, including failures. Never overwrite historical measurement.json or earlier protocol/results.",
     "limits": "One bounded descriptive source-CI cohort using synthetic metadata and scripted actions. No statistical advantage, baseline speedup, real-user/human-time benefit, production/AWS latency or total-zero-cost claim. Human UAT NOT_RUN; video NOT_CONFIGURED."
   }
 }
