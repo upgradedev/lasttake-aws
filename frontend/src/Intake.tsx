@@ -31,7 +31,8 @@ export function Intake({scene,busy,writeBlocked=false,onSubmit,onClose,guided}:{
   }
   return <section className="panel intake" aria-labelledby="intake-title">
     <div className="section-heading"><div><p className="eyebrow">Supplied records</p><h2 id="intake-title">Add evidence to this shoot day</h2></div><button onClick={onClose} disabled={busy}>Close form</button></div>
-    <p>Use fictional records only. Saving reruns the checks affected by the supplied evidence.</p>
+    <p>Use fictional records only. Saving reruns the checks affected by the supplied evidence. Fill the form below; a JSON file or pasted JSON is the advanced path further down.</p>
+    <div className="intake-advanced"><p className="eyebrow">Advanced: a record as a file or as JSON</p>
     <label>Load a JSON record file<input type="file" accept=".json,application/json" disabled={busy || reading} onChange={async e=>{
       const file=e.target.files?.[0];e.target.value='';if(!file)return;
       setReading(true);setError('');
@@ -40,19 +41,20 @@ export function Intake({scene,busy,writeBlocked=false,onSubmit,onClose,guided}:{
       finally{setReading(false);}
     }}/></label><p className="fine">One take with its independent camera_report_row, or one release record, up to 64 KiB. Choose the record type below. Loading only fills the editable preview; Save sends it to this session's selected run. No PDFs, images, CSV or footage parsing.</p>
     {reading && <p role="status">Reading the local record…</p>}
-    {fileName && <p className="fine">Loaded for review: {fileName}. The preview may be edited before saving.</p>}
+    {fileName && <p className="fine">Loaded for review: {fileName}. The preview may be edited before saving.</p>}</div>
     {guided && <div className="guide"><h3>Three editable API flows</h3><p>Load a document, inspect or edit it, then submit. The invalid date must be refused without saving; the corrected document reuses its identifier. Nothing submits automatically.</p><div className="toolbar"><button onClick={()=>exampleFlow('success')}>Try valid take</button><button onClick={()=>exampleFlow('refusal')}>Try refused date</button><button onClick={()=>exampleFlow('correction')}>Try corrected date</button></div></div>}
     <div className="toolbar"><label>Record type<select value={kind} onChange={e=>{setKind(e.target.value as typeof kind);setExample(false);setError('');}}><option value="take">Captured take</option><option value="rights_record">Release / licence record</option></select></label>{guided && <button onClick={()=>setExample(true)}>Fill synthetic example</button>}<label className="check"><input type="checkbox" checked={advanced} onChange={e=>setAdvanced(e.target.checked)}/>Advanced JSON entry</label></div>
     <form onSubmit={submit} key={`${kind}-${example}`}>
       <fieldset disabled={busy || reading}><legend className="sr-only">{kind==='take'?'Take details':'Release details'}</legend>
       {advanced ? <label>Document JSON<textarea required rows={10} value={json} onChange={e=>setJson(e.target.value)}/></label> : kind==='take' ? <>
-        <div className="form-grid"><label>Script beat<select name="beat_id" defaultValue={example?'B-17':scene.beats[0].beat_id}>{scene.beats.filter(b=>b.required).map(b=><option key={b.beat_id} value={b.beat_id}>{b.beat_id} · {b.slug}</option>)}</select></label>
-        {takeFields.map(([name,label])=><label key={name}>{label}<input name={name} required={!missingReport || !name.startsWith('report_')} disabled={missingReport && name.startsWith('report_')} type={name.includes('lens')?'number':'text'} min={name.includes('lens')?1:undefined} maxLength={128} defaultValue={example?sample[name]:''}/></label>)}</div>
+        <fieldset className="intake-group"><legend>The take, as slated</legend><div className="form-grid"><label>Script beat<select name="beat_id" defaultValue={example?'B-17':scene.beats[0].beat_id}>{scene.beats.filter(b=>b.required).map(b=><option key={b.beat_id} value={b.beat_id}>{b.beat_id} · {b.slug}</option>)}</select></label>
+        {takeFields.filter(([name])=>!name.startsWith('report_')).map(([name,label])=><label key={name}>{label}<input name={name} required type={name.includes('lens')?'number':'text'} min={name.includes('lens')?1:undefined} maxLength={128} defaultValue={example?sample[name]:''}/></label>)}</div></fieldset>
+        <fieldset className="intake-group"><legend>The camera report, an independent record</legend><p className="fine">Enter the values exactly as the report states them. If they disagree with the take, that disagreement is evidence and stays visible.</p><div className="form-grid">
+        {takeFields.filter(([name])=>name.startsWith('report_')).map(([name,label])=><label key={name}>{label}<input name={name} required={!missingReport} disabled={missingReport} type={name.includes('lens')?'number':'text'} min={name.includes('lens')?1:undefined} maxLength={128} defaultValue={example?sample[name]:''}/></label>)}</div>
+        <label className="check"><input type="checkbox" name="camera_report_missing" checked={missingReport} onChange={e=>setMissingReport(e.target.checked)}/>No independent camera report supplied</label><p className="fine">A missing report stays missing. Take metadata is never copied into corroborating evidence.</p></fieldset>
         <div className="form-grid"><label>Visible people (comma separated)<input name="visible_people" defaultValue={example?sample.visible_people:''}/></label><label>Visible assets (comma separated)<input name="visible_assets"/></label><label>Capture date and time (ISO)<input name="captured_at" placeholder="2026-08-19T23:04:00Z"/></label></div>
         <label>Supervisor note<textarea name="note" maxLength={2000} defaultValue={example?sample.note:''}/></label>
         <div className="toolbar"><label className="check"><input type="checkbox" name="preferred" defaultChecked/>Marked preferred in supplied record</label><label className="check"><input type="checkbox" name="usable" defaultChecked/>Marked usable in supplied record</label></div>
-        <p className="fine">Camera report fields are a separate record. Enter the values as reported; disagreements remain evidence.</p>
-        <label className="check"><input type="checkbox" name="camera_report_missing" checked={missingReport} onChange={e=>setMissingReport(e.target.checked)}/>No independent camera report supplied</label><p className="fine">A missing report stays missing. Take metadata is never copied into corroborating evidence.</p>
       </> : <div className="form-grid">
         <label>Record identifier<input name="record_id" required defaultValue={example?'REL-900':''}/></label>
         <label>Person or asset<select name="subject_id" defaultValue={example?'BG-07':scene.subjects[0]?.subject_id}>{scene.subjects.map(s=><option key={s.subject_id}>{s.subject_id}</option>)}</select></label>

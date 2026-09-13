@@ -47,7 +47,11 @@ export function useWorkspace() {
   },[]);
   const bootstrap=useCallback(async()=>{
     setLoading(true);setError('');
-    try {const data=await loadSession();const current=readRoute();if(!current.run && data.runs[0])location.hash=link(current.page,data.runs[0].run_id,undefined,{beat:current.beat,finding:current.finding,filter:current.filter,record:current.record,q:current.q});}
+    // Loading the session is enough. Choosing a run is the person's decision:
+    // the landing page offers the saved shoot day to continue, or a fresh one.
+    // Jumping straight into the newest run on arrival was the silent identity
+    // change criterion 1 of UX-LT-10S forbids.
+    try {await loadSession();}
     catch(e){setError(errorMessage(e));setRequiresRefresh(true);}
     finally{setLoading(false);}
   },[loadSession]);
