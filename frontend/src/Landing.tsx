@@ -49,6 +49,7 @@ export function Landing({session,busy,page,start}:{session:Session|null;busy:boo
       <div className="landing-actions">
         {returning && <a className="button primary" href={link(page==='actions'?'scene':page,newest.run_id)}>Continue my saved shoot day</a>}
         <button className={returning?'':'primary'} disabled={busy} onClick={start}>Start this fictional shoot day</button>
+        <button disabled={busy} onClick={start}>New shoot-day run</button>
         <a className="button" href={link('journeys', newest?.run_id)}>4 Production Journeys →</a>
         <a className="button" href={link('architecture', newest?.run_id)}>System Architecture →</a>
         <a className="button" href={link('roi', newest?.run_id)}>Production ROI →</a>
