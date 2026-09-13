@@ -47,16 +47,19 @@ export function App() {
 
   const navigateTo = useCallback(
     (page: Page) => {
-      const query = new URLSearchParams();
-      if (page !== 'overview') query.set('page', page);
       const activeRun = state?.run_id ?? route.run;
-      if (activeRun) query.set('run', activeRun);
-      for (const [k, v] of Object.entries(selection)) {
-        if (v) query.set(k, v);
+      if (activeRun) {
+        const next = link(page, activeRun, undefined, selection);
+        location.hash = next;
+      } else {
+        const nextUrl = page === 'overview' ? window.location.pathname : `?page=${page}`;
+        if (location.hash) {
+          history.replaceState(null, '', nextUrl);
+        } else {
+          history.pushState(null, '', nextUrl);
+        }
+        window.dispatchEvent(new PopStateEvent('popstate'));
       }
-      const nextUrl = query.toString() ? `${window.location.pathname}?${query.toString()}` : window.location.pathname;
-      history.pushState(null, '', nextUrl);
-      window.dispatchEvent(new PopStateEvent('popstate'));
     },
     [state?.run_id, route.run, selection]
   );
@@ -88,22 +91,26 @@ export function App() {
         </a>
         <p className="nav-label">Production cockpit</p>
         <nav aria-label="Main navigation">
-          {(['overview', 'scene', 'records', 'history'] as Page[]).map((key, index) => (
-            <a
-              key={key}
-              href={key === 'overview' ? window.location.pathname : `?page=${key}`}
-              onClick={e => {
-                e.preventDefault();
-                navigateTo(key);
-              }}
-              aria-current={route.page === key || (key === 'scene' && route.page === 'actions') ? 'page' : undefined}
-            >
-              <span aria-hidden="true">{['◫', '▤', '▦', '↗'][index]}</span>
-              {pages[key]}
-            </a>
-          ))}
+          {(['overview', 'scene', 'records', 'history'] as Page[]).map((key, index) => {
+            const activeRun = state?.run_id ?? route.run;
+            const targetHref = activeRun ? link(key, activeRun, undefined, selection) : (key === 'overview' ? window.location.pathname : `?page=${key}`);
+            return (
+              <a
+                key={key}
+                href={targetHref}
+                onClick={e => {
+                  e.preventDefault();
+                  navigateTo(key);
+                }}
+                aria-current={route.page === key || (key === 'scene' && route.page === 'actions') ? 'page' : undefined}
+              >
+                <span aria-hidden="true">{['◫', '▤', '▦', '↗'][index]}</span>
+                {pages[key]}
+              </a>
+            );
+          })}
           <a
-            href="?page=journeys"
+            href={state?.run_id ?? route.run ? link('journeys', state?.run_id ?? route.run) : '?page=journeys'}
             onClick={e => {
               e.preventDefault();
               navigateTo('journeys');
@@ -113,7 +120,7 @@ export function App() {
             <span aria-hidden="true">★</span>Journeys
           </a>
           <a
-            href="?page=architecture"
+            href={state?.run_id ?? route.run ? link('architecture', state?.run_id ?? route.run) : '?page=architecture'}
             onClick={e => {
               e.preventDefault();
               navigateTo('architecture');
@@ -123,7 +130,7 @@ export function App() {
             <span aria-hidden="true">⚙</span>Architecture
           </a>
           <a
-            href="?page=roi"
+            href={state?.run_id ?? route.run ? link('roi', state?.run_id ?? route.run) : '?page=roi'}
             onClick={e => {
               e.preventDefault();
               navigateTo('roi');
