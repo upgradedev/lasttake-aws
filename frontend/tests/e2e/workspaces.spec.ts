@@ -1,7 +1,7 @@
 import {test,expect,type Page} from '@playwright/test';
 
 async function nav(page:Page,name:string){await page.getByRole('navigation').getByRole('link',{name,exact:true}).click();}
-async function saved(page:Page){return page.evaluate(()=>({session_id:localStorage.getItem('lasttake.session'),run_id:new URLSearchParams(location.hash.split('?')[1]).get('run')}));}
+async function saved(page:Page){return page.evaluate(()=>({session_id:localStorage.getItem('lasttake.session'),run_id:new URLSearchParams(location.search).get('run') || new URLSearchParams(location.hash.split('?')[1]).get('run')}));}
 async function create(page:Page){await page.goto('/');await page.getByRole('button',{name:'New shoot-day run',exact:true}).click();await expect(page.getByRole('button',{name:'Run wrap checkpoint'})).toBeEnabled();}
 
 test('LT-HISTORY bounded pages retain older owned runs, stale cursors recover without deleting history',async({page},info)=>{

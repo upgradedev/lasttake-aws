@@ -4,7 +4,7 @@ async function start(page:Page){
   await page.goto('/');
   await page.getByRole('button',{name:'New shoot-day run',exact:true}).click();
   await expect(page.getByRole('button',{name:'Run wrap checkpoint'})).toBeEnabled();
-  return page.evaluate(()=>({session_id:localStorage.getItem('lasttake.session'),run_id:new URLSearchParams(location.hash.split('?')[1]).get('run')}));
+  return page.evaluate(()=>({session_id:localStorage.getItem('lasttake.session'),run_id:new URLSearchParams(location.search).get('run') || new URLSearchParams(location.hash.split('?')[1]).get('run')}));
 }
 
 test('LT-RELIABLE-INTAKE editable refusal, correction, and missing-report recovery use real HTTP',async({page},info)=>{

@@ -75,7 +75,9 @@ export function useWorkspace() {
     const data=session ?? await loadSession();
     const result=await request<{run_id:string}>('reset',{session_id:data.session_id});
     await loadSession();
-    location.hash=link('scene',result.run_id);
+    const nextUrl = `?page=scene&run=${result.run_id}`;
+    if (location.hash) { history.replaceState(null, '', nextUrl); } else { history.pushState(null, '', nextUrl); }
+    window.dispatchEvent(new PopStateEvent('popstate'));
   });
   const act=async(path:string,extra:Document={})=>handle(async()=>{
     if(!state || !session || readRoute().run!==state.run_id)throw new Error('The selected run changed. Wait for its saved state before acting.');
@@ -86,7 +88,10 @@ export function useWorkspace() {
     if(readRoute().run===run)setMessage(result.message ?? 'Saved.');
   });
   const recover=()=>handle(async()=>{
-    generation.current++;await loadSession(true);setState(null);setScene(null);setEvents([]);location.hash='#overview';
+    generation.current++;await loadSession(true);setState(null);setScene(null);setEvents([]);
+    const nextUrl = window.location.pathname;
+    if (location.hash) { history.replaceState(null, '', nextUrl); } else { history.pushState(null, '', nextUrl); }
+    window.dispatchEvent(new PopStateEvent('popstate'));
   });
   const historyPage=async(older:boolean)=>{
     if(historyLock.current || loading || working || !session || (older && !session.next_cursor))return;

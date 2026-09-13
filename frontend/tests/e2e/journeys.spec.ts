@@ -31,7 +31,7 @@ async function decide(page:Page,name:string,role:string){
   await card.getByRole('button',{name:'Record decision'}).click();
   await expect(card.getByText(/Recorded: accept exception/)).toBeVisible();
 }
-async function contract(page:Page){return page.evaluate(()=>({session_id:localStorage.getItem('lasttake.session'),run_id:new URLSearchParams(location.hash.split('?')[1]).get('run')}));}
+async function contract(page:Page){return page.evaluate(()=>({session_id:localStorage.getItem('lasttake.session'),run_id:new URLSearchParams(location.search).get('run') || new URLSearchParams(location.hash.split('?')[1]).get('run')}));}
 
 test('LT01 intake validates, persists through reload and refuses duplicate records',async({page},info)=>{
   const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));

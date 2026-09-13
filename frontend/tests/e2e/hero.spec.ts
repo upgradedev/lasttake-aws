@@ -78,7 +78,7 @@ test('LT-HERO complete capture source: changed evidence, human wrap decision and
 test('LT-FILE ordinary JSON files remain owned, editable and durable; missing camera evidence stays missing',async({page},info)=>{
   await page.goto('/');await page.getByRole('button',{name:'New shoot-day run',exact:true}).click();
   await page.getByRole('button',{name:'Add take or release'}).click();
-  const body=await page.evaluate(()=>({session_id:localStorage.getItem('lasttake.session'),run_id:new URLSearchParams(location.hash.split('?')[1]).get('run')}));
+  const body=await page.evaluate(()=>({session_id:localStorage.getItem('lasttake.session'),run_id:new URLSearchParams(location.search).get('run') || new URLSearchParams(location.hash.split('?')[1]).get('run')}));
   const readState=async()=>await (await page.request.post('/api/state',{data:body})).json();
   const before=await readState();
   const choose=async(text:string,name='take.json')=>page.getByLabel('Load a JSON record file').setInputFiles({name,mimeType:'application/json',buffer:Buffer.from(text)});

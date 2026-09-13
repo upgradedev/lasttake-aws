@@ -48,21 +48,40 @@ export function App() {
   const navigateTo = useCallback(
     (page: Page) => {
       const activeRun = state?.run_id ?? route.run;
-      if (activeRun) {
-        const next = link(page, activeRun, undefined, selection);
-        location.hash = next;
+      const params = new URLSearchParams();
+      if (activeRun) params.set('run', activeRun);
+      if (selection.beat) params.set('beat', selection.beat);
+      if (selection.finding) params.set('finding', selection.finding);
+      if (selection.filter) params.set('filter', selection.filter);
+      if (selection.record) params.set('record', selection.record);
+      if (selection.q) params.set('q', selection.q);
+      const nextUrl = page === 'overview' && !params.size ? window.location.pathname : `?page=${page}${params.size ? `&${params}` : ''}`;
+      if (location.hash) {
+        history.replaceState(null, '', nextUrl);
       } else {
-        const nextUrl = page === 'overview' ? window.location.pathname : `?page=${page}`;
-        if (location.hash) {
-          history.replaceState(null, '', nextUrl);
-        } else {
-          history.pushState(null, '', nextUrl);
-        }
-        window.dispatchEvent(new PopStateEvent('popstate'));
+        history.pushState(null, '', nextUrl);
       }
+      window.dispatchEvent(new PopStateEvent('popstate'));
     },
     [state?.run_id, route.run, selection]
   );
+
+  useEffect(() => {
+    if (location.hash && location.hash.length > 1) {
+      const r = readRoute();
+      const params = new URLSearchParams();
+      if (r.run) params.set('run', r.run);
+      if (r.beat) params.set('beat', r.beat);
+      if (r.finding) params.set('finding', r.finding);
+      if (r.filter) params.set('filter', r.filter);
+      if (r.record) params.set('record', r.record);
+      if (r.q) params.set('q', r.q);
+      const cleanUrl = r.page === 'overview' && !params.size
+        ? window.location.pathname
+        : `?page=${r.page}${params.size ? `&${params}` : ''}`;
+      history.replaceState(null, '', cleanUrl);
+    }
+  }, [route.page, route.run, route.beat, route.finding, route.filter, route.record, route.q]);
 
   const isDocPage = route.page === 'journeys' || route.page === 'architecture' || route.page === 'roi';
   const writesBlocked = w.busy || w.requiresRefresh;
@@ -93,7 +112,7 @@ export function App() {
         <nav aria-label="Main navigation">
           {(['overview', 'scene', 'records', 'history'] as Page[]).map((key, index) => {
             const activeRun = state?.run_id ?? route.run;
-            const targetHref = activeRun ? link(key, activeRun, undefined, selection) : (key === 'overview' ? window.location.pathname : `?page=${key}`);
+            const targetHref = key === 'overview' && !activeRun ? window.location.pathname : `?page=${key}${activeRun ? `&run=${activeRun}` : ''}`;
             return (
               <a
                 key={key}
@@ -110,7 +129,7 @@ export function App() {
             );
           })}
           <a
-            href={state?.run_id ?? route.run ? link('journeys', state?.run_id ?? route.run) : '?page=journeys'}
+            href={state?.run_id ?? route.run ? `?page=journeys&run=${state?.run_id ?? route.run}` : '?page=journeys'}
             onClick={e => {
               e.preventDefault();
               navigateTo('journeys');
@@ -120,7 +139,7 @@ export function App() {
             <span aria-hidden="true">★</span>Journeys
           </a>
           <a
-            href={state?.run_id ?? route.run ? link('architecture', state?.run_id ?? route.run) : '?page=architecture'}
+            href={state?.run_id ?? route.run ? `?page=architecture&run=${state?.run_id ?? route.run}` : '?page=architecture'}
             onClick={e => {
               e.preventDefault();
               navigateTo('architecture');
@@ -130,7 +149,7 @@ export function App() {
             <span aria-hidden="true">⚙</span>Architecture
           </a>
           <a
-            href={state?.run_id ?? route.run ? link('roi', state?.run_id ?? route.run) : '?page=roi'}
+            href={state?.run_id ?? route.run ? `?page=roi&run=${state?.run_id ?? route.run}` : '?page=roi'}
             onClick={e => {
               e.preventDefault();
               navigateTo('roi');
@@ -278,9 +297,9 @@ export function App() {
                     <p className="fine">Synthetic records are already supplied. No upload or account is required.</p>
                     <div className="toolbar" style={{ marginTop: '12px' }}>
                       <button onClick={() => void w.create()}>New shoot-day run</button>
-                      <a className="button" href={link('journeys', route.run)}>4 User Journeys →</a>
-                      <a className="button" href={link('architecture', route.run)}>Architecture →</a>
-                      <a className="button" href={link('roi', route.run)}>Production ROI →</a>
+                      <a className="button" href={route.run ? `?page=journeys&run=${route.run}` : '?page=journeys'} onClick={e => { e.preventDefault(); navigateTo('journeys'); }}>4 User Journeys →</a>
+                      <a className="button" href={route.run ? `?page=architecture&run=${route.run}` : '?page=architecture'} onClick={e => { e.preventDefault(); navigateTo('architecture'); }}>Architecture →</a>
+                      <a className="button" href={route.run ? `?page=roi&run=${route.run}` : '?page=roi'} onClick={e => { e.preventDefault(); navigateTo('roi'); }}>Production ROI →</a>
                     </div>
                   </section>
                   <ProductionCharts scene={scene} state={state} events={events} />
