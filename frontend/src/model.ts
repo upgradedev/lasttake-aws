@@ -6,10 +6,18 @@ export const roles: Record<Role,string> = {script_supervisor:'Script supervisor'
 export const pages: Record<Page,string> = {overview:'Dashboard', scene:'Workspace', records:'Records', history:'History', actions:'My actions', journeys:'Journeys', architecture:'Architecture', roi:'Production ROI'};
 export const pageTasks: Record<Page,string> = {overview:'What still blocks wrap, and who owns it', scene:'Lined script, evidence and the human decision', records:'The supplied takes, beats, findings and releases', history:'Turnover, receipts and saved runs', actions:'Decisions for the selected role', journeys:'4 on-set verification stages', architecture:'AWS Strands & Bedrock serverless topology', roi:'Film economics and pickup day prevention'};
 export function readRoute() {
-  const [raw, query] = location.hash.slice(1).split('?');
+  const searchParams = new URLSearchParams(location.search);
+  const [rawHash, query] = location.hash.slice(1).split('?');
+  const hashParams = new URLSearchParams(query);
+  const raw = searchParams.get('page') || searchParams.get('tab') || rawHash;
   const page = raw==='dashboard'?'overview':raw==='workspace'?'scene':Object.hasOwn(pages, raw) ? raw as Page : 'overview';
-  const params = new URLSearchParams(query);
-  return {page, run:params.get('run'), beat:params.get('beat'), finding:params.get('finding'),filter:params.get('filter'),record:params.get('record'),q:params.get('q')};
+  const run = searchParams.get('run') || hashParams.get('run');
+  const beat = searchParams.get('beat') || hashParams.get('beat');
+  const finding = searchParams.get('finding') || hashParams.get('finding');
+  const filter = searchParams.get('filter') || hashParams.get('filter');
+  const record = searchParams.get('record') || hashParams.get('record');
+  const q = searchParams.get('q') || hashParams.get('q');
+  return {page, run, beat, finding, filter, record, q};
 }
 export function link(page:Page, run?:string|null, beat?:string, selection:Selection={}) {
   const params = new URLSearchParams();

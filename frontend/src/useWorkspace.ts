@@ -3,8 +3,15 @@ import {ApiError,errorMessage,request} from './api';
 import {link,readRoute} from './model';
 import {readPreference,writePreference} from './storage';
 import type {Document,EventRow,RunState,Scene,Session} from './types';
-const subscribe=(changed:()=>void)=>{window.addEventListener('hashchange',changed);return ()=>window.removeEventListener('hashchange',changed);};
-const snapshot=()=>location.hash;
+const subscribe=(changed:()=>void)=>{
+  window.addEventListener('hashchange',changed);
+  window.addEventListener('popstate',changed);
+  return ()=>{
+    window.removeEventListener('hashchange',changed);
+    window.removeEventListener('popstate',changed);
+  };
+};
+const snapshot=()=>location.pathname+location.search+location.hash;
 export function useWorkspace() {
   useSyncExternalStore(subscribe,snapshot);
   const route=readRoute();
