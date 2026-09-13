@@ -106,6 +106,22 @@ test('audit gate fails closed on runtime findings and unavailable reports',()=>{
   assert.throws(()=>checkAudit(clean,{}),/malformed/);
   assert.throws(()=>checkAudit(clean,{...clean,vulnerabilities:low.vulnerabilities}),/zero vulnerabilities/);
 });
+test('the landing scene preview is generated from the corpus bytes, states no assessment, and says it is fictional',async()=>{
+  const preview=JSON.parse(await readFile('dist/scene-preview.json','utf8'));
+  const script=JSON.parse(await readFile('../corpus/script_revision.json','utf8'));
+  const takes=JSON.parse(await readFile('../corpus/takes.json','utf8'));
+  assert.equal(preview.schema,'lasttake/scene-preview/v1');
+  assert.equal(preview.required_beats,script.beats.filter(b=>b.required).length);
+  assert.equal(preview.optional_beats,script.beats.filter(b=>!b.required).length);
+  assert.equal(preview.supplied_takes,takes.takes.length);
+  assert.equal(preview.scene_id,script.scene_id);
+  assert.equal(preview.opening_beats.length,5);
+  assert.equal(preview.opening_beats[0].beat_id,script.beats.find(b=>b.required).beat_id);
+  assert.match(preview.synthetic_notice,/fictional/i);
+  // A preview is facts about supplied records. It must not carry anything that
+  // reads as a result: no covered count, no eligibility, no exception count.
+  for(const key of ['covered_with_evidence','raising_exceptions','without_release_record','eligible','counts','headline'])assert.ok(!Object.hasOwn(preview,key),key);
+});
 test('static build is real React with same-origin API and no HTML proxy',async()=>{
   const index=await readFile('dist/index.html','utf8');
   assert.match(index,/\/assets\/.*\.js/);
