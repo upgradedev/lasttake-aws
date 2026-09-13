@@ -10,14 +10,14 @@ For a script supervisor and the 1st AD reviewing a fictional shoot day. LastTake
 
 [Current automated acceptance](https://d3kf6hquzlli8g.cloudfront.net/acceptance.html) compares the observed frontend and backend revisions with the latest public aggregate receipt. Missing, malformed, mismatched or older-than-24-hour proof cannot establish a current pass. Human UAT remains NOT_RUN. The page becomes available with the frontend release containing it; source CI alone does not publish acceptance.
 
-The live browser uses an offline planner and lexical interpreter with real Strands tool calls, S3 session resume and role-gated decisions. It does not analyze footage/audio, send emails, make payments or establish legal sufficiency. Demo role selection is not authenticated staff identity. History exports sources, current decisions, revisions, recorded model identifiers, failure/recovery status and limits. Hashes identify bytes, not truth.
+The live browser uses an offline planner and lexical interpreter with real Strands tool calls, S3 session resume and role-gated decisions. It does not analyze footage/audio, send emails, make payments or establish legal sufficiency. Demo role selection is not authenticated staff identity. Handoff exports sources, current decisions, revisions, recorded model identifiers, failure/recovery status and limits. Hashes identify bytes, not truth.
 
 ## Walk the complete shoot day
 
 1. **Checkpoint:** create the fictional run and choose Run wrap checkpoint. Open a take and compare its sidecar with the independent camera report. Missing evidence stays missing.
-2. **Evidence change:** answer the saved pickup request as the 1st AD. Open guided demo, then Add take or release. Save the valid take and a release example. A prior continuity decision becomes stale when the take changes its sources. You can also download an editable input JSON and load that ordinary file; loading only previews it until you press Save.
+2. **Evidence change:** answer the saved pickup request as the 1st AD. Open guided demo, then Add take or release in Scene review. Save the valid take and a release example. A prior continuity decision becomes stale when the take changes its sources. You can also download an editable input JSON and load that ordinary file; loading only previews it until you press Save.
 3. **Human wrap decision:** review continuity as the script supervisor and metadata T-013 as DIT. Record the reason for each accepted fictional exception. Select 1st AD, Review wrap readiness, Request wrap approval, inspect the fingerprint and explicitly approve or decline. Reload restores the saved request; eligibility never signs for the human.
-4. **Editorial handoff:** in History, Publish approved turnover. Download turnover preserves the saved manifest. Download or copy the handoff summary for the beat-to-take map, source digests and retained exceptions. Prepare a Wrap review receipt for the recorded approval and open work. Historical records remain downloadable with their status shown.
+4. **Editorial handoff:** in Handoff, Publish approved turnover. Download turnover preserves the saved manifest. Download or copy the handoff summary for the beat-to-take map, source digests and retained exceptions. Choose the Wrap review receipt purpose and press Prepare receipt for the recorded approval and open work. Historical records remain downloadable with their status shown.
 
 The steps above are the new source capture contract, exercised by `frontend/tests/e2e/hero.spec.ts` against the real HTTP handler. Availability on the live URL depends on a reviewed frontend release; source CI is not deployment evidence. Final recording stays `NOT_CONFIGURED` pending owner verification. File intake accepts one JSON record up to 64 KiB, with independent camera report fields inside a take; it does not parse media, PDFs or CSV. Session authority comes from the browser's saved handle, never from the imported document.
 
@@ -41,7 +41,7 @@ and, after parent-approved release, the exact-SHA live acceptance workflow.
 
 The React, TypeScript and Tailwind application is in `frontend/`. It builds to
 `frontend/dist/` with hashed `/assets/` files and uses same-origin `/api/*` JSON
-requests. Navigation opens Dashboard, Workspace, Records and History. Existing
+requests. Navigation is named after the task: Wrap status, Scene review, Records, Handoff, and an Architecture page that names only deployed tiers. Existing
 `#overview`, `#scene`, `#actions` and `#history` links remain supported;
 `#dashboard` and `#workspace` are also accepted. Run, beat, finding, record and
 search context travel in the hash, and browser back/reload restore the selection.
@@ -77,7 +77,7 @@ and release forms save records through the Python backend. The optional guided
 demo supplies labelled fictional examples. The API reports the offline lexical
 interpreter; real Strands interrupts govern pickup and wrap approvals.
 
-Dashboard metrics describe only the selected run of the single fictional scene.
+Wrap status metrics describe only the selected run of the single fictional scene.
 Coverage and missing-release counts come from the API assessment; absent or nullable
 assessment is labelled Not assessed. Retained exceptions counts distinct findings,
 including reviewed and accepted exceptions, and is separate from the eligibility
@@ -96,7 +96,7 @@ Records exposes the scene projection: linked takes, script beats, retained findi
 and visible release subjects. Unlinked takes and full release documents are not
 returned by this endpoint, and the inspector states that limitation. An executed
 ledger flag alone does not establish expiry, scope or legal sufficiency. Sound checks
-use metadata only. History preserves saved turnovers even after evidence changes;
+use metadata only. Handoff preserves saved turnovers even after evidence changes;
 eligibility and an exact, unchanged pending interrupt remain separate from human
 wrap approval.
 
@@ -229,11 +229,11 @@ The task is to make missing or conflicting records visible while a human can sti
 
 [LastTake on AWS](https://d3kf6hquzlli8g.cloudfront.net/). No account or install is required for the fictional demo.
 
-1. Create a new shoot-day run and press **Run wrap checkpoint**. Workspace shows the script, takes and current exceptions.
+1. Press **Start this fictional shoot day**, then **Run wrap checkpoint**. Scene review shows the lined script, the takes and the current exceptions; the wrap board above them carries the count.
 2. Inspect sources and select **1st AD** to answer the saved pickup request. Reloading restores the real Strands interrupt. A pickup request does not approve wrap.
 3. Open the guided demo and **Add take or release**. **Try valid take** fills editable fields. **Try refused date** supplies an impossible expiry date and must return HTTP 400 with no amendment. **Try corrected date** reuses that identifier with a valid date; edit before submitting. A missing independent camera report remains missing.
 4. Review the current continuity and metadata exceptions under their responsible roles. Review wrap readiness, request wrap approval, and answer the exact saved review as the 1st AD.
-5. Open History to inspect delivery status, save a turnover when authorized, and prepare JSON or human-readable evidence. A bus-accepted receipt is not proof of downstream completion. Pending or unknown outcomes require reconciliation; only definite rejection offers an explicit retry.
+5. Open Handoff to inspect delivery status, save a turnover when authorized, and prepare JSON or human-readable evidence. A bus-accepted receipt is not proof of downstream completion. Pending or unknown outcomes require reconciliation; only definite rejection offers an explicit retry.
 
 Policy 1.1 requires a fresh checkpoint for older findings. The page names that reason and retains old history. Decline any old pending request before running a fresh checkpoint; an unbound historical response cannot approve new evidence.
 

@@ -2,7 +2,7 @@ import {test,expect,type Page} from '@playwright/test';
 
 async function fresh(page:Page){
   await page.goto('/');
-  await page.getByRole('button',{name:'New shoot-day run',exact:true}).click();
+  await page.getByRole('button',{name:'Start this fictional shoot day'}).click();
   await expect(page.getByRole('button',{name:'Run wrap checkpoint'})).toBeEnabled();
   const badges=page.locator('.beat .badge');
   await expect(badges.first()).toHaveText('Not assessed');
@@ -11,7 +11,7 @@ async function fresh(page:Page){
   await expect(page.getByRole('button',{name:'Refresh saved state'})).toBeEnabled();
   await expect(page.getByText(/Of 34 required beats/).first()).toBeVisible();
 }
-async function navigate(page:Page,name:string){const labels:Record<string,string>={'Scene workspace':'Workspace','My actions':'Workspace','Overview':'Dashboard','Turnovers & history':'History'};await page.getByRole('navigation').getByRole('link',{name:labels[name] ?? name,exact:true}).click();}
+async function navigate(page:Page,name:string){const labels:Record<string,string>={'Scene workspace':'Scene review','My actions':'Scene review','Overview':'Wrap status','Turnovers & history':'Handoff'};await page.getByRole('navigation').getByRole('link',{name:labels[name] ?? name,exact:true}).click();}
 async function sample(page:Page,kind:'take'|'rights_record'){
   await navigate(page,'Scene workspace');
   if(await page.getByRole('button',{name:'Open guided demo'}).isVisible())await page.getByRole('button',{name:'Open guided demo'}).click();

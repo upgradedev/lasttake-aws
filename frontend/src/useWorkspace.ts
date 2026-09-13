@@ -75,6 +75,7 @@ export function useWorkspace() {
     const data=session ?? await loadSession();
     const result=await request<{run_id:string}>('reset',{session_id:data.session_id});
     await loadSession();
+    if(location.search)history.replaceState(null,'',location.pathname);
     location.hash=link('scene',result.run_id);
   });
   const act=async(path:string,extra:Document={})=>handle(async()=>{

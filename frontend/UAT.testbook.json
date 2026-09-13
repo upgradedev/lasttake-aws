@@ -1,515 +1,572 @@
 {
-  "schema": "lasttake/uat/v1",
-  "product_wave_20260912": {
-    "items": ["UX-LT-10S", "QA-LT-FRESH"],
-    "status": "PENDING_CI",
-    "evidence": "Consult frontend-evidence-<exact source SHA> and ui-screenshots-<exact source SHA>, product-wave-source-context and the existing JUnit/JSON reports. Static source does not certify its own execution; earlier evidence remains historical.",
-    "runtime_owner": "Coordinator: exact deployed frontend/backend pair and existing bounded aws-uat. No worker dispatch or production change.",
-    "human_signoff": "NOT_RUN",
-    "human_requirement": "An independent first-time user's actual understanding after 10 seconds must be recorded separately in C3. Browser checks and screenshots cannot establish it."
-  },
-  "current_public_proof": {
-    "url": "https://d3kf6hquzlli8g.cloudfront.net/acceptance.html",
-    "latest_receipt": "/acceptance.json",
-    "scope": "Dynamic automated product-journey evidence for the exact observed frontend/backend pair. Missing, malformed, changed or older-than-24-hour evidence never establishes a current pass. Earlier entries below remain historical.",
-    "automation_mapping": "infra/test_frontend_acceptance.py; frontend/proof-tests/renderer.spec.ts (source-only fixtures); frontend/acceptance-tests/live.spec.ts (actual published proof)",
-    "human_uat": "NOT_RUN"
-  },
-  "scope": "Synthetic React production cockpit and current scene dashboard. Existing evidence entries are historical and release-scoped; the new UX requires exact-commit CI and subsequent parent-approved AWS acceptance.",
-  "aws_release": {
-    "url": "https://d3kf6hquzlli8g.cloudfront.net/",
-    "status": "PASS_AUTOMATED_AWS",
-    "observed_result_evidence": "PASS: 8 desktop/mobile journeys against CloudFront, Lambda, S3 and Aurora DSQL on 2026-09-09. Run https://github.com/upgradedev/lasttake-aws/actions/runs/34327806494, frontend 1f10d39c8b2b22474f64b1c057851eb2057665e7. Command: LASTTAKE_UI_URL=https://d3kf6hquzlli8g.cloudfront.net/ npm run test:e2e. Automated synthetic acceptance only; human signoff remains NOT_RUN.",
-    "scope": "HISTORICAL_RELEASE_ONLY: the named frontend SHA and run validate the earlier UX, not the current dashboard/workspace."
-  },
-  "cases": [
-    {
-      "id": "UX-LT-10S",
-      "persona": "First-time or returning script supervisor, 1st AD and assistant editor",
-      "requirement": "Explain the user, pre-wrap problem, saved result and first action; connect evidence, blocked/eligible reason, exact human wrap decision and understandable editorial turnover. Keep material limitations visible and technical metadata optional.",
-      "preconditions": "Fresh isolated synthetic session on exact source CI or coordinator-approved exact deployed release; desktop/mobile and keyboard. Existing API, selectors, controls and cases retained.",
-      "steps": ["Read cold screen; reach existing start CTA through Tab and Enter", "Checkpoint; return to Dashboard and inspect cause, evidence and responsible role before metrics", "Complete existing evidence-change journey and separate exact 1st AD wrap approval", "Publish and reload; read retained exceptions and search saved take map; recover empty search", "Change evidence after turnover and reload; old handoff stays inspectable and historical", "Lose transport and refresh; current-decision wording returns only after recovery"],
-      "expected_outcome": "Functional backend drives every result. Pickup is separate from wrap; eligibility is not approval; approval enables but does not publish turnover. Retained exceptions and delivery/creative/legal/media limits stay explicit.",
-      "negative_recovery_case": "Missing assessment/cause never implies a pass. Stale requests retain refusal/decline recovery; transport failure requires refresh; empty search clears; changed evidence cannot make old turnover current.",
-      "automation_mapping": ["tests/product-wave.test.tsx", "tests/e2e/hero.spec.ts: LT-HERO", "tests/e2e/workspaces.spec.ts: LT-DASH and LT-OFFLINE", "tests/e2e/journeys.spec.ts: LT03", "tests/contracts.test.mjs"],
-      "observed_result_evidence": "PENDING_CI: exact-head artifacts must contain product-wave cold-keyboard, blocked-return, editorial-completion and historical-return screenshots. Existing expected cases, retry and freshness checks are unchanged. Independent 10-second understanding remains coordinator-owned C3, NOT_RUN.",
-      "human_signoff": "NOT_RUN"
-    },
-    {
-      "id": "QA-LT-FRESH",
-      "persona": "Release coordinator",
-      "requirement": "Fresh bounded AWS acceptance for the exact active frontend/backend pair, retaining previous and failed attempts and the existing 24-hour threshold.",
-      "preconditions": "Coordinator authorizes existing bounded runtime workflow for the exact deployed release. Source CI alone cannot satisfy this item.",
-      "steps": ["Record deployed frontend/backend pair", "Execute existing aws-uat with all retained and extended cases", "Link immutable run/artifact, exact deployed SHA and timestamp", "Treat changed releases or expired proof as historical"],
-      "expected_outcome": "Immutable receipt identifies the observed release pair. Existing failure, retry, expected-case and freshness rules stay enforced; previous attempts remain available.",
-      "negative_recovery_case": "Missing, malformed, failed, changed-release or expired receipts never establish a current pass. No paid model cohort, DB/IAM change or inferred human UAT.",
-      "automation_mapping": ["../.github/workflows/aws-uat.yml (coordinator only)", "../infra/test_frontend_acceptance.py", "proof-tests/renderer.spec.ts", "acceptance-tests/live.spec.ts", "tests/contracts.test.mjs"],
-      "observed_result_evidence": "NOT_RUN for this wave: source preparation only. Coordinator owns runtime execution and exact-release proof. Historical acceptance stays historical.",
-      "human_signoff": "NOT_RUN"
-    },
-    {
-      "id": "LT-HISTORY",
-      "persona": "Returning script supervisor",
-      "requirement": "Bounded saved-run pages retain every older owned run and recover honestly when history changes.",
-      "preconditions": "Owned session with12 saved runs; observe actual /api/state.run_state_store; desktop and mobile.",
-      "steps": ["Refresh newest10, then load older2 and reopen an old owned run", "Reject a foreign-owner cursor", "Return to newest10 and append a13th run", "Use the old cursor, then Refresh newest runs and load older3"],
-      "expected_outcome": "DSQL old keyset remains200 with older2, excluding the newly appended run; fallback old version returns409 retaining current10. Refresh shows newest10 including the new run, then older3; original owned run remains reachable and no history is deleted.",
-      "negative_recovery_case": "Cross-owner cursor400; fallback409 retains the current page and requires explicit refresh, without retrying a write.",
-      "automation_mapping": ["tests/e2e/workspaces.spec.ts: LT-HISTORY (shared source and aws-uat configuration)", "tests/history.test.tsx", "../tests/test_history_pages.py"],
-      "observed_result_evidence": "HISTORICAL_SOURCE_CHECKPOINT PASS2026-09-10 12:35 UTC at a3e3d390489382708f4b32a020ea4c9c5293e576, https://github.com/upgradedev/lasttake-aws/actions/runs/34476984764. Command: gh run view 34476984764 --log. LT-HISTORY passed desktop/mobile within26 real offline-HTTP journeys,0 failed/0 skipped. Source SQL tests separately verify stable keyset insertion behavior; this is not AWS pagination evidence. Current AWS status: https://d3kf6hquzlli8g.cloudfront.net/acceptance.html. Earlier evidence retained; human NOT_RUN, video NOT_CONFIGURED.",
-      "human_signoff": "NOT_RUN"
-    },
-    {
-      "id": "LT01",
-      "persona": "Script supervisor",
-      "requirement": "Supply a take or release through accessible forms and recover it after reload.",
-      "preconditions": "Fresh session; fictional shoot day; Python API reachable.",
-      "steps": [
-        "Create run and start checkpoint",
-        "Submit malformed JSON and a missing-field document",
-        "Fill synthetic take fields and save",
-        "Reload and inspect slate and source report",
-        "Submit the same take again"
-      ],
-      "expected_outcome": "Invalid data is refused with entries kept; valid take persists; duplicate does not create a second take.",
-      "negative_recovery_case": "Server error keeps the form and offers a saved-state reload.",
-      "automation_mapping": [
-        "tests/e2e/journeys.spec.ts: LT01",
-        "tests/components.test.tsx: intake",
-        "../tests/test_handler.py"
-      ],
-      "observed_result_evidence": "AUTOMATION PASS: desktop and mobile LT01 submitted invalid/incomplete documents, saved a synthetic take, reloaded it and rejected a duplicate; API scene contained 41 takes. Form-retention component tests passed. Evidence: https://github.com/upgradedev/lasttake-aws/actions/runs/34326031169; frontend-evidence-4953c125e499d40f6ce13c0eeff42d92d726322a.",
-      "human_signoff": "NOT_RUN"
-    },
-    {
-      "id": "LT02",
-      "persona": "Script supervisor and DIT",
-      "requirement": "Decisions apply only to reviewed evidence; later evidence requires new decisions.",
-      "preconditions": "Checkpoint with continuity exception.",
-      "steps": [
-        "Accept continuity with name and reason",
-        "Supply a new take",
-        "Inspect withdrawn decision",
-        "Reload",
-        "Review and decide again"
-      ],
-      "expected_outcome": "Old digest cannot approve new evidence; withdrawal survives reload; new explicit decision is recorded.",
-      "negative_recovery_case": "Posting the earlier finding digest receives 409.",
-      "automation_mapping": [
-        "tests/e2e/journeys.spec.ts: LT02",
-        "../tests/test_workspace.py:test_owned_decisions_require_the_digest_that_the_human_saw"
-      ],
-      "observed_result_evidence": "AUTOMATION PASS: desktop and mobile LT02 recorded a decision, added evidence, observed withdrawal across reload, and recorded a fresh decision. Python regression rejected the earlier digest with 409. Evidence: https://github.com/upgradedev/lasttake-aws/actions/runs/34326031169; frontend-evidence-4953c125e499d40f6ce13c0eeff42d92d726322a.",
-      "human_signoff": "NOT_RUN"
-    },
-    {
-      "id": "LT03",
-      "persona": "1st AD and assistant editor",
-      "requirement": "Resume a saved Strands approval, act once on retry, publish a sealed turnover and portable role receipt.",
-      "preconditions": "Checkpoint has raised a pickup interrupt.",
-      "steps": [
-        "Select 1st AD and reload",
-        "Approve pickup and repeat exact API request",
-        "Supply take and release",
-        "Record role-specific decisions",
-        "Request and approve wrap",
-        "Publish turnover and reload",
-        "Download receipt"
-      ],
-      "expected_outcome": "One pickup event; separate wrap approval; saved turnover and receipt carry run, policy, digests and open items.",
-      "negative_recovery_case": "Other roles cannot approve; accepted exceptions remain visible.",
-      "automation_mapping": [
-        "tests/e2e/journeys.spec.ts: LT03",
-        "../tests/test_workspace.py:test_owned_approval_role_and_type_and_retry"
-      ],
-      "observed_result_evidence": "AUTOMATION PASS: desktop and mobile LT03 resumed the saved Strands pickup interrupt, confirmed exactly one pickup event after retry, supplied evidence, recorded role decisions, obtained separate wrap approval, published/reloaded turnover and downloaded a sealed receipt with remaining open items. Evidence: https://github.com/upgradedev/lasttake-aws/actions/runs/34326031169; frontend-evidence-4953c125e499d40f6ce13c0eeff42d92d726322a.",
-      "human_signoff": "NOT_RUN"
-    },
-    {
-      "id": "LT03-R1",
-      "persona": "Receipt recipient",
-      "requirement": "Untrusted caller prose cannot become a sealed subject assertion.",
-      "preconditions": "Checked scene.",
-      "steps": [
-        "Request receipt with unknown subject keys",
-        "Request with nonexistent beat",
-        "Request with existing beat B-17"
-      ],
-      "expected_outcome": "Invalid subjects are 400; only the existing beat identifier enters the receipt; no approval inferred.",
-      "negative_recovery_case": "String, nested array and extra assertion keys are refused.",
-      "automation_mapping": [
-        "../tests/test_workspace.py:test_lt03_r1_unchecked_caller_subject_is_rejected",
-        "tests/e2e/journeys.spec.ts: LT03"
-      ],
-      "observed_result_evidence": "AUTOMATION PASS: Python parameterized regressions rejected unchecked subject types, extra assertions and nonexistent beat identifiers; existing B-17 was accepted without inferred approval. Both real-HTTP LT03 journeys rejected caller_assertion with 400. Evidence: https://github.com/upgradedev/lasttake-aws/actions/runs/34326031169; frontend-evidence-4953c125e499d40f6ce13c0eeff42d92d726322a.",
-      "human_signoff": "NOT_RUN"
-    },
-    {
-      "id": "LT-NAV",
-      "persona": "Returning supervisor",
-      "requirement": "Deep links and saved runs preserve safe session ownership.",
-      "preconditions": "Two separately owned sessions.",
-      "steps": [
-        "Create saved run",
-        "Reload a scene deep link",
-        "Open history",
-        "Request run from another session",
-        "Change route during pending refresh"
-      ],
-      "expected_outcome": "Only owned runs are listed; foreign requests denied; late old responses cannot change the selected run.",
-      "negative_recovery_case": "Missing session handle receives 403; selected-run mismatch blocks mutation.",
-      "automation_mapping": [
-        "tests/app.test.tsx: discards an old-run response",
-        "../tests/test_workspace.py:test_owned_run_index_survives_reload_and_rejects_another_visitor"
-      ],
-      "observed_result_evidence": "AUTOMATION PASS: Python verified owned-run recovery and foreign-session denial. RTL regressions discarded a late old-run response during navigation and prevented a stale action callback from sending an approval. Browser journeys verified reload and hash navigation; the pending-refresh race is component-tested, not browser fault-injected. Evidence: https://github.com/upgradedev/lasttake-aws/actions/runs/34326031169; frontend-evidence-4953c125e499d40f6ce13c0eeff42d92d726322a.",
-      "human_signoff": "NOT_RUN"
-    },
-    {
-      "id": "LT-RECOVERY",
-      "persona": "Supervisor with unreliable connectivity",
-      "requirement": "Bounded waits and storage-denied recovery remain usable.",
-      "preconditions": "Browser storage denied or API stalls.",
-      "steps": [
-        "Deny storage and open app",
-        "Create run in the active tab",
-        "Simulate a 35-second stalled request",
-        "Read error and refresh saved state"
-      ],
-      "expected_outcome": "No white screen; tab-held session works with clear limitation; timeout does not automatically retry a write.",
-      "negative_recovery_case": "Expired or unavailable session can be replaced explicitly.",
-      "automation_mapping": [
-        "tests/e2e/journeys.spec.ts: blocked browser storage",
-        "tests/model.test.ts: aborts after 35 seconds",
-        "tests/app.test.tsx"
-      ],
-      "observed_result_evidence": "AUTOMATION PASS: both real-HTTP browser projects created a usable tab-held session with browser storage denied. Fake-timer unit regression verified one write attempt aborted after 35 seconds. RTL verified explicit recovery from a session-loading failure. A real network outage was not staged. Evidence: https://github.com/upgradedev/lasttake-aws/actions/runs/34326031169; frontend-evidence-4953c125e499d40f6ce13c0eeff42d92d726322a.",
-      "human_signoff": "NOT_RUN"
-    },
-    {
-      "id": "LT-ACCESS",
-      "persona": "Mobile and keyboard user",
-      "requirement": "Readable script and actionable controls across desktop and mobile.",
-      "preconditions": "Desktop 1440px and mobile 390px viewports.",
-      "steps": [
-        "Use navigation and role selector",
-        "Open script and take inspector",
-        "Use labelled evidence forms",
-        "Open source details",
-        "Check horizontal overflow"
-      ],
-      "expected_outcome": "Semantic controls, visible focus, useful first viewport, responsive single-column script on narrow screens.",
-      "negative_recovery_case": "Search with no match explains the empty state.",
-      "automation_mapping": [
-        "tests/e2e/journeys.spec.ts: all desktop/mobile projects",
-        "tests/components.test.tsx: scene workspace"
-      ],
-      "observed_result_evidence": "AUTOMATED CHECKS PASS: Chromium desktop 1440px and mobile 390px journeys used labelled controls and checked no horizontal overflow; component tests exercised empty search and evidence inspection. Screenshots are in the evidence artifact. Manual keyboard, assistive-technology and physical-device acceptance remain NOT_RUN. Evidence: https://github.com/upgradedev/lasttake-aws/actions/runs/34326031169; frontend-evidence-4953c125e499d40f6ce13c0eeff42d92d726322a.",
-      "human_signoff": "NOT_RUN"
-    },
-    {
-      "id": "LT-TRUTH",
-      "persona": "Demo evaluator",
-      "requirement": "Synthetic data and actual providers are labelled truthfully.",
-      "preconditions": "Default offline deployment.",
-      "steps": [
-        "Read synthetic label",
-        "Open guided demo",
-        "Open run execution labels",
-        "Read receipt limitations"
-      ],
-      "expected_outcome": "Real Strands SDK identified; offline scripted planner and API-reported lexical interpreter identified; no Bedrock execution implied.",
-      "negative_recovery_case": "Unassessed evidence is never displayed as verified.",
-      "automation_mapping": [
-        "tests/app.test.tsx",
-        "tests/components.test.tsx",
-        "tests/contracts.test.mjs"
-      ],
-      "observed_result_evidence": "AUTOMATED CHECKS PASS: component/app tests exercised synthetic guided mode, execution labels including offline-lexical/1.0.0, unchecked evidence and receipt limitations. Build contract rejected HTML proxies. Cloud runtime provider verification and evaluator signoff remain NOT_RUN. Evidence: https://github.com/upgradedev/lasttake-aws/actions/runs/34326031169; frontend-evidence-4953c125e499d40f6ce13c0eeff42d92d726322a.",
-      "human_signoff": "NOT_RUN"
-    },
-    {
-      "id": "LT-UI",
-      "persona": "Script supervisor and 1st AD",
-      "requirement": "Readable cinematic workspace with truthful, accessible approval feedback",
-      "preconditions": "Synthetic run with current assessed evidence; desktop/mobile and reduced-motion browser preference",
-      "steps": [
-        "Review the lined script and exception cards; follow a beat to its evidence.",
-        "Request wrap as 1st AD; read the current package SHA-256 fingerprint.",
-        "Approve; wait for returned server state before expecting a saved confirmation.",
-        "Repeat with reduced motion; inspect viewport and approval evidence."
-      ],
-      "expected_outcome": "Continuity/coverage accents retain text labels; server-confirmed wrap state alone controls the checkmark; displayed digest equals API package_revision_digest. No Merkle proof or legal-clearance claim. Reduced-motion removes decorative animation.",
-      "negative_recovery_case": "A failed click or a successful action without refreshed state does not claim a saved wrap. Changed server state removes confirmation. Existing stale-evidence approval refusal remains enforced.",
-      "automation_mapping": "tests/components.test.tsx (server-state-only confirmation and status accents); tests/e2e/journeys.spec.ts LT03 (exact API fingerprint, saved feedback, reduced motion and viewport); tests/contracts.test.mjs",
-      "observed_result_evidence": "Run-specific automated outcome is recorded in the frontend-ci and main release Live Playwright testbook artifacts. Earlier checkpoints in this document predate this UI case and are not evidence for it.",
-      "human_signoff": "NOT_RUN"
-    },
-    {
-      "id": "LT-DASH",
-      "persona": "Script supervisor and 1st AD",
-      "requirement": "Current-scene metrics and priority work use actual nullable data and drill into matching records.",
-      "preconditions": "Current candidate built in GitHub Actions; real Python HTTP backend for offline CI or exact-SHA released AWS surface for live acceptance.",
-      "steps": [
-        "Create run and inspect Not assessed metrics",
-        "Run checkpoint and compare all metric values with API state",
-        "Drill coverage, missing releases and retained exceptions",
-        "Capture desktop/mobile dashboard and cockpit"
-      ],
-      "expected_outcome": "No provisional pass, invented trend or portfolio total. Required-beat drill counts match the server assessment; reviewed exceptions remain retained.",
-      "negative_recovery_case": "Null counts and duplicate rows do not become zero or inflate counts.",
-      "automation_mapping": [
-        "tests/e2e/workspaces.spec.ts: LT-DASH",
-        "tests/projection.test.ts",
-        "tests/workspaces.test.tsx"
-      ],
-      "observed_result_evidence": "AUTOMATION_PASS for implementation 896442b1359893f571dd0fbcd0335ccb2ffe1299 in https://github.com/upgradedev/lasttake-aws/actions/runs/34357735501. Real Python HTTP, Chromium desktop/mobile CI only; see frontend-evidence-896442b1359893f571dd0fbcd0335ccb2ffe1299 and ui-screenshots-896442b1359893f571dd0fbcd0335ccb2ffe1299. This is not live-AWS or human acceptance.",
-      "human_signoff": "NOT_RUN"
-    },
-    {
-      "id": "LT-SELECT",
-      "persona": "Script supervisor and DIT",
-      "requirement": "Bidirectional beat/finding and source inspection preserves real identity and route context.",
-      "preconditions": "Current candidate built in GitHub Actions; real Python HTTP backend for offline CI or exact-SHA released AWS surface for live acceptance.",
-      "steps": [
-        "Select script beat then linked finding",
-        "Inspect source IDs, locators and report mismatch",
-        "Follow Records link, type multiple search characters, select take",
-        "Reload and use browser back; return Records takes to Workspace",
-        "Inspect unmatched shot advisory"
-      ],
-      "expected_outcome": "Actual IDs/pages/lines retained; search keeps focus; all beats remain available after a record-category route; unmatched advisory selects no beat.",
-      "negative_recovery_case": "Null, empty, missing or incompatible identities offer no unrelated finding decision.",
-      "automation_mapping": [
-        "tests/e2e/workspaces.spec.ts: LT-SELECT",
-        "tests/projection.test.ts",
-        "tests/workspaces.test.tsx"
-      ],
-      "observed_result_evidence": "AUTOMATION_PASS for implementation 896442b1359893f571dd0fbcd0335ccb2ffe1299 in https://github.com/upgradedev/lasttake-aws/actions/runs/34357735501. Real Python HTTP, Chromium desktop/mobile CI only; see frontend-evidence-896442b1359893f571dd0fbcd0335ccb2ffe1299 and ui-screenshots-896442b1359893f571dd0fbcd0335ccb2ffe1299. This is not live-AWS or human acceptance.",
-      "human_signoff": "NOT_RUN"
-    },
-    {
-      "id": "LT-OFFLINE",
-      "persona": "Supervisor with unreliable connectivity",
-      "requirement": "Unknown write state requires recovery; known validation refusal permits correction.",
-      "preconditions": "Current candidate built in GitHub Actions; real Python HTTP backend for offline CI or exact-SHA released AWS surface for live acceptance.",
-      "steps": [
-        "Create and assess run",
-        "Take browser transport offline and refresh",
-        "Confirm decisions disabled and original run retained",
-        "Restore transport and refresh",
-        "Refuse invalid intake, correct input and save without refreshing"
-      ],
-      "expected_outcome": "No automatic mutation retry; current state recovers; known 400 errors retain editable fields and resubmission.",
-      "negative_recovery_case": "Stale 409, unreadable and server/network failures require refresh; closing intake remains possible.",
-      "automation_mapping": [
-        "tests/e2e/workspaces.spec.ts: LT-OFFLINE",
-        "tests/e2e/journeys.spec.ts: LT01",
-        "tests/workspaces.test.tsx",
-        "tests/model.test.ts"
-      ],
-      "observed_result_evidence": "AUTOMATION_PASS for implementation 896442b1359893f571dd0fbcd0335ccb2ffe1299 in https://github.com/upgradedev/lasttake-aws/actions/runs/34357735501. Real Python HTTP, Chromium desktop/mobile CI only; see frontend-evidence-896442b1359893f571dd0fbcd0335ccb2ffe1299 and ui-screenshots-896442b1359893f571dd0fbcd0335ccb2ffe1299. This is not live-AWS or human acceptance.",
-      "human_signoff": "NOT_RUN"
-    },
-    {
-      "id": "LT-COCKPIT",
-      "persona": "1st AD and keyboard/mobile user",
-      "requirement": "Persistent executive wrap state remains separate from selected finding decisions.",
-      "preconditions": "Current candidate built in GitHub Actions; real Python HTTP backend for offline CI or exact-SHA released AWS surface for live acceptance.",
-      "steps": [
-        "Select finding and inspect right pane status without page scrolling",
-        "Jump between script/evidence/decision panels",
-        "Review pending pickup or wrap in place",
-        "Attempt wrong-role, stale, missing-interrupt and ineligible approvals",
-        "Inspect reduced-motion desktop/mobile screenshots"
-      ],
-      "expected_outcome": "Eligibility, recorded approval and pending interrupt remain distinct. Only exact unchanged eligible wrap request offers approval for 1st AD.",
-      "negative_recovery_case": "Unknown or stale selections disable finding decisions; no creative, legal, audio or savings claim is inferred.",
-      "automation_mapping": [
-        "tests/e2e/workspaces.spec.ts",
-        "tests/e2e/journeys.spec.ts: LT03",
-        "tests/workspaces.test.tsx"
-      ],
-      "observed_result_evidence": "AUTOMATION_PASS for implementation 896442b1359893f571dd0fbcd0335ccb2ffe1299 in https://github.com/upgradedev/lasttake-aws/actions/runs/34357735501. Real Python HTTP, Chromium desktop/mobile CI only; see frontend-evidence-896442b1359893f571dd0fbcd0335ccb2ffe1299 and ui-screenshots-896442b1359893f571dd0fbcd0335ccb2ffe1299. This is not live-AWS or human acceptance.",
-      "human_signoff": "NOT_RUN"
-    },
-    {
-      "id": "LT-RELIABLE-INTAKE",
-      "persona": "Script supervisor, 1st AD and evidence recipient",
-      "requirement": "Invalid date leaves no state changes; correction persists; absent camera report stays missing.",
-      "preconditions": "Owned synthetic run; real Python HTTP service; offline planner with real Strands.",
-      "steps": [
-        "Exercise original trigger",
-        "Exercise alternate route or malformed input",
-        "Reload and apply legitimate correction",
-        "Inspect saved receipt and history"
-      ],
-      "expected_outcome": "Invalid date leaves no state changes; correction persists; absent camera report stays missing.",
-      "negative_recovery_case": "No false approval, fabricated evidence, mutated refused intake, or blind resend.",
-      "automation_mapping": [
-        "tests/e2e/reliability.spec.ts: LT-RELIABLE-INTAKE"
-      ],
-      "observed_result_evidence": "AUTOMATION_PASS for implementation 59844080b768993d67821fd6fb55db9049c998db in https://github.com/upgradedev/lasttake-aws/actions/runs/34377650942. Python/unit controls cover explicit rejection, unknown outcomes, concurrency and fresh-process recovery; desktop/mobile real HTTP covers intake refusal/correction and wrap review. No real AWS fault injection or human signoff.",
-      "human_signoff": "NOT_RUN"
-    },
-    {
-      "id": "LT-RELIABLE-WRAP",
-      "persona": "Script supervisor, 1st AD and evidence recipient",
-      "requirement": "All approval routes enforce reviewed evidence and latest wrap decision; historical receipt never authorizes after renewed decline.",
-      "preconditions": "Owned synthetic run; real Python HTTP service; offline planner with real Strands.",
-      "steps": [
-        "Exercise original trigger",
-        "Exercise alternate route or malformed input",
-        "Reload and apply legitimate correction",
-        "Inspect saved receipt and history"
-      ],
-      "expected_outcome": "All approval routes enforce reviewed evidence and latest wrap decision; historical receipt never authorizes after renewed decline.",
-      "negative_recovery_case": "No false approval, fabricated evidence, mutated refused intake, or blind resend.",
-      "automation_mapping": [
-        "tests/e2e/reliability.spec.ts: LT-RELIABLE-WRAP"
-      ],
-      "observed_result_evidence": "AUTOMATION_PASS for implementation 59844080b768993d67821fd6fb55db9049c998db in https://github.com/upgradedev/lasttake-aws/actions/runs/34377650942. Python/unit controls cover explicit rejection, unknown outcomes, concurrency and fresh-process recovery; desktop/mobile real HTTP covers intake refusal/correction and wrap review. No real AWS fault injection or human signoff.",
-      "human_signoff": "NOT_RUN"
-    },
-    {
-      "id": "LT-RELIABLE-DELIVERY",
-      "persona": "Script supervisor, 1st AD and evidence recipient",
-      "requirement": "Definite rejection may retry; pending/unknown may not resend; accepted replay returns actual receipt.",
-      "preconditions": "Owned synthetic run; real Python HTTP service; offline planner with real Strands.",
-      "steps": [
-        "Exercise original trigger",
-        "Exercise alternate route or malformed input",
-        "Reload and apply legitimate correction",
-        "Inspect saved receipt and history"
-      ],
-      "expected_outcome": "Definite rejection may retry; pending/unknown may not resend; accepted replay returns actual receipt.",
-      "negative_recovery_case": "No false approval, fabricated evidence, mutated refused intake, or blind resend.",
-      "automation_mapping": [
-        "tests/reliability.test.tsx; ../tests/test_reliable_workflows.py"
-      ],
-      "observed_result_evidence": "AUTOMATION_PASS for implementation 59844080b768993d67821fd6fb55db9049c998db in https://github.com/upgradedev/lasttake-aws/actions/runs/34377650942. Python/unit controls cover explicit rejection, unknown outcomes, concurrency and fresh-process recovery; desktop/mobile real HTTP covers intake refusal/correction and wrap review. No real AWS fault injection or human signoff.",
-      "human_signoff": "NOT_RUN"
-    },
-    {
-      "id": "LT-HERO",
-      "persona": "Script supervisor, 1st AD and assistant editor",
-      "requirement": "Complete source capture shows evidence change, withdrawn decision, fresh human wrap approval and usable turnover.",
-      "preconditions": "Fresh owned fictional run; real HTTP handler; desktop/mobile browser.",
-      "steps": [
-        "Follow the next-step panel and checkpoint",
-        "Record continuity, reload and explicitly approve the saved pickup",
-        "Download and load the existing take example as an ordinary JSON file; save take and release",
-        "Observe old decision withdrawal and record new supervisor/DIT decisions",
-        "Request wrap, reload, inspect fingerprint and explicitly approve",
-        "Publish turnover, reload and compare downloaded manifest to saved record",
-        "Prepare and download wrap receipt and inspect handoff summary"
-      ],
-      "expected_outcome": "The new digest reaches the separate human wrap decision, saved turnover and receipt. Prior decisions and accepted exceptions remain visible. Copy/download includes provenance and limitations.",
-      "negative_recovery_case": "No automatic approval or stale decision reuse; changed/historical turnover is labelled. Copy refusal leaves selectable plain text. No production video is generated.",
-      "automation_mapping": [
-        "tests/e2e/hero.spec.ts: LT-HERO",
-        "tests/hero.test.tsx",
-        "tests/contracts.test.mjs",
-        "../web/video/hero-journey.mjs"
-      ],
-      "observed_result_evidence": "PASS at the historical source checkpoint 2026-09-10T11:12:11Z: ec14930fc754ab5cae1315402d002c2ee2cb1651, https://github.com/upgradedev/lasttake-aws/actions/runs/34469562958. Desktop/mobile real offline-HTTP journeys verified changed evidence, fresh human wrap approval and downloaded turnover/receipt; the downloaded handoff summary matched actual saved manifest recommended_action values. Unit controls verified clipboard success/refusal and historical output labels. See hero_workflow_revision for exact suite counts and the log command. This is source CI evidence, not current deployment or human acceptance; current AWS status: https://d3kf6hquzlli8g.cloudfront.net/acceptance.html.",
-      "human_signoff": "NOT_RUN"
-    },
-    {
-      "id": "LT-FILE",
-      "persona": "Script supervisor supplying take/camera records",
-      "requirement": "Ordinary JSON file preview is explicit, editable, session-owned and durable.",
-      "preconditions": "Owned fictional run and separate foreign session; no media parsing.",
-      "steps": [
-        "Load malformed JSON and a missing-field document; save and inspect refusal",
-        "Download an existing synthetic take example without an independent report",
-        "Load the file and try missing/foreign session access",
-        "Save with the owned session and reload",
-        "Resubmit the same file"
-      ],
-      "expected_outcome": "Local preview never saves automatically. Invalid, foreign and duplicate writes leave the package unchanged. Valid take persists and missing camera evidence remains missing.",
-      "negative_recovery_case": "Oversized or unsupported file refused without upload; known validation failure keeps editable JSON; network uncertainty still requires refresh.",
-      "automation_mapping": [
-        "tests/e2e/hero.spec.ts: LT-FILE",
-        "tests/hero.test.tsx"
-      ],
-      "observed_result_evidence": "PASS at the historical source checkpoint 2026-09-10T11:12:11Z: ec14930fc754ab5cae1315402d002c2ee2cb1651, https://github.com/upgradedev/lasttake-aws/actions/runs/34469562958. Desktop/mobile real offline-HTTP journeys verified ordinary JSON preview, owned saving, reload and invalid/missing-session/foreign-session/duplicate refusal. Missing camera evidence stayed missing; a unit FileReader assertion checked downloaded lens_mm 50 versus independent camera_report_row.lens_mm 85. See hero_workflow_revision for exact suite counts and the log command. This is source CI evidence, not current deployment or human acceptance; current AWS status: https://d3kf6hquzlli8g.cloudfront.net/acceptance.html.",
-      "human_signoff": "NOT_RUN"
-    }
+ "schema": "lasttake/uat/v1",
+ "product_wave_20260912": {
+  "items": [
+   "UX-LT-10S",
+   "QA-LT-FRESH"
   ],
-  "verification_checkpoint": {
-    "commit": "1f10d39c8b2b22474f64b1c057851eb2057665e7",
-    "run_url": "https://github.com/upgradedev/lasttake-aws/actions/runs/34327163715",
-    "result": "PASS",
-    "environment": "GitHub Actions; built Vite preview; real offline Python HTTP handler, durable local stores and real Strands SDK sessions; Chromium desktop and mobile emulation. Not AWS deployment or practising-user signoff.",
-    "python": {
-      "passed": 185,
-      "coverage_percent": 87.29
-    },
-    "frontend": {
-      "passed": 29,
-      "statements_percent": 95.8,
-      "branches_percent": 93.2,
-      "functions_percent": 94.39,
-      "lines_percent": 98.85
-    },
-    "functional": {
-      "passed": 3
-    },
-    "browser": {
-      "passed": 8,
-      "failed": 0
-    },
-    "evidence_artifact": "frontend-evidence-1f10d39c8b2b22474f64b1c057851eb2057665e7",
-    "dependency_audit": {
-      "full": 0,
-      "runtime": 0,
-      "artifact_url": "https://github.com/upgradedev/lasttake-aws/actions/runs/34327163715/artifacts/10094244265"
-    },
-    "scope": "HISTORICAL_RELEASE_ONLY"
+  "status": "PENDING_CI",
+  "evidence": "Consult frontend-evidence-<exact source SHA> and ui-screenshots-<exact source SHA>, product-wave-source-context and the existing JUnit/JSON reports. Static source does not certify its own execution; earlier evidence remains historical.",
+  "runtime_owner": "Coordinator: exact deployed frontend/backend pair and existing bounded aws-uat. No worker dispatch or production change.",
+  "human_signoff": "NOT_RUN",
+  "human_requirement": "An independent first-time user's actual understanding after 10 seconds must be recorded separately in C3. Browser checks and screenshots cannot establish it."
+ },
+ "current_public_proof": {
+  "url": "https://d3kf6hquzlli8g.cloudfront.net/acceptance.html",
+  "latest_receipt": "/acceptance.json",
+  "scope": "Dynamic automated product-journey evidence for the exact observed frontend/backend pair. Missing, malformed, changed or older-than-24-hour evidence never establishes a current pass. Earlier entries below remain historical.",
+  "automation_mapping": "infra/test_frontend_acceptance.py; frontend/proof-tests/renderer.spec.ts (source-only fixtures); frontend/acceptance-tests/live.spec.ts (actual published proof)",
+  "human_uat": "NOT_RUN"
+ },
+ "scope": "Synthetic React production cockpit and current scene dashboard. Existing evidence entries are historical and release-scoped; the new UX requires exact-commit CI and subsequent parent-approved AWS acceptance.",
+ "aws_release": {
+  "url": "https://d3kf6hquzlli8g.cloudfront.net/",
+  "status": "PASS_AUTOMATED_AWS",
+  "observed_result_evidence": "PASS: 8 desktop/mobile journeys against CloudFront, Lambda, S3 and Aurora DSQL on 2026-09-09. Run https://github.com/upgradedev/lasttake-aws/actions/runs/34327806494, frontend 1f10d39c8b2b22474f64b1c057851eb2057665e7. Command: LASTTAKE_UI_URL=https://d3kf6hquzlli8g.cloudfront.net/ npm run test:e2e. Automated synthetic acceptance only; human signoff remains NOT_RUN.",
+  "scope": "HISTORICAL_RELEASE_ONLY: the named frontend SHA and run validate the earlier UX, not the current dashboard/workspace."
+ },
+ "cases": [
+  {
+   "id": "LT-LANDING",
+   "persona": "First-time judge, and a returning script supervisor",
+   "requirement": "A permanent start page before any run: audience, the pre-wrap problem, the result, one primary action, and for a returning person the saved shoot day to continue by status and date. Task-named navigation, one demo-mode statement, no benefit figures, no competitor names, no clearance wording.",
+   "preconditions": "Fresh browser context (cold) and a context whose session already owns a run (returning); desktop and 375px; keyboard.",
+   "steps": [
+    "Open / cold; read the headline, the audience line and the result line; reach Start this fictional shoot day by Tab within the first viewport",
+    "Open / with a saved run; see Continue my saved shoot day as the primary action with the run status and date, and Start as secondary",
+    "Open Architecture from the landing; every tier named is one the README and /release.json can confirm; the diagram is the repository file",
+    "Return to the start from the brand mark without losing the saved run"
+   ],
+   "expected_outcome": "The first screen explains who, what goes wrong, what you get and what to press without a run. Nobody is dropped into a run. The page states no dollar figure, no timing claim, no competitor and no clearance; the scene facts come from the corpus at build time and say they are not a result.",
+   "negative_recovery_case": "A stale ?page= query cannot pin a new run to the wrong page; the hash wins. A foreign or unknown run shows the error panel with Back to the start, and the saved runs remain.",
+   "automation_mapping": [
+    "tests/views.test.tsx (landing, architecture, beat matrix, wrap board)",
+    "tests/e2e/hero.spec.ts cold viewport and keyboard reach",
+    "tests/app.test.tsx navigation names and landing recovery"
+   ],
+   "observed_result_evidence": "PENDING_CI for the truth-and-ux revision; earlier evidence in this file predates the landing and is not evidence for it.",
+   "human_signoff": "NOT_RUN"
   },
-  "current_workspace_revision": {
-    "status": "AUTOMATION_PASS",
-    "scope": "CI_REAL_HTTP_ONLY",
-    "implementation_sha": "896442b1359893f571dd0fbcd0335ccb2ffe1299",
-    "ci_run_url": "https://github.com/upgradedev/lasttake-aws/actions/runs/34357735501",
-    "evidence_artifact": "frontend-evidence-896442b1359893f571dd0fbcd0335ccb2ffe1299",
-    "screenshots_artifact": "ui-screenshots-896442b1359893f571dd0fbcd0335ccb2ffe1299",
-    "observed_result_evidence": "185 Python tests, 56 frontend unit/component tests, 3 functional contracts and 16 real-HTTP desktop/mobile journeys passed for the implementation SHA above. This later documentation/contract revision does not claim to validate itself. Final candidate CI artifacts remain authoritative; parent owns main release and exact-SHA live AWS acceptance.",
-    "live_aws_acceptance": "NOT_RUN",
-    "human_signoff": "NOT_RUN"
+  {
+   "id": "UX-LT-10S",
+   "persona": "First-time or returning script supervisor, 1st AD and assistant editor",
+   "requirement": "Explain the user, pre-wrap problem, saved result and first action; connect evidence, blocked/eligible reason, exact human wrap decision and understandable editorial turnover. Keep material limitations visible and technical metadata optional.",
+   "preconditions": "Fresh isolated synthetic session on exact source CI or coordinator-approved exact deployed release; desktop/mobile and keyboard. Existing API, selectors, controls and cases retained.",
+   "steps": [
+    "Read cold screen; reach existing start CTA through Tab and Enter",
+    "Checkpoint; return to Dashboard and inspect cause, evidence and responsible role before metrics",
+    "Complete existing evidence-change journey and separate exact 1st AD wrap approval",
+    "Publish and reload; read retained exceptions and search saved take map; recover empty search",
+    "Change evidence after turnover and reload; old handoff stays inspectable and historical",
+    "Lose transport and refresh; current-decision wording returns only after recovery"
+   ],
+   "expected_outcome": "Functional backend drives every result. Pickup is separate from wrap; eligibility is not approval; approval enables but does not publish turnover. Retained exceptions and delivery/creative/legal/media limits stay explicit.",
+   "negative_recovery_case": "Missing assessment/cause never implies a pass. Stale requests retain refusal/decline recovery; transport failure requires refresh; empty search clears; changed evidence cannot make old turnover current.",
+   "automation_mapping": [
+    "tests/product-wave.test.tsx",
+    "tests/e2e/hero.spec.ts: LT-HERO",
+    "tests/e2e/workspaces.spec.ts: LT-DASH and LT-OFFLINE",
+    "tests/e2e/journeys.spec.ts: LT03",
+    "tests/contracts.test.mjs"
+   ],
+   "observed_result_evidence": "PENDING_CI: exact-head artifacts must contain product-wave cold-keyboard, blocked-return, editorial-completion and historical-return screenshots. Existing expected cases, retry and freshness checks are unchanged. Independent 10-second understanding remains coordinator-owned C3, NOT_RUN.",
+   "human_signoff": "NOT_RUN"
   },
-  "current_reliability_revision": {
-    "status": "AUTOMATION_PASS",
-    "scope": "CI_REAL_HTTP_ONLY",
-    "implementation_sha": "59844080b768993d67821fd6fb55db9049c998db",
-    "ci_run_url": "https://github.com/upgradedev/lasttake-aws/actions/runs/34377650942",
-    "evidence_artifact": "frontend-evidence-59844080b768993d67821fd6fb55db9049c998db",
-    "screenshots_artifact": "ui-screenshots-59844080b768993d67821fd6fb55db9049c998db",
-    "observed_result_evidence": "Passed Python, component, functional and desktop/mobile real-HTTP reliability cases at the implementation SHA above. The later documentation, video preflight and history-scan fix do not claim to validate themselves; final candidate CI artifacts remain authoritative.",
-    "human_signoff": "NOT_RUN",
-    "live_aws_acceptance": "NOT_RUN"
+  {
+   "id": "QA-LT-FRESH",
+   "persona": "Release coordinator",
+   "requirement": "Fresh bounded AWS acceptance for the exact active frontend/backend pair, retaining previous and failed attempts and the existing 24-hour threshold.",
+   "preconditions": "Coordinator authorizes existing bounded runtime workflow for the exact deployed release. Source CI alone cannot satisfy this item.",
+   "steps": [
+    "Record deployed frontend/backend pair",
+    "Execute existing aws-uat with all retained and extended cases",
+    "Link immutable run/artifact, exact deployed SHA and timestamp",
+    "Treat changed releases or expired proof as historical"
+   ],
+   "expected_outcome": "Immutable receipt identifies the observed release pair. Existing failure, retry, expected-case and freshness rules stay enforced; previous attempts remain available.",
+   "negative_recovery_case": "Missing, malformed, failed, changed-release or expired receipts never establish a current pass. No paid model cohort, DB/IAM change or inferred human UAT.",
+   "automation_mapping": [
+    "../.github/workflows/aws-uat.yml (coordinator only)",
+    "../infra/test_frontend_acceptance.py",
+    "proof-tests/renderer.spec.ts",
+    "acceptance-tests/live.spec.ts",
+    "tests/contracts.test.mjs"
+   ],
+   "observed_result_evidence": "NOT_RUN for this wave: source preparation only. Coordinator owns runtime execution and exact-release proof. Historical acceptance stays historical.",
+   "human_signoff": "NOT_RUN"
   },
-  "hero_workflow_revision": {
-    "status": "PASS",
-    "scope": "HISTORICAL_SOURCE_CHECKPOINT",
-    "observed_at": "2026-09-10T11:12:11Z",
-    "implementation_sha": "ec14930fc754ab5cae1315402d002c2ee2cb1651",
-    "ci_run_url": "https://github.com/upgradedev/lasttake-aws/actions/runs/34469562958",
-    "evidence_artifact": "frontend-evidence-ec14930fc754ab5cae1315402d002c2ee2cb1651",
-    "evidence_command": "gh run view 34469562958 --repo upgradedev/lasttake-aws --log",
-    "suite_counts": {
-      "python_passed": 277,
-      "python_coverage_percent": 88.70,
-      "unit_component_passed": 70,
-      "functional_passed": 7,
-      "real_offline_http_desktop_mobile_passed": 24,
-      "separate_receipt_browser_passed": 60
-    },
-    "recording_status": "NOT_CONFIGURED",
-    "live_aws_acceptance": "SEE_CURRENT_ACCEPTANCE",
-    "current_aws_acceptance_url": "https://d3kf6hquzlli8g.cloudfront.net/acceptance.html",
-    "human_signoff": "NOT_RUN",
-    "evidence": "GitHub Actions source CI used the built React application, real offline Python HTTP handler, durable local stores, real Strands sessions and Chromium desktop/mobile emulation. Counts above are separate suite totals, not additional hero-only tests. This dated checkpoint does not validate later documentation commits or establish current AWS deployment; exact candidate CI artifacts and the current AWS acceptance page remain authoritative. Earlier evidence is retained. No paid models, production recording or practising-user signoff."
+  {
+   "id": "LT-HISTORY",
+   "persona": "Returning script supervisor",
+   "requirement": "Bounded saved-run pages retain every older owned run and recover honestly when history changes.",
+   "preconditions": "Owned session with12 saved runs; observe actual /api/state.run_state_store; desktop and mobile.",
+   "steps": [
+    "Refresh newest10, then load older2 and reopen an old owned run",
+    "Reject a foreign-owner cursor",
+    "Return to newest10 and append a13th run",
+    "Use the old cursor, then Refresh newest runs and load older3"
+   ],
+   "expected_outcome": "DSQL old keyset remains200 with older2, excluding the newly appended run; fallback old version returns409 retaining current10. Refresh shows newest10 including the new run, then older3; original owned run remains reachable and no history is deleted.",
+   "negative_recovery_case": "Cross-owner cursor400; fallback409 retains the current page and requires explicit refresh, without retrying a write.",
+   "automation_mapping": [
+    "tests/e2e/workspaces.spec.ts: LT-HISTORY (shared source and aws-uat configuration)",
+    "tests/history.test.tsx",
+    "../tests/test_history_pages.py"
+   ],
+   "observed_result_evidence": "HISTORICAL_SOURCE_CHECKPOINT PASS2026-09-10 12:35 UTC at a3e3d390489382708f4b32a020ea4c9c5293e576, https://github.com/upgradedev/lasttake-aws/actions/runs/34476984764. Command: gh run view 34476984764 --log. LT-HISTORY passed desktop/mobile within26 real offline-HTTP journeys,0 failed/0 skipped. Source SQL tests separately verify stable keyset insertion behavior; this is not AWS pagination evidence. Current AWS status: https://d3kf6hquzlli8g.cloudfront.net/acceptance.html. Earlier evidence retained; human NOT_RUN, video NOT_CONFIGURED.",
+   "human_signoff": "NOT_RUN"
+  },
+  {
+   "id": "LT01",
+   "persona": "Script supervisor",
+   "requirement": "Supply a take or release through accessible forms and recover it after reload.",
+   "preconditions": "Fresh session; fictional shoot day; Python API reachable.",
+   "steps": [
+    "Create run and start checkpoint",
+    "Submit malformed JSON and a missing-field document",
+    "Fill synthetic take fields and save",
+    "Reload and inspect slate and source report",
+    "Submit the same take again"
+   ],
+   "expected_outcome": "Invalid data is refused with entries kept; valid take persists; duplicate does not create a second take.",
+   "negative_recovery_case": "Server error keeps the form and offers a saved-state reload.",
+   "automation_mapping": [
+    "tests/e2e/journeys.spec.ts: LT01",
+    "tests/components.test.tsx: intake",
+    "../tests/test_handler.py"
+   ],
+   "observed_result_evidence": "AUTOMATION PASS: desktop and mobile LT01 submitted invalid/incomplete documents, saved a synthetic take, reloaded it and rejected a duplicate; API scene contained 41 takes. Form-retention component tests passed. Evidence: https://github.com/upgradedev/lasttake-aws/actions/runs/34326031169; frontend-evidence-4953c125e499d40f6ce13c0eeff42d92d726322a.",
+   "human_signoff": "NOT_RUN"
+  },
+  {
+   "id": "LT02",
+   "persona": "Script supervisor and DIT",
+   "requirement": "Decisions apply only to reviewed evidence; later evidence requires new decisions.",
+   "preconditions": "Checkpoint with continuity exception.",
+   "steps": [
+    "Accept continuity with name and reason",
+    "Supply a new take",
+    "Inspect withdrawn decision",
+    "Reload",
+    "Review and decide again"
+   ],
+   "expected_outcome": "Old digest cannot approve new evidence; withdrawal survives reload; new explicit decision is recorded.",
+   "negative_recovery_case": "Posting the earlier finding digest receives 409.",
+   "automation_mapping": [
+    "tests/e2e/journeys.spec.ts: LT02",
+    "../tests/test_workspace.py:test_owned_decisions_require_the_digest_that_the_human_saw"
+   ],
+   "observed_result_evidence": "AUTOMATION PASS: desktop and mobile LT02 recorded a decision, added evidence, observed withdrawal across reload, and recorded a fresh decision. Python regression rejected the earlier digest with 409. Evidence: https://github.com/upgradedev/lasttake-aws/actions/runs/34326031169; frontend-evidence-4953c125e499d40f6ce13c0eeff42d92d726322a.",
+   "human_signoff": "NOT_RUN"
+  },
+  {
+   "id": "LT03",
+   "persona": "1st AD and assistant editor",
+   "requirement": "Resume a saved Strands approval, act once on retry, publish a sealed turnover and portable role receipt.",
+   "preconditions": "Checkpoint has raised a pickup interrupt.",
+   "steps": [
+    "Select 1st AD and reload",
+    "Approve pickup and repeat exact API request",
+    "Supply take and release",
+    "Record role-specific decisions",
+    "Request and approve wrap",
+    "Publish turnover and reload",
+    "Download receipt"
+   ],
+   "expected_outcome": "One pickup event; separate wrap approval; saved turnover and receipt carry run, policy, digests and open items.",
+   "negative_recovery_case": "Other roles cannot approve; accepted exceptions remain visible.",
+   "automation_mapping": [
+    "tests/e2e/journeys.spec.ts: LT03",
+    "../tests/test_workspace.py:test_owned_approval_role_and_type_and_retry"
+   ],
+   "observed_result_evidence": "AUTOMATION PASS: desktop and mobile LT03 resumed the saved Strands pickup interrupt, confirmed exactly one pickup event after retry, supplied evidence, recorded role decisions, obtained separate wrap approval, published/reloaded turnover and downloaded a sealed receipt with remaining open items. Evidence: https://github.com/upgradedev/lasttake-aws/actions/runs/34326031169; frontend-evidence-4953c125e499d40f6ce13c0eeff42d92d726322a.",
+   "human_signoff": "NOT_RUN"
+  },
+  {
+   "id": "LT03-R1",
+   "persona": "Receipt recipient",
+   "requirement": "Untrusted caller prose cannot become a sealed subject assertion.",
+   "preconditions": "Checked scene.",
+   "steps": [
+    "Request receipt with unknown subject keys",
+    "Request with nonexistent beat",
+    "Request with existing beat B-17"
+   ],
+   "expected_outcome": "Invalid subjects are 400; only the existing beat identifier enters the receipt; no approval inferred.",
+   "negative_recovery_case": "String, nested array and extra assertion keys are refused.",
+   "automation_mapping": [
+    "../tests/test_workspace.py:test_lt03_r1_unchecked_caller_subject_is_rejected",
+    "tests/e2e/journeys.spec.ts: LT03"
+   ],
+   "observed_result_evidence": "AUTOMATION PASS: Python parameterized regressions rejected unchecked subject types, extra assertions and nonexistent beat identifiers; existing B-17 was accepted without inferred approval. Both real-HTTP LT03 journeys rejected caller_assertion with 400. Evidence: https://github.com/upgradedev/lasttake-aws/actions/runs/34326031169; frontend-evidence-4953c125e499d40f6ce13c0eeff42d92d726322a.",
+   "human_signoff": "NOT_RUN"
+  },
+  {
+   "id": "LT-NAV",
+   "persona": "Returning supervisor",
+   "requirement": "Deep links and saved runs preserve safe session ownership.",
+   "preconditions": "Two separately owned sessions.",
+   "steps": [
+    "Create saved run",
+    "Reload a scene deep link",
+    "Open history",
+    "Request run from another session",
+    "Change route during pending refresh"
+   ],
+   "expected_outcome": "Only owned runs are listed; foreign requests denied; late old responses cannot change the selected run.",
+   "negative_recovery_case": "Missing session handle receives 403; selected-run mismatch blocks mutation.",
+   "automation_mapping": [
+    "tests/app.test.tsx: discards an old-run response",
+    "../tests/test_workspace.py:test_owned_run_index_survives_reload_and_rejects_another_visitor"
+   ],
+   "observed_result_evidence": "AUTOMATION PASS: Python verified owned-run recovery and foreign-session denial. RTL regressions discarded a late old-run response during navigation and prevented a stale action callback from sending an approval. Browser journeys verified reload and hash navigation; the pending-refresh race is component-tested, not browser fault-injected. Evidence: https://github.com/upgradedev/lasttake-aws/actions/runs/34326031169; frontend-evidence-4953c125e499d40f6ce13c0eeff42d92d726322a.",
+   "human_signoff": "NOT_RUN"
+  },
+  {
+   "id": "LT-RECOVERY",
+   "persona": "Supervisor with unreliable connectivity",
+   "requirement": "Bounded waits and storage-denied recovery remain usable.",
+   "preconditions": "Browser storage denied or API stalls.",
+   "steps": [
+    "Deny storage and open app",
+    "Create run in the active tab",
+    "Simulate a 35-second stalled request",
+    "Read error and refresh saved state"
+   ],
+   "expected_outcome": "No white screen; tab-held session works with clear limitation; timeout does not automatically retry a write.",
+   "negative_recovery_case": "Expired or unavailable session can be replaced explicitly.",
+   "automation_mapping": [
+    "tests/e2e/journeys.spec.ts: blocked browser storage",
+    "tests/model.test.ts: aborts after 35 seconds",
+    "tests/app.test.tsx"
+   ],
+   "observed_result_evidence": "AUTOMATION PASS: both real-HTTP browser projects created a usable tab-held session with browser storage denied. Fake-timer unit regression verified one write attempt aborted after 35 seconds. RTL verified explicit recovery from a session-loading failure. A real network outage was not staged. Evidence: https://github.com/upgradedev/lasttake-aws/actions/runs/34326031169; frontend-evidence-4953c125e499d40f6ce13c0eeff42d92d726322a.",
+   "human_signoff": "NOT_RUN"
+  },
+  {
+   "id": "LT-ACCESS",
+   "persona": "Mobile and keyboard user",
+   "requirement": "Readable script and actionable controls across desktop and mobile.",
+   "preconditions": "Desktop 1440px and mobile 390px viewports.",
+   "steps": [
+    "Use navigation and role selector",
+    "Open script and take inspector",
+    "Use labelled evidence forms",
+    "Open source details",
+    "Check horizontal overflow"
+   ],
+   "expected_outcome": "Semantic controls, visible focus, useful first viewport, responsive single-column script on narrow screens.",
+   "negative_recovery_case": "Search with no match explains the empty state.",
+   "automation_mapping": [
+    "tests/e2e/journeys.spec.ts: all desktop/mobile projects",
+    "tests/components.test.tsx: scene workspace"
+   ],
+   "observed_result_evidence": "AUTOMATED CHECKS PASS: Chromium desktop 1440px and mobile 390px journeys used labelled controls and checked no horizontal overflow; component tests exercised empty search and evidence inspection. Screenshots are in the evidence artifact. Manual keyboard, assistive-technology and physical-device acceptance remain NOT_RUN. Evidence: https://github.com/upgradedev/lasttake-aws/actions/runs/34326031169; frontend-evidence-4953c125e499d40f6ce13c0eeff42d92d726322a.",
+   "human_signoff": "NOT_RUN"
+  },
+  {
+   "id": "LT-TRUTH",
+   "persona": "Demo evaluator",
+   "requirement": "Synthetic data and actual providers are labelled truthfully.",
+   "preconditions": "Default offline deployment.",
+   "steps": [
+    "Read synthetic label",
+    "Open guided demo",
+    "Open run execution labels",
+    "Read receipt limitations"
+   ],
+   "expected_outcome": "Real Strands SDK identified; offline scripted planner and API-reported lexical interpreter identified; no Bedrock execution implied.",
+   "negative_recovery_case": "Unassessed evidence is never displayed as verified.",
+   "automation_mapping": [
+    "tests/app.test.tsx",
+    "tests/components.test.tsx",
+    "tests/contracts.test.mjs"
+   ],
+   "observed_result_evidence": "AUTOMATED CHECKS PASS: component/app tests exercised synthetic guided mode, execution labels including offline-lexical/1.0.0, unchecked evidence and receipt limitations. Build contract rejected HTML proxies. Cloud runtime provider verification and evaluator signoff remain NOT_RUN. Evidence: https://github.com/upgradedev/lasttake-aws/actions/runs/34326031169; frontend-evidence-4953c125e499d40f6ce13c0eeff42d92d726322a.",
+   "human_signoff": "NOT_RUN"
+  },
+  {
+   "id": "LT-UI",
+   "persona": "Script supervisor and 1st AD",
+   "requirement": "Readable cinematic workspace with truthful, accessible approval feedback",
+   "preconditions": "Synthetic run with current assessed evidence; desktop/mobile and reduced-motion browser preference",
+   "steps": [
+    "Review the lined script and exception cards; follow a beat to its evidence.",
+    "Request wrap as 1st AD; read the current package SHA-256 fingerprint.",
+    "Approve; wait for returned server state before expecting a saved confirmation.",
+    "Repeat with reduced motion; inspect viewport and approval evidence."
+   ],
+   "expected_outcome": "Continuity/coverage accents retain text labels; server-confirmed wrap state alone controls the checkmark; displayed digest equals API package_revision_digest. No Merkle proof or legal-clearance claim. Reduced-motion removes decorative animation.",
+   "negative_recovery_case": "A failed click or a successful action without refreshed state does not claim a saved wrap. Changed server state removes confirmation. Existing stale-evidence approval refusal remains enforced.",
+   "automation_mapping": "tests/components.test.tsx (server-state-only confirmation and status accents); tests/e2e/journeys.spec.ts LT03 (exact API fingerprint, saved feedback, reduced motion and viewport); tests/contracts.test.mjs",
+   "observed_result_evidence": "Run-specific automated outcome is recorded in the frontend-ci and main release Live Playwright testbook artifacts. Earlier checkpoints in this document predate this UI case and are not evidence for it.",
+   "human_signoff": "NOT_RUN"
+  },
+  {
+   "id": "LT-DASH",
+   "persona": "Script supervisor and 1st AD",
+   "requirement": "Current-scene metrics and priority work use actual nullable data and drill into matching records.",
+   "preconditions": "Current candidate built in GitHub Actions; real Python HTTP backend for offline CI or exact-SHA released AWS surface for live acceptance.",
+   "steps": [
+    "Create run and inspect Not assessed metrics",
+    "Run checkpoint and compare all metric values with API state",
+    "Drill coverage, missing releases and retained exceptions",
+    "Capture desktop/mobile dashboard and cockpit"
+   ],
+   "expected_outcome": "No provisional pass, invented trend or portfolio total. Required-beat drill counts match the server assessment; reviewed exceptions remain retained.",
+   "negative_recovery_case": "Null counts and duplicate rows do not become zero or inflate counts.",
+   "automation_mapping": [
+    "tests/e2e/workspaces.spec.ts: LT-DASH",
+    "tests/projection.test.ts",
+    "tests/workspaces.test.tsx"
+   ],
+   "observed_result_evidence": "AUTOMATION_PASS for implementation 896442b1359893f571dd0fbcd0335ccb2ffe1299 in https://github.com/upgradedev/lasttake-aws/actions/runs/34357735501. Real Python HTTP, Chromium desktop/mobile CI only; see frontend-evidence-896442b1359893f571dd0fbcd0335ccb2ffe1299 and ui-screenshots-896442b1359893f571dd0fbcd0335ccb2ffe1299. This is not live-AWS or human acceptance.",
+   "human_signoff": "NOT_RUN"
+  },
+  {
+   "id": "LT-SELECT",
+   "persona": "Script supervisor and DIT",
+   "requirement": "Bidirectional beat/finding and source inspection preserves real identity and route context.",
+   "preconditions": "Current candidate built in GitHub Actions; real Python HTTP backend for offline CI or exact-SHA released AWS surface for live acceptance.",
+   "steps": [
+    "Select script beat then linked finding",
+    "Inspect source IDs, locators and report mismatch",
+    "Follow Records link, type multiple search characters, select take",
+    "Reload and use browser back; return Records takes to Workspace",
+    "Inspect unmatched shot advisory"
+   ],
+   "expected_outcome": "Actual IDs/pages/lines retained; search keeps focus; all beats remain available after a record-category route; unmatched advisory selects no beat.",
+   "negative_recovery_case": "Null, empty, missing or incompatible identities offer no unrelated finding decision.",
+   "automation_mapping": [
+    "tests/e2e/workspaces.spec.ts: LT-SELECT",
+    "tests/projection.test.ts",
+    "tests/workspaces.test.tsx"
+   ],
+   "observed_result_evidence": "AUTOMATION_PASS for implementation 896442b1359893f571dd0fbcd0335ccb2ffe1299 in https://github.com/upgradedev/lasttake-aws/actions/runs/34357735501. Real Python HTTP, Chromium desktop/mobile CI only; see frontend-evidence-896442b1359893f571dd0fbcd0335ccb2ffe1299 and ui-screenshots-896442b1359893f571dd0fbcd0335ccb2ffe1299. This is not live-AWS or human acceptance.",
+   "human_signoff": "NOT_RUN"
+  },
+  {
+   "id": "LT-OFFLINE",
+   "persona": "Supervisor with unreliable connectivity",
+   "requirement": "Unknown write state requires recovery; known validation refusal permits correction.",
+   "preconditions": "Current candidate built in GitHub Actions; real Python HTTP backend for offline CI or exact-SHA released AWS surface for live acceptance.",
+   "steps": [
+    "Create and assess run",
+    "Take browser transport offline and refresh",
+    "Confirm decisions disabled and original run retained",
+    "Restore transport and refresh",
+    "Refuse invalid intake, correct input and save without refreshing"
+   ],
+   "expected_outcome": "No automatic mutation retry; current state recovers; known 400 errors retain editable fields and resubmission.",
+   "negative_recovery_case": "Stale 409, unreadable and server/network failures require refresh; closing intake remains possible.",
+   "automation_mapping": [
+    "tests/e2e/workspaces.spec.ts: LT-OFFLINE",
+    "tests/e2e/journeys.spec.ts: LT01",
+    "tests/workspaces.test.tsx",
+    "tests/model.test.ts"
+   ],
+   "observed_result_evidence": "AUTOMATION_PASS for implementation 896442b1359893f571dd0fbcd0335ccb2ffe1299 in https://github.com/upgradedev/lasttake-aws/actions/runs/34357735501. Real Python HTTP, Chromium desktop/mobile CI only; see frontend-evidence-896442b1359893f571dd0fbcd0335ccb2ffe1299 and ui-screenshots-896442b1359893f571dd0fbcd0335ccb2ffe1299. This is not live-AWS or human acceptance.",
+   "human_signoff": "NOT_RUN"
+  },
+  {
+   "id": "LT-COCKPIT",
+   "persona": "1st AD and keyboard/mobile user",
+   "requirement": "Persistent executive wrap state remains separate from selected finding decisions.",
+   "preconditions": "Current candidate built in GitHub Actions; real Python HTTP backend for offline CI or exact-SHA released AWS surface for live acceptance.",
+   "steps": [
+    "Select finding and inspect right pane status without page scrolling",
+    "Jump between script/evidence/decision panels",
+    "Review pending pickup or wrap in place",
+    "Attempt wrong-role, stale, missing-interrupt and ineligible approvals",
+    "Inspect reduced-motion desktop/mobile screenshots"
+   ],
+   "expected_outcome": "Eligibility, recorded approval and pending interrupt remain distinct. Only exact unchanged eligible wrap request offers approval for 1st AD.",
+   "negative_recovery_case": "Unknown or stale selections disable finding decisions; no creative, legal, audio or savings claim is inferred.",
+   "automation_mapping": [
+    "tests/e2e/workspaces.spec.ts",
+    "tests/e2e/journeys.spec.ts: LT03",
+    "tests/workspaces.test.tsx"
+   ],
+   "observed_result_evidence": "AUTOMATION_PASS for implementation 896442b1359893f571dd0fbcd0335ccb2ffe1299 in https://github.com/upgradedev/lasttake-aws/actions/runs/34357735501. Real Python HTTP, Chromium desktop/mobile CI only; see frontend-evidence-896442b1359893f571dd0fbcd0335ccb2ffe1299 and ui-screenshots-896442b1359893f571dd0fbcd0335ccb2ffe1299. This is not live-AWS or human acceptance.",
+   "human_signoff": "NOT_RUN"
+  },
+  {
+   "id": "LT-RELIABLE-INTAKE",
+   "persona": "Script supervisor, 1st AD and evidence recipient",
+   "requirement": "Invalid date leaves no state changes; correction persists; absent camera report stays missing.",
+   "preconditions": "Owned synthetic run; real Python HTTP service; offline planner with real Strands.",
+   "steps": [
+    "Exercise original trigger",
+    "Exercise alternate route or malformed input",
+    "Reload and apply legitimate correction",
+    "Inspect saved receipt and history"
+   ],
+   "expected_outcome": "Invalid date leaves no state changes; correction persists; absent camera report stays missing.",
+   "negative_recovery_case": "No false approval, fabricated evidence, mutated refused intake, or blind resend.",
+   "automation_mapping": [
+    "tests/e2e/reliability.spec.ts: LT-RELIABLE-INTAKE"
+   ],
+   "observed_result_evidence": "AUTOMATION_PASS for implementation 59844080b768993d67821fd6fb55db9049c998db in https://github.com/upgradedev/lasttake-aws/actions/runs/34377650942. Python/unit controls cover explicit rejection, unknown outcomes, concurrency and fresh-process recovery; desktop/mobile real HTTP covers intake refusal/correction and wrap review. No real AWS fault injection or human signoff.",
+   "human_signoff": "NOT_RUN"
+  },
+  {
+   "id": "LT-RELIABLE-WRAP",
+   "persona": "Script supervisor, 1st AD and evidence recipient",
+   "requirement": "All approval routes enforce reviewed evidence and latest wrap decision; historical receipt never authorizes after renewed decline.",
+   "preconditions": "Owned synthetic run; real Python HTTP service; offline planner with real Strands.",
+   "steps": [
+    "Exercise original trigger",
+    "Exercise alternate route or malformed input",
+    "Reload and apply legitimate correction",
+    "Inspect saved receipt and history"
+   ],
+   "expected_outcome": "All approval routes enforce reviewed evidence and latest wrap decision; historical receipt never authorizes after renewed decline.",
+   "negative_recovery_case": "No false approval, fabricated evidence, mutated refused intake, or blind resend.",
+   "automation_mapping": [
+    "tests/e2e/reliability.spec.ts: LT-RELIABLE-WRAP"
+   ],
+   "observed_result_evidence": "AUTOMATION_PASS for implementation 59844080b768993d67821fd6fb55db9049c998db in https://github.com/upgradedev/lasttake-aws/actions/runs/34377650942. Python/unit controls cover explicit rejection, unknown outcomes, concurrency and fresh-process recovery; desktop/mobile real HTTP covers intake refusal/correction and wrap review. No real AWS fault injection or human signoff.",
+   "human_signoff": "NOT_RUN"
+  },
+  {
+   "id": "LT-RELIABLE-DELIVERY",
+   "persona": "Script supervisor, 1st AD and evidence recipient",
+   "requirement": "Definite rejection may retry; pending/unknown may not resend; accepted replay returns actual receipt.",
+   "preconditions": "Owned synthetic run; real Python HTTP service; offline planner with real Strands.",
+   "steps": [
+    "Exercise original trigger",
+    "Exercise alternate route or malformed input",
+    "Reload and apply legitimate correction",
+    "Inspect saved receipt and history"
+   ],
+   "expected_outcome": "Definite rejection may retry; pending/unknown may not resend; accepted replay returns actual receipt.",
+   "negative_recovery_case": "No false approval, fabricated evidence, mutated refused intake, or blind resend.",
+   "automation_mapping": [
+    "tests/reliability.test.tsx; ../tests/test_reliable_workflows.py"
+   ],
+   "observed_result_evidence": "AUTOMATION_PASS for implementation 59844080b768993d67821fd6fb55db9049c998db in https://github.com/upgradedev/lasttake-aws/actions/runs/34377650942. Python/unit controls cover explicit rejection, unknown outcomes, concurrency and fresh-process recovery; desktop/mobile real HTTP covers intake refusal/correction and wrap review. No real AWS fault injection or human signoff.",
+   "human_signoff": "NOT_RUN"
+  },
+  {
+   "id": "LT-HERO",
+   "persona": "Script supervisor, 1st AD and assistant editor",
+   "requirement": "Complete source capture shows evidence change, withdrawn decision, fresh human wrap approval and usable turnover.",
+   "preconditions": "Fresh owned fictional run; real HTTP handler; desktop/mobile browser.",
+   "steps": [
+    "Follow the next-step panel and checkpoint",
+    "Record continuity, reload and explicitly approve the saved pickup",
+    "Download and load the existing take example as an ordinary JSON file; save take and release",
+    "Observe old decision withdrawal and record new supervisor/DIT decisions",
+    "Request wrap, reload, inspect fingerprint and explicitly approve",
+    "Publish turnover, reload and compare downloaded manifest to saved record",
+    "Prepare and download wrap receipt and inspect handoff summary"
+   ],
+   "expected_outcome": "The new digest reaches the separate human wrap decision, saved turnover and receipt. Prior decisions and accepted exceptions remain visible. Copy/download includes provenance and limitations.",
+   "negative_recovery_case": "No automatic approval or stale decision reuse; changed/historical turnover is labelled. Copy refusal leaves selectable plain text. No production video is generated.",
+   "automation_mapping": [
+    "tests/e2e/hero.spec.ts: LT-HERO",
+    "tests/hero.test.tsx",
+    "tests/contracts.test.mjs",
+    "../web/video/hero-journey.mjs"
+   ],
+   "observed_result_evidence": "PASS at the historical source checkpoint 2026-09-10T11:12:11Z: ec14930fc754ab5cae1315402d002c2ee2cb1651, https://github.com/upgradedev/lasttake-aws/actions/runs/34469562958. Desktop/mobile real offline-HTTP journeys verified changed evidence, fresh human wrap approval and downloaded turnover/receipt; the downloaded handoff summary matched actual saved manifest recommended_action values. Unit controls verified clipboard success/refusal and historical output labels. See hero_workflow_revision for exact suite counts and the log command. This is source CI evidence, not current deployment or human acceptance; current AWS status: https://d3kf6hquzlli8g.cloudfront.net/acceptance.html.",
+   "human_signoff": "NOT_RUN"
+  },
+  {
+   "id": "LT-FILE",
+   "persona": "Script supervisor supplying take/camera records",
+   "requirement": "Ordinary JSON file preview is explicit, editable, session-owned and durable.",
+   "preconditions": "Owned fictional run and separate foreign session; no media parsing.",
+   "steps": [
+    "Load malformed JSON and a missing-field document; save and inspect refusal",
+    "Download an existing synthetic take example without an independent report",
+    "Load the file and try missing/foreign session access",
+    "Save with the owned session and reload",
+    "Resubmit the same file"
+   ],
+   "expected_outcome": "Local preview never saves automatically. Invalid, foreign and duplicate writes leave the package unchanged. Valid take persists and missing camera evidence remains missing.",
+   "negative_recovery_case": "Oversized or unsupported file refused without upload; known validation failure keeps editable JSON; network uncertainty still requires refresh.",
+   "automation_mapping": [
+    "tests/e2e/hero.spec.ts: LT-FILE",
+    "tests/hero.test.tsx"
+   ],
+   "observed_result_evidence": "PASS at the historical source checkpoint 2026-09-10T11:12:11Z: ec14930fc754ab5cae1315402d002c2ee2cb1651, https://github.com/upgradedev/lasttake-aws/actions/runs/34469562958. Desktop/mobile real offline-HTTP journeys verified ordinary JSON preview, owned saving, reload and invalid/missing-session/foreign-session/duplicate refusal. Missing camera evidence stayed missing; a unit FileReader assertion checked downloaded lens_mm 50 versus independent camera_report_row.lens_mm 85. See hero_workflow_revision for exact suite counts and the log command. This is source CI evidence, not current deployment or human acceptance; current AWS status: https://d3kf6hquzlli8g.cloudfront.net/acceptance.html.",
+   "human_signoff": "NOT_RUN"
   }
+ ],
+ "verification_checkpoint": {
+  "commit": "1f10d39c8b2b22474f64b1c057851eb2057665e7",
+  "run_url": "https://github.com/upgradedev/lasttake-aws/actions/runs/34327163715",
+  "result": "PASS",
+  "environment": "GitHub Actions; built Vite preview; real offline Python HTTP handler, durable local stores and real Strands SDK sessions; Chromium desktop and mobile emulation. Not AWS deployment or practising-user signoff.",
+  "python": {
+   "passed": 185,
+   "coverage_percent": 87.29
+  },
+  "frontend": {
+   "passed": 29,
+   "statements_percent": 95.8,
+   "branches_percent": 93.2,
+   "functions_percent": 94.39,
+   "lines_percent": 98.85
+  },
+  "functional": {
+   "passed": 3
+  },
+  "browser": {
+   "passed": 8,
+   "failed": 0
+  },
+  "evidence_artifact": "frontend-evidence-1f10d39c8b2b22474f64b1c057851eb2057665e7",
+  "dependency_audit": {
+   "full": 0,
+   "runtime": 0,
+   "artifact_url": "https://github.com/upgradedev/lasttake-aws/actions/runs/34327163715/artifacts/10094244265"
+  },
+  "scope": "HISTORICAL_RELEASE_ONLY"
+ },
+ "current_workspace_revision": {
+  "status": "AUTOMATION_PASS",
+  "scope": "CI_REAL_HTTP_ONLY",
+  "implementation_sha": "896442b1359893f571dd0fbcd0335ccb2ffe1299",
+  "ci_run_url": "https://github.com/upgradedev/lasttake-aws/actions/runs/34357735501",
+  "evidence_artifact": "frontend-evidence-896442b1359893f571dd0fbcd0335ccb2ffe1299",
+  "screenshots_artifact": "ui-screenshots-896442b1359893f571dd0fbcd0335ccb2ffe1299",
+  "observed_result_evidence": "185 Python tests, 56 frontend unit/component tests, 3 functional contracts and 16 real-HTTP desktop/mobile journeys passed for the implementation SHA above. This later documentation/contract revision does not claim to validate itself. Final candidate CI artifacts remain authoritative; parent owns main release and exact-SHA live AWS acceptance.",
+  "live_aws_acceptance": "NOT_RUN",
+  "human_signoff": "NOT_RUN"
+ },
+ "current_reliability_revision": {
+  "status": "AUTOMATION_PASS",
+  "scope": "CI_REAL_HTTP_ONLY",
+  "implementation_sha": "59844080b768993d67821fd6fb55db9049c998db",
+  "ci_run_url": "https://github.com/upgradedev/lasttake-aws/actions/runs/34377650942",
+  "evidence_artifact": "frontend-evidence-59844080b768993d67821fd6fb55db9049c998db",
+  "screenshots_artifact": "ui-screenshots-59844080b768993d67821fd6fb55db9049c998db",
+  "observed_result_evidence": "Passed Python, component, functional and desktop/mobile real-HTTP reliability cases at the implementation SHA above. The later documentation, video preflight and history-scan fix do not claim to validate themselves; final candidate CI artifacts remain authoritative.",
+  "human_signoff": "NOT_RUN",
+  "live_aws_acceptance": "NOT_RUN"
+ },
+ "hero_workflow_revision": {
+  "status": "PASS",
+  "scope": "HISTORICAL_SOURCE_CHECKPOINT",
+  "observed_at": "2026-09-10T11:12:11Z",
+  "implementation_sha": "ec14930fc754ab5cae1315402d002c2ee2cb1651",
+  "ci_run_url": "https://github.com/upgradedev/lasttake-aws/actions/runs/34469562958",
+  "evidence_artifact": "frontend-evidence-ec14930fc754ab5cae1315402d002c2ee2cb1651",
+  "evidence_command": "gh run view 34469562958 --repo upgradedev/lasttake-aws --log",
+  "suite_counts": {
+   "python_passed": 277,
+   "python_coverage_percent": 88.7,
+   "unit_component_passed": 70,
+   "functional_passed": 7,
+   "real_offline_http_desktop_mobile_passed": 24,
+   "separate_receipt_browser_passed": 60
+  },
+  "recording_status": "NOT_CONFIGURED",
+  "live_aws_acceptance": "SEE_CURRENT_ACCEPTANCE",
+  "current_aws_acceptance_url": "https://d3kf6hquzlli8g.cloudfront.net/acceptance.html",
+  "human_signoff": "NOT_RUN",
+  "evidence": "GitHub Actions source CI used the built React application, real offline Python HTTP handler, durable local stores, real Strands sessions and Chromium desktop/mobile emulation. Counts above are separate suite totals, not additional hero-only tests. This dated checkpoint does not validate later documentation commits or establish current AWS deployment; exact candidate CI artifacts and the current AWS acceptance page remain authoritative. Earlier evidence is retained. No paid models, production recording or practising-user signoff."
+ }
 }

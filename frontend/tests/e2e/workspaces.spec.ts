@@ -2,7 +2,7 @@ import {test,expect,type Page} from '@playwright/test';
 
 async function nav(page:Page,name:string){await page.getByRole('navigation').getByRole('link',{name,exact:true}).click();}
 async function saved(page:Page){return page.evaluate(()=>({session_id:localStorage.getItem('lasttake.session'),run_id:new URLSearchParams(location.hash.split('?')[1]).get('run')}));}
-async function create(page:Page){await page.goto('/');await page.getByRole('button',{name:'New shoot-day run',exact:true}).click();await expect(page.getByRole('button',{name:'Run wrap checkpoint'})).toBeEnabled();}
+async function create(page:Page){await page.goto('/');await page.getByRole('button',{name:'Start this fictional shoot day'}).click();await expect(page.getByRole('button',{name:'Run wrap checkpoint'})).toBeEnabled();}
 
 test('LT-HISTORY bounded pages retain older owned runs, stale cursors recover without deleting history',async({page},info)=>{
   await create(page);
@@ -64,7 +64,7 @@ test('LT-HISTORY bounded pages retain older owned runs, stale cursors recover wi
 
 test('LT-DASH scoped metrics drill into matching evidence, and desktop/mobile cockpit captures are reviewable',async({page},info)=>{
   const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
-  await create(page);await nav(page,'Dashboard');
+  await create(page);await nav(page,'Wrap status');
   if(info.project.name==='mobile'){
     const role=await page.getByLabel('Demo role').boundingBox();
     expect(role!.width).toBeGreaterThanOrEqual(200);
@@ -148,11 +148,11 @@ test('LT-SELECT bidirectional source selection, unmatched advisory and Records s
   await page.getByRole('region',{name:'Source records'}).getByRole('link').click();
   await page.reload();await expect(page.getByLabel('Search records')).toHaveValue('T-013');
   await expect(page.getByRole('region',{name:'Record inspector'})).toContainText('T-013');
-  await nav(page,'Workspace');
+  await nav(page,'Scene review');
   await expect(page.getByLabel('Show')).toHaveValue('all');
   await expect(page.locator('.beat')).toHaveCount(scene.beats.length);
   await page.goBack();await expect(page.getByLabel('Search records')).toHaveValue('T-013');
-  await nav(page,'Workspace');await page.getByRole('link',{name:'Show all',exact:true}).click();
+  await nav(page,'Scene review');await page.getByRole('link',{name:'Show all',exact:true}).click();
   await page.locator('.finding-picker a').filter({hasText:'Shot plan advisory'}).click();
   await expect(page.getByText(/Unmatched source:/)).toBeVisible();
   await expect(page.locator('.beat-link[aria-current=location]')).toHaveCount(0);

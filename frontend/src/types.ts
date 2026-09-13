@@ -1,6 +1,6 @@
 export type Role = 'script_supervisor' | 'first_ad' | 'dit' | 'production_coordinator' | 'editorial';
 export type Check = 'coverage' | 'continuity' | 'metadata' | 'rights';
-export type Page = 'overview' | 'scene' | 'actions' | 'records' | 'history' | 'journeys' | 'architecture' | 'roi';
+export type Page = 'overview' | 'scene' | 'actions' | 'records' | 'history' | 'architecture';
 export interface Selection {beat?:string|null; finding?:string|null; filter?:string|null; record?:string|null; q?:string|null}
 export type Document = Record<string, unknown>;
 export interface Take { take_id: string; slate: string; shot_id: string; lens_mm: number; camera_roll: string; sound_roll: string; media_id: string; timecode_in: string; timecode_out: string; preferred: boolean; usable: boolean; note: string; visible_people: string[]; visible_assets: string[]; captured_at: string; camera_report: {media_id: string; lens_mm: number; camera_roll: string} | null }

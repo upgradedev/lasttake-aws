@@ -53,8 +53,7 @@ export function Dashboard({
         Current scene and selected run only. Saved runs repeat the same fictional corpus; they are not a production portfolio. Dates shown in your browser’s local time.
       </p>
 
-      {/* Real-Time Production Charts & On-Set Telemetry */}
-      <ProductionCharts scene={scene} state={state} events={events} />
+      <ProductionCharts scene={scene} state={state} />
 
       <section className="metrics" aria-label="Current run metrics">
         {metrics(scene, state).map(m => (
