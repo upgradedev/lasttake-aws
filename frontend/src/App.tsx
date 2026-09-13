@@ -3,7 +3,6 @@ import { Actions } from './Actions';
 import { Dashboard } from './Dashboard';
 import { History } from './History';
 import { Intake } from './Intake';
-import { Landing } from './Landing';
 import { Records } from './Records';
 import { SceneView } from './SceneView';
 import { WorkflowNext } from './WorkflowNext';
@@ -55,7 +54,7 @@ export function App() {
 
   const isDocPage = route.page === 'journeys' || route.page === 'architecture' || route.page === 'roi';
   const writesBlocked = w.busy || w.requiresRefresh;
-  const showLanding = !state && !route.run && !w.busy && !w.error;
+  const showWelcome = !state && !w.busy && !w.error;
 
   return (
     <div className="app-shell">
@@ -70,7 +69,7 @@ export function App() {
         Skip to main content
       </a>
       <aside className="navigation">
-        <a className="brand" href={link('overview', state?.run_id)} onClick={e => { e.preventDefault(); navigateTo('overview'); }}>
+        <a className="brand" href={link('overview', state?.run_id)}>
           <span className="brand-mark" aria-hidden="true">
             L<span>◢</span>
           </span>
@@ -171,15 +170,12 @@ export function App() {
         </header>
 
         <main id="main" tabIndex={-1} aria-busy={w.busy}>
+          {storageNotice() && <p className="warning" role="status">{storageNotice()}</p>}
           {isDocPage && route.page === 'journeys' && <UserJourneysView runId={state?.run_id ?? route.run ?? undefined} />}
           {isDocPage && route.page === 'architecture' && <ArchitectureView runId={state?.run_id ?? route.run ?? undefined} />}
           {isDocPage && route.page === 'roi' && <GtmProductionView runId={state?.run_id ?? route.run ?? undefined} />}
 
-          {!isDocPage && showLanding && (
-            <Landing session={w.session} busy={w.busy} page={route.page} start={() => void w.create()} onNavigate={navigateTo} />
-          )}
-
-          {!isDocPage && !showLanding && (
+          {!isDocPage && (
             <>
               <div className="page-heading">
                 <div>
@@ -203,9 +199,11 @@ export function App() {
                 </div>
                 <div className="toolbar">
                   {state && <button disabled={w.busy} onClick={() => void w.refresh()}>Refresh saved state</button>}
-                  <button disabled={w.busy} onClick={() => { setIntake(false); void w.create(); }}>
-                    New shoot-day run
-                  </button>
+                  {showWelcome ? (
+                    <button className="primary" onClick={() => void w.create()}>Start this fictional shoot day</button>
+                  ) : (
+                    <button disabled={w.busy} onClick={() => { setIntake(false); void w.create(); }}>New shoot-day run</button>
+                  )}
                 </div>
               </div>
 
@@ -225,7 +223,51 @@ export function App() {
                 </section>
               )}
 
-              {storageNotice() && <p className="warning" role="status">{storageNotice()}</p>}
+              {showWelcome && (
+                <section className="welcome panel" aria-label="Start a shoot-day review">
+                  <p className="eyebrow">Find the gap while a pickup is still possible</p>
+                  <h2>Bring the shoot day into focus.</h2>
+                  <p>
+                    Start with The Last Ferry's script, take reports and releases. Follow each blocking reason to its evidence, resolve it with the responsible role, then request a separate wrap decision.
+                  </p>
+                  <p>
+                    <strong>Your result:</strong> a saved editorial turnover with the take map, human decisions and any accepted exceptions still visible.
+                  </p>
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                      gap: '10px',
+                      margin: '14px 0',
+                      padding: '12px',
+                      background: 'var(--raised, #1e293b)',
+                      borderRadius: '6px',
+                      border: '1px solid var(--border)'
+                    }}
+                  >
+                    <div>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--muted)', textTransform: 'uppercase' }}>Prevented Pickup Cost</span>
+                      <strong style={{ display: 'block', color: 'var(--teal, #14b8a6)', fontSize: '1.1rem' }}>$50,000 – $250,000</strong>
+                    </div>
+                    <div>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--muted)', textTransform: 'uppercase' }}>Time to Verify Wrap</span>
+                      <strong style={{ display: 'block', color: 'var(--amber, #f59e0b)', fontSize: '1.1rem' }}>&lt; 5 Seconds</strong>
+                    </div>
+                    <div>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--muted)', textTransform: 'uppercase' }}>Audit Integrity</span>
+                      <strong style={{ display: 'block', color: '#38bdf8', fontSize: '1.1rem' }}>Cryptographic S3 Seal</strong>
+                    </div>
+                  </div>
+                  <p className="fine">Synthetic records are already supplied. No upload or account is required.</p>
+                  <div className="toolbar" style={{ marginTop: '12px' }}>
+                    <button onClick={() => void w.create()}>New shoot-day run</button>
+                    <a className="button" href={link('journeys', route.run)}>4 User Journeys →</a>
+                    <a className="button" href={link('architecture', route.run)}>Architecture →</a>
+                    <a className="button" href={link('roi', route.run)}>Production ROI →</a>
+                  </div>
+                </section>
+              )}
+
               {w.busy && (
                 <div className="loading" role="status">
                   <span className="spinner" aria-hidden="true" />
