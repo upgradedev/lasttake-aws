@@ -364,7 +364,11 @@ def test_the_summary_names_roles_the_way_the_page_does():
 
 
 def test_every_role_has_the_label_the_interface_shows():
-    """Copied from frontend/src/model.ts, so one role does not read two ways on one screen."""
+    """The labels from frontend/src/model.ts, so one role does not read two ways on one screen.
+
+    Keyed here by the backend's stored role value. The interface keys the
+    assistant editor as ``editorial``; the label it shows is the same.
+    """
     assert receipt.ROLE_LABELS == {
         "script_supervisor": "Script supervisor",
         "first_ad": "1st AD",
@@ -376,3 +380,55 @@ def test_every_role_has_the_label_the_interface_shows():
         assert receipt.role_label(role) == receipt.ROLE_LABELS[role.value]
         assert receipt.role_label(role.value) == receipt.ROLE_LABELS[role.value]
     assert receipt.action_words(policy.DecisionAction.ACCEPT_EXCEPTION) == "accept exception"
+
+
+def test_the_page_next_action_follows_the_latest_authorised_decision():
+    """The finding detail on the page, given the run's stored decisions.
+
+    The scene page prints ``next_action`` under "Next action". Given the latest
+    authorised decision over the finding, a settling decision replaces the
+    instruction, and everything else keeps it: a later confirmation brings the
+    instruction back, a decision by a role without authority changes nothing,
+    and a decision the evidence has outrun changes nothing. Stored decisions
+    are dicts, so they go through the one reader the rest of the code uses.
+    """
+    import dataclasses
+
+    package = load_package(CORPUS)
+    mismatch = _media_mismatch(findings_for(package))
+    instruction = receipt.next_action(mismatch)
+    assert "before it is cleared" in instruction
+
+    def at(decision, when):
+        return dataclasses.replace(decision, at=f"2026-08-19T{when}:00Z")
+
+    def page(*decisions):
+        stored = [policy.decision_from_dict(d.to_dict()) for d in decisions]
+        return receipt.next_action(mismatch, policy.latest_decision(mismatch, stored))
+
+    Action, Role = policy.DecisionAction, policy.Role
+    accept = at(_decided(mismatch, Action.ACCEPT_EXCEPTION, Role.DIT, "dec-1"), "23:10")
+    confirm_later = at(_decided(mismatch, Action.CONFIRM, Role.DIT, "dec-2"), "23:20")
+    confirm_earlier = at(_decided(mismatch, Action.CONFIRM, Role.DIT, "dec-0"), "23:00")
+    wrong_role_later = at(
+        _decided(mismatch, Action.CONFIRM, Role.SCRIPT_SUPERVISOR, "dec-3"), "23:30"
+    )
+    outrun = at(
+        _decided(mismatch, Action.ACCEPT_EXCEPTION, Role.DIT, "dec-4", digest="0" * 64),
+        "23:40",
+    )
+    rejected = at(_decided(mismatch, Action.REJECT_FALSE_POSITIVE, Role.DIT, "dec-5"), "23:10")
+
+    settled = page(accept)
+    assert settled.startswith("Exception accepted by Synthetic reviewer (DIT / data manager). ")
+    assert "stays open on the turnover" in settled
+    assert "before it is cleared" not in settled
+
+    assert page() == instruction
+    assert page(accept, confirm_later) == instruction
+    assert page(confirm_earlier, accept) == settled
+    assert page(accept, wrong_role_later) == settled
+    assert page(accept, outrun) == instruction
+    assert page(rejected).startswith(
+        "Rejected as a false positive by Synthetic reviewer (DIT / data manager). "
+    )
