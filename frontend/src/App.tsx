@@ -9,7 +9,7 @@ import { WorkflowNext } from './WorkflowNext';
 import { UserJourneysView } from './UserJourneysView';
 import { ArchitectureView } from './ArchitectureView';
 import { GtmProductionView } from './GtmProductionView';
-import { link, pages, roles } from './model';
+import { link, pages, roles, readRoute } from './model';
 import { ProductionCharts } from './ProductionCharts';
 import { useWorkspace } from './useWorkspace';
 import { readPreference, writePreference, storageNotice } from './storage';
@@ -66,7 +66,7 @@ export function App() {
       const activeRun = state?.run_id ?? route.run ?? w.session?.runs?.[0]?.run_id;
       if (activeRun) {
         const nextUrl = page === 'overview'
-          ? (window.location.pathname || '/')
+          ? `?run=${activeRun}`
           : `?page=${page}&run=${activeRun}${selection.beat ? `&beat=${selection.beat}` : ''}`;
         history.pushState(null, '', nextUrl);
         window.dispatchEvent(new PopStateEvent('popstate'));
@@ -100,7 +100,7 @@ export function App() {
         Skip to main content
       </a>
       <aside className="navigation">
-        <a className="brand" href={window.location.pathname} onClick={e => { e.preventDefault(); navigateTo('overview'); }}>
+        <a className="brand" href={state?.run_id ?? route.run ?? w.session?.runs?.[0]?.run_id ? `?run=${state?.run_id ?? route.run ?? w.session?.runs?.[0]?.run_id}` : (window.location.pathname || '/')} onClick={e => { e.preventDefault(); navigateTo('overview'); }}>
           <span className="brand-mark" aria-hidden="true">
             L<span>◢</span>
           </span>
@@ -113,7 +113,7 @@ export function App() {
           {(['overview', 'scene', 'records', 'history'] as Page[]).map((key, index) => {
             const activeRun = state?.run_id ?? route.run ?? w.session?.runs?.[0]?.run_id;
             const targetHref = activeRun
-              ? (key === 'overview' ? (window.location.pathname || '/') : `?page=${key}&run=${activeRun}`)
+              ? (key === 'overview' ? `?run=${activeRun}` : `?page=${key}&run=${activeRun}`)
               : (key === 'overview' ? (window.location.pathname || '/') : `?page=${key}`);
             return (
               <a
@@ -299,9 +299,9 @@ export function App() {
                     <p className="fine">Synthetic records are already supplied. No upload or account is required.</p>
                     <div className="toolbar" style={{ marginTop: '12px' }}>
                       <button onClick={() => void w.create()}>New shoot-day run</button>
-                      <a className="button" href={state?.run_id ?? route.run ? `?page=journeys&run=${state?.run_id ?? route.run}` : '?page=journeys'} onClick={e => { e.preventDefault(); navigateTo('journeys'); }}>4 User Journeys →</a>
-                      <a className="button" href={state?.run_id ?? route.run ? `?page=architecture&run=${state?.run_id ?? route.run}` : '?page=architecture'} onClick={e => { e.preventDefault(); navigateTo('architecture'); }}>Architecture →</a>
-                      <a className="button" href={state?.run_id ?? route.run ? `?page=roi&run=${state?.run_id ?? route.run}` : '?page=roi'} onClick={e => { e.preventDefault(); navigateTo('roi'); }}>Production ROI →</a>
+                      <a className="button" href={route.run ? `?page=journeys&run=${route.run}` : '?page=journeys'} onClick={e => { e.preventDefault(); navigateTo('journeys'); }}>4 User Journeys →</a>
+                      <a className="button" href={route.run ? `?page=architecture&run=${route.run}` : '?page=architecture'} onClick={e => { e.preventDefault(); navigateTo('architecture'); }}>Architecture →</a>
+                      <a className="button" href={route.run ? `?page=roi&run=${route.run}` : '?page=roi'} onClick={e => { e.preventDefault(); navigateTo('roi'); }}>Production ROI →</a>
                     </div>
                   </section>
                   <ProductionCharts scene={scene} state={state} events={events} />
