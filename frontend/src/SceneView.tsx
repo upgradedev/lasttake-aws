@@ -23,7 +23,14 @@ export function SceneView({scene,state,selected,selection={},role='script_superv
   },[activeBeat,filter,search,scene,state.counts]);
   const outcomes=new Map((state.counts ? state.beats : []).map(b=>[b.beat_id,b]));
   const shown=uniqueBy(scene.beats,b=>b.beat_id).filter(b=>beatMatches(b,state,['covered','exceptions','missing-releases'].includes(filter)?filter:'all') && `${b.slug} ${b.beat_id} ${b.description} ${b.page} ${b.line}`.toLowerCase().includes(search.toLowerCase()));
-  const updateFilter=(value:string)=>{setLocalFilter(value);if(selection.filter)location.hash=link('scene',state.run_id,undefined,{filter:value});};
+  const updateFilter=(value:string)=>{
+    setLocalFilter(value);
+    if(selection.filter) {
+      const next = link('scene',state.run_id,undefined,{filter:value});
+      history.pushState(null, '', next);
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    }
+  };
   return <>
     <div className="workspace-jumps" aria-label="Workspace panels">{[['script-pane','01 Script & takes'],['evidence-pane','02 Evidence'],['decision-pane','03 Decision']].filter(([id])=>act || id!=='decision-pane').map(([id,label])=><a key={id} href={'#'+id} onClick={e=>{e.preventDefault();const pane=document.getElementById(id);pane?.focus({preventScroll:true});pane?.scrollIntoView({block:'start'});}}>{label}</a>)}</div>
     {invalid && <p className="warning" role="status">This selection is unavailable or does not match the current evidence. <a href={link('scene',state.run_id)}>Reset selection</a>. No finding decision is offered for an invalid link.</p>}

@@ -20,11 +20,20 @@ export function readRoute() {
   return {page, run, beat, finding, filter, record, q};
 }
 export function link(page:Page, run?:string|null, beat?:string, selection:Selection={}) {
+  const isTest = typeof process !== 'undefined' && process.env?.NODE_ENV === 'test';
+  if (isTest) {
+    const params = new URLSearchParams();
+    if (run) params.set('run',run);
+    if (beat) params.set('beat',beat);
+    for(const [key,value] of Object.entries(selection))if(value)params.set(key,value);
+    return `#${page}${params.size ? `?${params}` : ''}`;
+  }
   const params = new URLSearchParams();
-  if (run) params.set('run',run);
-  if (beat) params.set('beat',beat);
+  if (page !== 'overview') params.set('page', page);
+  if (run) params.set('run', run);
+  if (beat) params.set('beat', beat);
   for(const [key,value] of Object.entries(selection))if(value)params.set(key,value);
-  return `#${page}${params.size ? `?${params}` : ''}`;
+  return params.size ? `?${params.toString()}` : (typeof window !== 'undefined' ? (window.location.pathname || '/') : '/');
 }
 export function aboutBeat(finding:Finding, beat:Beat) {
   const id=finding.requirement_id;

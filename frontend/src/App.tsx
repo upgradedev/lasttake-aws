@@ -37,6 +37,22 @@ export function App() {
     setIntake(false);
   }, [route.run]);
 
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.location.hash && window.location.hash.length > 1) {
+      const r = readRoute();
+      const params = new URLSearchParams(window.location.search);
+      if (r.page && r.page !== 'overview') params.set('page', r.page);
+      if (r.run) params.set('run', r.run);
+      if (r.beat) params.set('beat', r.beat);
+      if (r.finding) params.set('finding', r.finding);
+      if (r.filter) params.set('filter', r.filter);
+      if (r.record) params.set('record', r.record);
+      if (r.q) params.set('q', r.q);
+      const cleanUrl = params.size ? `?${params.toString()}` : (window.location.pathname || '/');
+      history.replaceState(null, '', cleanUrl);
+    }
+  }, []);
+
   const selection = {
     beat: route.beat,
     finding: route.finding,
@@ -47,26 +63,29 @@ export function App() {
 
   const navigateTo = useCallback(
     (page: Page) => {
-      const activeRun = state?.run_id ?? route.run;
+      const activeRun = state?.run_id ?? route.run ?? w.session?.runs?.[0]?.run_id;
       if (activeRun) {
-        const next = link(page, activeRun, undefined, selection);
-        location.hash = next;
-      } else {
-        const nextUrl = page === 'overview' ? window.location.pathname : `?page=${page}`;
-        if (location.hash) {
-          history.replaceState(null, '', nextUrl);
-        } else {
-          history.pushState(null, '', nextUrl);
-        }
+        const nextUrl = page === 'overview'
+          ? (window.location.pathname || '/')
+          : `?page=${page}&run=${activeRun}${selection.beat ? `&beat=${selection.beat}` : ''}`;
+        history.pushState(null, '', nextUrl);
         window.dispatchEvent(new PopStateEvent('popstate'));
+      } else {
+        if (page === 'overview' || page === 'journeys' || page === 'architecture' || page === 'roi') {
+          const nextUrl = page === 'overview' ? (window.location.pathname || '/') : `?page=${page}`;
+          history.pushState(null, '', nextUrl);
+          window.dispatchEvent(new PopStateEvent('popstate'));
+        } else {
+          void w.create(page);
+        }
       }
     },
-    [state?.run_id, route.run, selection]
+    [state?.run_id, route.run, w.session?.runs, selection.beat, w.create]
   );
 
   const isDocPage = route.page === 'journeys' || route.page === 'architecture' || route.page === 'roi';
   const writesBlocked = w.busy || w.requiresRefresh;
-  const showWelcome = !state && !w.busy && !w.error;
+  const showWelcome = route.page === 'overview' && !state && !w.busy && !w.error;
 
   return (
     <div className="app-shell">
@@ -92,8 +111,10 @@ export function App() {
         <p className="nav-label">Production cockpit</p>
         <nav aria-label="Main navigation">
           {(['overview', 'scene', 'records', 'history'] as Page[]).map((key, index) => {
-            const activeRun = state?.run_id ?? route.run;
-            const targetHref = activeRun ? link(key, activeRun, undefined, selection) : (key === 'overview' ? window.location.pathname : `?page=${key}`);
+            const activeRun = state?.run_id ?? route.run ?? w.session?.runs?.[0]?.run_id;
+            const targetHref = activeRun
+              ? (key === 'overview' ? (window.location.pathname || '/') : `?page=${key}&run=${activeRun}`)
+              : (key === 'overview' ? (window.location.pathname || '/') : `?page=${key}`);
             return (
               <a
                 key={key}
@@ -110,7 +131,7 @@ export function App() {
             );
           })}
           <a
-            href={state?.run_id ?? route.run ? link('journeys', state?.run_id ?? route.run) : '?page=journeys'}
+            href={state?.run_id ?? route.run ?? w.session?.runs?.[0]?.run_id ? `?page=journeys&run=${state?.run_id ?? route.run ?? w.session?.runs?.[0]?.run_id}` : '?page=journeys'}
             onClick={e => {
               e.preventDefault();
               navigateTo('journeys');
@@ -120,7 +141,7 @@ export function App() {
             <span aria-hidden="true">★</span>Journeys
           </a>
           <a
-            href={state?.run_id ?? route.run ? link('architecture', state?.run_id ?? route.run) : '?page=architecture'}
+            href={state?.run_id ?? route.run ?? w.session?.runs?.[0]?.run_id ? `?page=architecture&run=${state?.run_id ?? route.run ?? w.session?.runs?.[0]?.run_id}` : '?page=architecture'}
             onClick={e => {
               e.preventDefault();
               navigateTo('architecture');
@@ -130,7 +151,7 @@ export function App() {
             <span aria-hidden="true">⚙</span>Architecture
           </a>
           <a
-            href={state?.run_id ?? route.run ? link('roi', state?.run_id ?? route.run) : '?page=roi'}
+            href={state?.run_id ?? route.run ?? w.session?.runs?.[0]?.run_id ? `?page=roi&run=${state?.run_id ?? route.run ?? w.session?.runs?.[0]?.run_id}` : '?page=roi'}
             onClick={e => {
               e.preventDefault();
               navigateTo('roi');
@@ -278,9 +299,9 @@ export function App() {
                     <p className="fine">Synthetic records are already supplied. No upload or account is required.</p>
                     <div className="toolbar" style={{ marginTop: '12px' }}>
                       <button onClick={() => void w.create()}>New shoot-day run</button>
-                      <a className="button" href={link('journeys', route.run)}>4 User Journeys →</a>
-                      <a className="button" href={link('architecture', route.run)}>Architecture →</a>
-                      <a className="button" href={link('roi', route.run)}>Production ROI →</a>
+                      <a className="button" href={state?.run_id ?? route.run ? `?page=journeys&run=${state?.run_id ?? route.run}` : '?page=journeys'} onClick={e => { e.preventDefault(); navigateTo('journeys'); }}>4 User Journeys →</a>
+                      <a className="button" href={state?.run_id ?? route.run ? `?page=architecture&run=${state?.run_id ?? route.run}` : '?page=architecture'} onClick={e => { e.preventDefault(); navigateTo('architecture'); }}>Architecture →</a>
+                      <a className="button" href={state?.run_id ?? route.run ? `?page=roi&run=${state?.run_id ?? route.run}` : '?page=roi'} onClick={e => { e.preventDefault(); navigateTo('roi'); }}>Production ROI →</a>
                     </div>
                   </section>
                   <ProductionCharts scene={scene} state={state} events={events} />

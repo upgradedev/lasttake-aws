@@ -338,11 +338,22 @@ export function ProductionCharts({ scene, state, events }: ProductionChartsProps
       </div>
 
       {/* Script Beat & Take Coverage Matrix */}
-      <div style={{ marginTop: '20px' }}>
-        <h4 style={{ margin: '0 0 10px', fontSize: '0.92rem', color: '#cbd5e1' }}>
-          Script Beat Coverage Matrix
-        </h4>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '8px' }}>
+      <div style={{ marginTop: '24px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+          <div>
+            <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: '#f1f5f9' }}>
+              Script Beat Coverage Matrix
+            </h4>
+            <p style={{ margin: '2px 0 0', fontSize: '0.78rem', color: '#94a3b8' }}>
+              Select any beat to inspect camera rolls, lens choices, audio sync and linked findings:
+            </p>
+          </div>
+          <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
+            {activeScene.beats.length} Scene Beats
+          </span>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '12px' }}>
           {activeScene.beats.map(beat => {
             const hasTake = beat.takes && beat.takes.length > 0;
             const hasPreferred = beat.takes?.some(t => t.preferred);
@@ -355,36 +366,82 @@ export function ProductionCharts({ scene, state, events }: ProductionChartsProps
                 style={{
                   display: 'flex',
                   flexDirection: 'column',
+                  justifyContent: 'space-between',
                   alignItems: 'stretch',
-                  padding: '8px',
+                  minHeight: '118px',
+                  padding: '12px 14px',
                   textAlign: 'left',
                   background: isSelected
-                    ? 'rgba(56, 189, 248, 0.2)'
+                    ? 'rgba(56, 189, 248, 0.18)'
                     : hasTake
-                    ? 'rgba(20, 184, 166, 0.1)'
-                    : 'rgba(239, 68, 68, 0.1)',
+                    ? 'rgba(15, 23, 42, 0.75)'
+                    : 'rgba(38, 16, 24, 0.65)',
                   border: isSelected
-                    ? '1px solid #38bdf8'
+                    ? '2px solid #38bdf8'
                     : hasTake
-                    ? '1px solid rgba(20, 184, 166, 0.3)'
-                    : '1px solid rgba(239, 68, 68, 0.3)',
-                  borderRadius: '6px',
+                    ? '1px solid rgba(20, 184, 166, 0.35)'
+                    : '1px solid rgba(239, 68, 68, 0.45)',
+                  borderRadius: '10px',
                   cursor: 'pointer',
                   transition: 'all 0.2s ease',
-                  color: '#fff'
+                  boxShadow: isSelected ? '0 0 16px rgba(56, 189, 248, 0.25)' : 'none',
+                  color: '#fff',
+                  margin: 0,
                 }}
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                  <span style={{ fontSize: '0.8rem', fontWeight: 700, color: hasTake ? '#14b8a6' : '#f87171' }}>
-                    {beat.beat_id}
+                {/* Header row: ID + Star + Status chip */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', width: '100%' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{
+                      fontSize: '0.8rem',
+                      fontWeight: 800,
+                      padding: '2px 7px',
+                      borderRadius: '5px',
+                      background: isSelected ? 'rgba(56, 189, 248, 0.3)' : hasTake ? 'rgba(20, 184, 166, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+                      color: isSelected ? '#38bdf8' : hasTake ? '#2dd4bf' : '#f87171'
+                    }}>
+                      {beat.beat_id}
+                    </span>
+                    {hasPreferred && (
+                      <span style={{ fontSize: '0.75rem', color: '#f59e0b', display: 'inline-flex', alignItems: 'center' }} title="Preferred take on file">
+                        ★
+                      </span>
+                    )}
+                  </div>
+                  <span style={{
+                    fontSize: '0.7rem',
+                    fontWeight: 700,
+                    padding: '2px 7px',
+                    borderRadius: '5px',
+                    background: hasTake ? 'rgba(20, 184, 166, 0.15)' : 'rgba(239, 68, 68, 0.18)',
+                    color: hasTake ? '#14b8a6' : '#f87171',
+                    border: hasTake ? '1px solid rgba(20, 184, 166, 0.3)' : '1px solid rgba(239, 68, 68, 0.35)'
+                  }}>
+                    {hasTake ? `${beat.takes.length} take${beat.takes.length > 1 ? 's' : ''}` : '0 takes'}
                   </span>
-                  {hasPreferred && <span style={{ fontSize: '0.65rem', color: '#f59e0b' }}>★</span>}
                 </div>
-                <div style={{ fontSize: '0.72rem', color: '#94a3b8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+
+                {/* Content: 2-line legible title */}
+                <div style={{
+                  fontSize: '0.86rem',
+                  fontWeight: 600,
+                  color: isSelected ? '#38bdf8' : '#e2e8f0',
+                  lineHeight: 1.35,
+                  margin: 'auto 0 8px',
+                  display: '-webkit-box',
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: 'vertical',
+                  overflow: 'hidden'
+                }}>
                   {beat.slug || beat.description}
                 </div>
-                <div style={{ fontSize: '0.68rem', color: '#64748b', marginTop: '4px' }}>
-                  {hasTake ? `${beat.takes.length} take(s)` : 'No takes'}
+
+                {/* Footer: Script coordinates + Outcome status */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.72rem', color: '#94a3b8', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '6px', width: '100%' }}>
+                  <span>p.{beat.page}:{beat.line}</span>
+                  <span style={{ fontWeight: 600, color: hasTake ? '#14b8a6' : '#f87171' }}>
+                    {hasTake ? '✓ Covered' : '⚠ Blocker'}
+                  </span>
                 </div>
               </button>
             );

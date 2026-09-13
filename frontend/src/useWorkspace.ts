@@ -65,17 +65,26 @@ export function useWorkspace() {
   useEffect(()=>{void bootstrap();},[bootstrap]);
   const sessionId=session?.session_id;
   useEffect(()=>{
-    if(!sessionId || !route.run)return;
+    if(!sessionId)return;
+    const activeRun = route.run || (route.page !== 'overview' && session?.runs?.[0]?.run_id);
+    if (!activeRun) {
+      if (route.page === 'scene' || route.page === 'records' || route.page === 'history') {
+        void create(route.page);
+      }
+      return;
+    }
     let active=true;
     setState(null);setScene(null);setEvents([]);setMessage('');setError('');setLoading(true);
-    void loadRun(route.run,sessionId).then(()=>{if(active)setRequiresRefresh(false);}).catch(e=>{if(active){setError(errorMessage(e));setRequiresRefresh(true);}}).finally(()=>{if(active)setLoading(false);});
+    void loadRun(activeRun,sessionId).then(()=>{if(active)setRequiresRefresh(false);}).catch(e=>{if(active){setError(errorMessage(e));setRequiresRefresh(true);}}).finally(()=>{if(active)setLoading(false);});
     return ()=>{active=false;generation.current++;};
-  },[route.run,sessionId,loadRun]);
-  const create=()=>handle(async()=>{
+  },[route.run, route.page, sessionId, session?.runs, loadRun]);
+  const create=(targetPage: string = 'scene')=>handle(async()=>{
     const data=session ?? await loadSession();
     const result=await request<{run_id:string}>('reset',{session_id:data.session_id});
     await loadSession();
-    location.hash=link('scene',result.run_id);
+    const cleanUrl = targetPage === 'overview' ? (window.location.pathname || '/') : `?page=${targetPage}&run=${result.run_id}`;
+    history.pushState(null, '', cleanUrl);
+    window.dispatchEvent(new PopStateEvent('popstate'));
   });
   const act=async(path:string,extra:Document={})=>handle(async()=>{
     if(!state || !session || readRoute().run!==state.run_id)throw new Error('The selected run changed. Wait for its saved state before acting.');
@@ -86,7 +95,9 @@ export function useWorkspace() {
     if(readRoute().run===run)setMessage(result.message ?? 'Saved.');
   });
   const recover=()=>handle(async()=>{
-    generation.current++;await loadSession(true);setState(null);setScene(null);setEvents([]);location.hash='#overview';
+    generation.current++;await loadSession(true);setState(null);setScene(null);setEvents([]);
+    history.pushState(null, '', window.location.pathname || '/');
+    window.dispatchEvent(new PopStateEvent('popstate'));
   });
   const historyPage=async(older:boolean)=>{
     if(historyLock.current || loading || working || !session || (older && !session.next_cursor))return;
