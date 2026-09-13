@@ -80,6 +80,13 @@ test('LT02 changed evidence withdraws the exact prior decision and requires new 
 });
 
 test('LT03 saved Strands approval resumes, retry acts once, then approved turnover and role receipts travel',async({page},info)=>{
+  // Against the live URL this journey took 59.6s (desktop) and 1.0m (mobile) in the
+  // accepted run 34755986941, and 66.9s on desktop in run 34768420634 (JUnit time),
+  // where mobile was never reached. Mobile on this UI is an ESTIMATE of 67-86s: 66.9s
+  // times the mobile/desktop ratios measured for this test (about 1.0 live, 1.11 and
+  // 1.29 in source CI). That is 4-23s under the 90s file default, so this test gets
+  // twice the default. Every assertion keeps its own 20s expect timeout.
+  test.setTimeout(180_000);
   await fresh(page);await navigate(page,'My actions');
   await expect(page.getByRole('button',{name:'Approve pickup'})).toHaveCount(0);
   await page.getByLabel('Demo role').selectOption('first_ad');
