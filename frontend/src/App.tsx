@@ -10,6 +10,7 @@ import { UserJourneysView } from './UserJourneysView';
 import { ArchitectureView } from './ArchitectureView';
 import { GtmProductionView } from './GtmProductionView';
 import { link, pages, roles } from './model';
+import { ProductionCharts } from './ProductionCharts';
 import { useWorkspace } from './useWorkspace';
 import { readPreference, writePreference, storageNotice } from './storage';
 import type { Page, Role } from './types';
@@ -22,7 +23,7 @@ export function App() {
   });
   const [guided, setGuided] = useState(false);
   const [intake, setIntake] = useState(false);
-  const { state, scene, route } = w;
+  const { state, scene, events, route } = w;
   const previousPage = useRef(route.page);
 
   useEffect(() => {
@@ -224,48 +225,51 @@ export function App() {
               )}
 
               {showWelcome && (
-                <section className="welcome panel" aria-label="Start a shoot-day review">
-                  <p className="eyebrow">Find the gap while a pickup is still possible</p>
-                  <h2>Bring the shoot day into focus.</h2>
-                  <p>
-                    Start with The Last Ferry's script, take reports and releases. Follow each blocking reason to its evidence, resolve it with the responsible role, then request a separate wrap decision.
-                  </p>
-                  <p>
-                    <strong>Your result:</strong> a saved editorial turnover with the take map, human decisions and any accepted exceptions still visible.
-                  </p>
-                  <div
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-                      gap: '10px',
-                      margin: '14px 0',
-                      padding: '12px',
-                      background: 'var(--raised, #1e293b)',
-                      borderRadius: '6px',
-                      border: '1px solid var(--border)'
-                    }}
-                  >
-                    <div>
-                      <span style={{ fontSize: '0.75rem', color: 'var(--muted)', textTransform: 'uppercase' }}>Prevented Pickup Cost</span>
-                      <strong style={{ display: 'block', color: 'var(--teal, #14b8a6)', fontSize: '1.1rem' }}>$50,000 – $250,000</strong>
+                <>
+                  <section className="welcome panel" aria-label="Start a shoot-day review">
+                    <p className="eyebrow">Find the gap while a pickup is still possible</p>
+                    <h2>Bring the shoot day into focus.</h2>
+                    <p>
+                      Start with The Last Ferry's script, take reports and releases. Follow each blocking reason to its evidence, resolve it with the responsible role, then request a separate wrap decision.
+                    </p>
+                    <p>
+                      <strong>Your result:</strong> a saved editorial turnover with the take map, human decisions and any accepted exceptions still visible.
+                    </p>
+                    <div
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                        gap: '10px',
+                        margin: '14px 0',
+                        padding: '12px',
+                        background: 'var(--raised, #1e293b)',
+                        borderRadius: '6px',
+                        border: '1px solid var(--border)'
+                      }}
+                    >
+                      <div>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--muted)', textTransform: 'uppercase' }}>Prevented Pickup Cost</span>
+                        <strong style={{ display: 'block', color: 'var(--teal, #14b8a6)', fontSize: '1.1rem' }}>$50,000 – $250,000</strong>
+                      </div>
+                      <div>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--muted)', textTransform: 'uppercase' }}>Time to Verify Wrap</span>
+                        <strong style={{ display: 'block', color: 'var(--amber, #f59e0b)', fontSize: '1.1rem' }}>&lt; 5 Seconds</strong>
+                      </div>
+                      <div>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--muted)', textTransform: 'uppercase' }}>Audit Integrity</span>
+                        <strong style={{ display: 'block', color: '#38bdf8', fontSize: '1.1rem' }}>Cryptographic S3 Seal</strong>
+                      </div>
                     </div>
-                    <div>
-                      <span style={{ fontSize: '0.75rem', color: 'var(--muted)', textTransform: 'uppercase' }}>Time to Verify Wrap</span>
-                      <strong style={{ display: 'block', color: 'var(--amber, #f59e0b)', fontSize: '1.1rem' }}>&lt; 5 Seconds</strong>
+                    <p className="fine">Synthetic records are already supplied. No upload or account is required.</p>
+                    <div className="toolbar" style={{ marginTop: '12px' }}>
+                      <button onClick={() => void w.create()}>New shoot-day run</button>
+                      <a className="button" href={link('journeys', route.run)}>4 User Journeys →</a>
+                      <a className="button" href={link('architecture', route.run)}>Architecture →</a>
+                      <a className="button" href={link('roi', route.run)}>Production ROI →</a>
                     </div>
-                    <div>
-                      <span style={{ fontSize: '0.75rem', color: 'var(--muted)', textTransform: 'uppercase' }}>Audit Integrity</span>
-                      <strong style={{ display: 'block', color: '#38bdf8', fontSize: '1.1rem' }}>Cryptographic S3 Seal</strong>
-                    </div>
-                  </div>
-                  <p className="fine">Synthetic records are already supplied. No upload or account is required.</p>
-                  <div className="toolbar" style={{ marginTop: '12px' }}>
-                    <button onClick={() => void w.create()}>New shoot-day run</button>
-                    <a className="button" href={link('journeys', route.run)}>4 User Journeys →</a>
-                    <a className="button" href={link('architecture', route.run)}>Architecture →</a>
-                    <a className="button" href={link('roi', route.run)}>Production ROI →</a>
-                  </div>
-                </section>
+                  </section>
+                  <ProductionCharts scene={scene} state={state} events={events} />
+                </>
               )}
 
               {w.busy && (
