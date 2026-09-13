@@ -44,7 +44,7 @@
     "tests/e2e/hero.spec.ts cold viewport and keyboard reach",
     "tests/app.test.tsx navigation names and landing recovery"
    ],
-   "observed_result_evidence": "PENDING_CI for the truth-and-ux revision; earlier evidence in this file predates the landing and is not evidence for it.",
+   "observed_result_evidence": "AUTOMATION_PASS for implementation 46377ab90a87bcce6a7940e7c40e9f77973df8bc in https://github.com/upgradedev/lasttake-aws/actions/runs/34767976347. Real Python HTTP, Chromium desktop/mobile and WebKit critical journeys in CI only; see frontend-evidence-46377ab90a87bcce6a7940e7c40e9f77973df8bc and ui-screenshots-46377ab90a87bcce6a7940e7c40e9f77973df8bc. This is not live-AWS or human acceptance.",
    "human_signoff": "NOT_RUN"
   },
   {
@@ -320,7 +320,7 @@
     "tests/projection.test.ts",
     "tests/workspaces.test.tsx"
    ],
-   "observed_result_evidence": "AUTOMATION_PASS for implementation 896442b1359893f571dd0fbcd0335ccb2ffe1299 in https://github.com/upgradedev/lasttake-aws/actions/runs/34357735501. Real Python HTTP, Chromium desktop/mobile CI only; see frontend-evidence-896442b1359893f571dd0fbcd0335ccb2ffe1299 and ui-screenshots-896442b1359893f571dd0fbcd0335ccb2ffe1299. This is not live-AWS or human acceptance.",
+   "observed_result_evidence": "AUTOMATION_PASS for implementation 46377ab90a87bcce6a7940e7c40e9f77973df8bc in https://github.com/upgradedev/lasttake-aws/actions/runs/34767976347. Real Python HTTP, Chromium desktop/mobile and WebKit critical journeys in CI only; see frontend-evidence-46377ab90a87bcce6a7940e7c40e9f77973df8bc and ui-screenshots-46377ab90a87bcce6a7940e7c40e9f77973df8bc. This is not live-AWS or human acceptance.",
    "human_signoff": "NOT_RUN"
   },
   {
@@ -342,7 +342,7 @@
     "tests/projection.test.ts",
     "tests/workspaces.test.tsx"
    ],
-   "observed_result_evidence": "AUTOMATION_PASS for implementation 896442b1359893f571dd0fbcd0335ccb2ffe1299 in https://github.com/upgradedev/lasttake-aws/actions/runs/34357735501. Real Python HTTP, Chromium desktop/mobile CI only; see frontend-evidence-896442b1359893f571dd0fbcd0335ccb2ffe1299 and ui-screenshots-896442b1359893f571dd0fbcd0335ccb2ffe1299. This is not live-AWS or human acceptance.",
+   "observed_result_evidence": "AUTOMATION_PASS for implementation 46377ab90a87bcce6a7940e7c40e9f77973df8bc in https://github.com/upgradedev/lasttake-aws/actions/runs/34767976347. Real Python HTTP, Chromium desktop/mobile and WebKit critical journeys in CI only; see frontend-evidence-46377ab90a87bcce6a7940e7c40e9f77973df8bc and ui-screenshots-46377ab90a87bcce6a7940e7c40e9f77973df8bc. This is not live-AWS or human acceptance.",
    "human_signoff": "NOT_RUN"
   },
   {
@@ -365,7 +365,7 @@
     "tests/workspaces.test.tsx",
     "tests/model.test.ts"
    ],
-   "observed_result_evidence": "AUTOMATION_PASS for implementation 896442b1359893f571dd0fbcd0335ccb2ffe1299 in https://github.com/upgradedev/lasttake-aws/actions/runs/34357735501. Real Python HTTP, Chromium desktop/mobile CI only; see frontend-evidence-896442b1359893f571dd0fbcd0335ccb2ffe1299 and ui-screenshots-896442b1359893f571dd0fbcd0335ccb2ffe1299. This is not live-AWS or human acceptance.",
+   "observed_result_evidence": "AUTOMATION_PASS for implementation 46377ab90a87bcce6a7940e7c40e9f77973df8bc in https://github.com/upgradedev/lasttake-aws/actions/runs/34767976347. Real Python HTTP, Chromium desktop/mobile and WebKit critical journeys in CI only; see frontend-evidence-46377ab90a87bcce6a7940e7c40e9f77973df8bc and ui-screenshots-46377ab90a87bcce6a7940e7c40e9f77973df8bc. This is not live-AWS or human acceptance.",
    "human_signoff": "NOT_RUN"
   },
   {
@@ -387,7 +387,7 @@
     "tests/e2e/journeys.spec.ts: LT03",
     "tests/workspaces.test.tsx"
    ],
-   "observed_result_evidence": "AUTOMATION_PASS for implementation 896442b1359893f571dd0fbcd0335ccb2ffe1299 in https://github.com/upgradedev/lasttake-aws/actions/runs/34357735501. Real Python HTTP, Chromium desktop/mobile CI only; see frontend-evidence-896442b1359893f571dd0fbcd0335ccb2ffe1299 and ui-screenshots-896442b1359893f571dd0fbcd0335ccb2ffe1299. This is not live-AWS or human acceptance.",
+   "observed_result_evidence": "AUTOMATION_PASS for implementation 46377ab90a87bcce6a7940e7c40e9f77973df8bc in https://github.com/upgradedev/lasttake-aws/actions/runs/34767976347. Real Python HTTP, Chromium desktop/mobile and WebKit critical journeys in CI only; see frontend-evidence-46377ab90a87bcce6a7940e7c40e9f77973df8bc and ui-screenshots-46377ab90a87bcce6a7940e7c40e9f77973df8bc. This is not live-AWS or human acceptance.",
    "human_signoff": "NOT_RUN"
   },
   {
@@ -528,13 +528,13 @@
  "current_workspace_revision": {
   "status": "AUTOMATION_PASS",
   "scope": "CI_REAL_HTTP_ONLY",
-  "implementation_sha": "896442b1359893f571dd0fbcd0335ccb2ffe1299",
-  "ci_run_url": "https://github.com/upgradedev/lasttake-aws/actions/runs/34357735501",
-  "evidence_artifact": "frontend-evidence-896442b1359893f571dd0fbcd0335ccb2ffe1299",
-  "screenshots_artifact": "ui-screenshots-896442b1359893f571dd0fbcd0335ccb2ffe1299",
-  "observed_result_evidence": "185 Python tests, 56 frontend unit/component tests, 3 functional contracts and 16 real-HTTP desktop/mobile journeys passed for the implementation SHA above. This later documentation/contract revision does not claim to validate itself. Final candidate CI artifacts remain authoritative; parent owns main release and exact-SHA live AWS acceptance.",
   "live_aws_acceptance": "NOT_RUN",
-  "human_signoff": "NOT_RUN"
+  "human_signoff": "NOT_RUN",
+  "implementation_sha": "46377ab90a87bcce6a7940e7c40e9f77973df8bc",
+  "ci_run_url": "https://github.com/upgradedev/lasttake-aws/actions/runs/34767976347",
+  "evidence_artifact": "frontend-evidence-46377ab90a87bcce6a7940e7c40e9f77973df8bc",
+  "screenshots_artifact": "ui-screenshots-46377ab90a87bcce6a7940e7c40e9f77973df8bc",
+  "note": "Source CI on the truth-and-ux revision: real Python HTTP handler, Chromium desktop/mobile journeys plus the bounded WebKit matrix. Not live AWS acceptance and not human UAT."
  },
  "current_reliability_revision": {
   "status": "AUTOMATION_PASS",
