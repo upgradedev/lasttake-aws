@@ -13,8 +13,8 @@
   "segments": [
     {
       "id": "hook",
-      "captionText": "For a script supervisor and the first assistant director, LastTake brings supplied shoot-day records into one review. Start the fictional shoot day. The next step follows saved evidence through a human wrap decision to a handoff for editorial. This is a demonstration, not an observed crew trial or a measured time saving.",
-      "speechText": "For a script supervisor and the first assistant director, LastTake brings supplied shoot-day records into one review. Start the fictional shoot day. The next step follows saved evidence through a human wrap decision to a handoff for editorial. This is a demonstration, not an observed crew trial or a measured time saving."
+      "captionText": "For a script supervisor and the first assistant director. At wrap, the evidence for whether a scene is ready is scattered across the script, the takes, the reports and the releases, and nobody holds all of it at once. While the set is standing, a missing shot costs fifteen minutes; once it is struck, the same fact costs a pickup day. LastTake brings the supplied records into one review. Start the fictional shoot day. The next step follows saved evidence through a human wrap decision to a handoff for editorial. This is a demonstration on a synthetic scene, not an observed crew trial or a measured time saving.",
+      "speechText": "For a script supervisor and the first assistant director. At wrap, the evidence for whether a scene is ready is scattered across the script, the takes, the reports and the releases, and nobody holds all of it at once. While the set is standing, a missing shot costs fifteen minutes; once it is struck, the same fact costs a pickup day. LastTake brings the supplied records into one review. Start the fictional shoot day. The next step follows saved evidence through a human wrap decision to a handoff for editorial. This is a demonstration on a synthetic scene, not an observed crew trial or a measured time saving."
     },
     {
       "id": "surface",
@@ -43,8 +43,8 @@
     },
     {
       "id": "close",
-      "captionText": "In History, publish the approved turnover and reload it. Download the saved manifest and prepare the wrap receipt. They bind the reviewed package and keep accepted exceptions visible. Editorial receives a usable beat-to-take map, technical records and source digests in the download or copyable summary. Storage and bus acceptance do not prove downstream delivery. Hashes identify bytes, not truth; earlier evidence and component disclosures remain available.",
-      "speechText": "In History, publish the approved turnover and reload it. Download the saved manifest and prepare the wrap receipt. They bind the reviewed package and keep accepted exceptions visible. Editorial receives a usable beat-to-take map, technical records and source digests in the download or copyable summary. Storage and bus acceptance do not prove downstream delivery. Hashes identify bytes, not truth; earlier evidence and component disclosures remain available."
+      "captionText": "In Handoff, publish the approved turnover and reload it. Download the saved manifest and prepare the wrap receipt. They bind the reviewed package and keep accepted exceptions visible. Editorial receives a usable beat-to-take map, technical records and source digests in the download or copyable summary. Storage and bus acceptance do not prove downstream delivery. Hashes identify bytes, not truth; earlier evidence and component disclosures remain available.",
+      "speechText": "In Handoff, publish the approved turnover and reload it. Download the saved manifest and prepare the wrap receipt. They bind the reviewed package and keep accepted exceptions visible. Editorial receives a usable beat-to-take map, technical records and source digests in the download or copyable summary. Storage and bus acceptance do not prove downstream delivery. Hashes identify bytes, not truth; earlier evidence and component disclosures remain available."
     }
   ],
   "recording_status": "NOT_CONFIGURED"
