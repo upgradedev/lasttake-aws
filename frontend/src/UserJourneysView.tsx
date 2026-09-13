@@ -115,19 +115,23 @@ export function UserJourneysView({ runId }: { runId?: string }) {
               onClick={() => setActiveStageId(stage.id)}
               className="panel"
               style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'flex-start',
                 textAlign: 'left',
-                padding: '14px',
+                padding: '16px 14px',
                 cursor: 'pointer',
                 borderColor: isSelected ? 'var(--amber, #f59e0b)' : 'var(--border)',
                 background: isSelected ? 'var(--raised, #1e293b)' : 'var(--panel, #0f172a)',
                 color: 'var(--text)',
                 margin: 0,
+                transition: 'border-color 0.15s, background-color 0.15s',
               }}
             >
               <span style={{ fontSize: '0.8rem', fontWeight: 800, color: isSelected ? 'var(--amber, #f59e0b)' : 'var(--muted)' }}>
                 STAGE {stage.number}
               </span>
-              <strong style={{ display: 'block', fontSize: '0.95rem', marginTop: '4px' }}>{stage.title}</strong>
+              <strong style={{ display: 'block', fontSize: '0.95rem', marginTop: '6px' }}>{stage.title}</strong>
               <small style={{ color: 'var(--muted)', display: 'block', marginTop: '4px' }}>{stage.role}</small>
             </button>
           );

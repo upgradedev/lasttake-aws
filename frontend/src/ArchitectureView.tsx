@@ -95,8 +95,8 @@ export function ArchitectureView({ runId }: { runId?: string }) {
       </div>
 
       {/* Layer Tabs */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '10px', marginBottom: '24px' }}>
-        {LAYERS.map(layer => {
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '14px', marginBottom: '24px' }}>
+        {LAYERS.map((layer, index) => {
           const isSelected = layer.id === selectedLayerId;
           return (
             <button
@@ -104,22 +104,36 @@ export function ArchitectureView({ runId }: { runId?: string }) {
               onClick={() => setSelectedLayerId(layer.id)}
               className="panel"
               style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                minHeight: '135px',
                 textAlign: 'center',
-                padding: '12px 8px',
+                padding: '16px 12px',
                 cursor: 'pointer',
                 borderColor: isSelected ? 'var(--teal, #14b8a6)' : 'var(--border)',
                 background: isSelected ? 'var(--raised, #1e293b)' : 'var(--panel, #0f172a)',
                 color: 'var(--text)',
                 margin: 0,
+                transition: 'all 0.2s ease',
+                boxShadow: isSelected ? '0 0 16px rgba(20, 184, 166, 0.2)' : 'none',
               }}
             >
-              <span style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--muted)', display: 'block' }}>
-                {layer.category}
-              </span>
-              <strong style={{ display: 'block', fontSize: '0.9rem', marginTop: '4px', color: isSelected ? 'var(--teal, #14b8a6)' : 'var(--text)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+                <span style={{ fontSize: '0.68rem', fontWeight: 800, padding: '1px 5px', borderRadius: '4px', background: isSelected ? 'rgba(20, 184, 166, 0.25)' : 'rgba(255,255,255,0.08)', color: isSelected ? 'var(--teal, #14b8a6)' : 'var(--muted)' }}>
+                  0{index + 1}
+                </span>
+                <span style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--muted)', display: 'block' }}>
+                  {layer.category}
+                </span>
+              </div>
+              <strong style={{ display: 'block', fontSize: '0.92rem', fontWeight: 700, color: isSelected ? 'var(--teal, #14b8a6)' : 'var(--text)', lineHeight: 1.35, margin: 'auto 0' }}>
                 {layer.name}
               </strong>
-              <span className="badge" style={{ marginTop: '6px', fontSize: '0.7rem' }}>{layer.awsService}</span>
+              <span className="badge" style={{ marginTop: '10px', fontSize: '0.72rem', padding: '3px 8px', borderRadius: '6px', background: isSelected ? 'rgba(20, 184, 166, 0.15)' : 'rgba(255,255,255,0.06)', color: isSelected ? 'var(--teal, #14b8a6)' : 'var(--muted)', border: isSelected ? '1px solid var(--teal, #14b8a6)' : '1px solid var(--border)' }}>
+                {layer.awsService}
+              </span>
             </button>
           );
         })}

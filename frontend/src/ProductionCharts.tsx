@@ -353,6 +353,9 @@ export function ProductionCharts({ scene, state, events }: ProductionChartsProps
                 key={beat.beat_id}
                 onClick={() => setSelectedBeat(isSelected ? null : beat.beat_id)}
                 style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'stretch',
                   padding: '8px',
                   textAlign: 'left',
                   background: isSelected
