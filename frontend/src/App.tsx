@@ -47,8 +47,16 @@ export function App() {
 
   const navigateTo = useCallback(
     (page: Page) => {
-      const next = link(page, state?.run_id ?? route.run, undefined, selection);
-      location.hash = next;
+      const query = new URLSearchParams();
+      if (page !== 'overview') query.set('page', page);
+      const activeRun = state?.run_id ?? route.run;
+      if (activeRun) query.set('run', activeRun);
+      for (const [k, v] of Object.entries(selection)) {
+        if (v) query.set(k, v);
+      }
+      const nextUrl = query.toString() ? `${window.location.pathname}?${query.toString()}` : window.location.pathname;
+      history.pushState(null, '', nextUrl);
+      window.dispatchEvent(new PopStateEvent('popstate'));
     },
     [state?.run_id, route.run, selection]
   );
@@ -70,7 +78,7 @@ export function App() {
         Skip to main content
       </a>
       <aside className="navigation">
-        <a className="brand" href={link('overview', state?.run_id)}>
+        <a className="brand" href={window.location.pathname} onClick={e => { e.preventDefault(); navigateTo('overview'); }}>
           <span className="brand-mark" aria-hidden="true">
             L<span>◢</span>
           </span>
@@ -83,7 +91,7 @@ export function App() {
           {(['overview', 'scene', 'records', 'history'] as Page[]).map((key, index) => (
             <a
               key={key}
-              href={link(key, state?.run_id ?? route.run, undefined, selection)}
+              href={key === 'overview' ? window.location.pathname : `?page=${key}`}
               onClick={e => {
                 e.preventDefault();
                 navigateTo(key);
@@ -95,7 +103,7 @@ export function App() {
             </a>
           ))}
           <a
-            href={link('journeys', state?.run_id ?? route.run)}
+            href="?page=journeys"
             onClick={e => {
               e.preventDefault();
               navigateTo('journeys');
@@ -105,7 +113,7 @@ export function App() {
             <span aria-hidden="true">★</span>Journeys
           </a>
           <a
-            href={link('architecture', state?.run_id ?? route.run)}
+            href="?page=architecture"
             onClick={e => {
               e.preventDefault();
               navigateTo('architecture');
@@ -115,7 +123,7 @@ export function App() {
             <span aria-hidden="true">⚙</span>Architecture
           </a>
           <a
-            href={link('roi', state?.run_id ?? route.run)}
+            href="?page=roi"
             onClick={e => {
               e.preventDefault();
               navigateTo('roi');
