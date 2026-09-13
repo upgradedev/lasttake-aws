@@ -12,12 +12,17 @@ export function SceneView({scene,state,selected,selection={},role='script_superv
   const {beat,finding,findings,invalid,related}=selectEvidence(scene,state,{...selection,beat:selected});
   const scriptList=useRef<HTMLDivElement>(null);
   const activeBeat=selected ?? related[0]?.beat_id;
+  const previousBeat=useRef<string|undefined>(undefined);
   useLayoutEffect(()=>{
     const list=scriptList.current;
     const row=activeBeat?document.getElementById('beat-'+activeBeat):null;
     if(list && row && list.contains(row)){
       list.scrollTop=Math.max(0,list.scrollTop+row.getBoundingClientRect().top-list.getBoundingClientRect().top-10);
+      // A new selection also brings the pane into the window, minimally, so
+      // the row the pane just scrolled to is where the person is looking.
+      if(previousBeat.current!==activeBeat)list.closest('section')?.scrollIntoView({block:'nearest'});
     }
+    previousBeat.current=activeBeat;
   // A filter can replace the rows above the same selected beat. Reposition for
   // that layout change as well as a new selection, without moving focus.
   },[activeBeat,filter,search,scene,state.counts]);

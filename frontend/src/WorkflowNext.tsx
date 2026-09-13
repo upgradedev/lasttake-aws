@@ -25,7 +25,7 @@ export function nextStep(state:RunState) {
 export function WorkflowNext({state,scene,requiresRefresh=false,detailed=false}:{state:RunState;scene?:Scene;requiresRefresh?:boolean;detailed?:boolean}) {
   const next=nextStep(state);
   const causes=uniqueBy(state.causes,c=>`${c.finding_id}:${c.requirement_id}:${c.reason}`);
-  return <section className={'workflow-next'+(detailed?' decision-brief':'')} aria-label="Next step" data-testid="workflow-next">
+  return <section className={'workflow-next'+(detailed?' decision-brief':' compact')} aria-label="Next step" data-testid="workflow-next">
     {detailed && <div className="decision-context"><p className="eyebrow">Before the set comes down</p><h2 data-testid="decision-headline">{wrapHeadline(state,requiresRefresh)}</h2>
       <p>{requiresRefresh?'The saved view may be out of date. Use Refresh saved state before any decision.':state.counts?state.headline:'Start the checkpoint to find missing coverage, conflicting reports and missing releases before asking the 1st AD to wrap.'}</p>
       {state.counts && !requiresRefresh && <p>{state.eligible?'The evidence gate permits a wrap request; it does not approve wrap or erase accepted exceptions.':'Resolve the named evidence gaps, then review readiness. A pickup approval alone never approves wrap.'}</p>}
