@@ -3,12 +3,14 @@ import {test,expect} from '@playwright/test';
 const source=await import(new URL('../../../web/video/hero-journey.mjs',import.meta.url).href);
 
 test('LT-HERO complete capture source: changed evidence, human wrap decision and exact turnover downloads',async({page},info)=>{
-  // This one test is the whole shoot day against the live URL: seven scenes, three
-  // reloads, four downloads and twelve full-page captures over real Lambda and DSQL.
-  // It took 1.3m on both projects in the accepted run 34755986941 and 1.4m on desktop
-  // in run 34768420634, where the mobile pass hit the 90s file default at the final
-  // reload with every product assertion before it already green. The assertions stay;
-  // the clock is sized to the journey, three times the default, still under the job.
+  // This one test is the whole shoot day against the live URL: seven scenes, four
+  // reloads, four downloads and thirteen captures over real Lambda and DSQL. JUnit
+  // times: 1.3m on both projects in the accepted run 34755986941; 86.3s on desktop in
+  // run 34768420634, where mobile was stopped at 91.3s by the 90s file default, 1.1s
+  // into the first assertion after its last reload, every product assertion before it
+  // green. API medians were 1.1s on both projects (trace network log); mobile's twelve
+  // captures took 12.1s against desktop's 4.8s for thirteen. The assertions stay; the
+  // clock is sized to the journey, three times the default, inside the job's 20 minutes.
   test.setTimeout(270_000);
   if(info.project.name==='mobile')await page.setViewportSize({width:375,height:812});
   const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
