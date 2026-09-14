@@ -147,6 +147,9 @@ jobs:
       - name: judge-facing prose does not read as generated
         run: python tools/prose_gate.py
 
+      - name: README and docs pages render without structural faults
+        run: python tools/docs_gate.py
+
   lambda-package:
     name: arm64 Lambda package (source only)
     # This branch artifact is not a release. No AWS credentials or deploy steps.
