@@ -8,10 +8,13 @@ async function start(page:Page){
 }
 
 async function reloadFromPage(page:Page){
-  // WebKit's protocol reload errors under offline emulation. Scheduling the
-  // browser's own reload still exercises a real navigation through the worker.
-  const loaded=page.waitForEvent('domcontentloaded');
-  await page.evaluate(()=>window.setTimeout(()=>window.location.reload(),0));
+  // WebKit's reload flag bypasses its service-worker navigation path while
+  // offline. A same-tab navigation to the identical route plus a cache-buster
+  // still performs a full document load through the cached shell.
+  const target=new URL(page.url());
+  target.searchParams.set('offline-reload',Date.now().toString());
+  const loaded=page.waitForURL(target.toString(),{waitUntil:'domcontentloaded'});
+  await page.evaluate(url=>window.setTimeout(()=>window.location.assign(url),0),target.toString());
   await loaded;
 }
 

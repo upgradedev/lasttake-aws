@@ -39,12 +39,18 @@ export function heroScenes(page,expect,{requireEventBridgeReceipt=false}={}) {
     await expect(page.getByRole('heading',{name:'Recorded events'})).toBeVisible();
     if(!requireEventBridgeReceipt)return;
     const consumed=page.getByText(/EventBridge subscriber consumed/).first();
+    const refresh=page.getByRole('button',{name:'Refresh saved state'});
     const deadline=Date.now()+20_000;
     while(Date.now()<deadline && !await consumed.isVisible().catch(()=>false)){
       await page.waitForTimeout(750);
-      await page.reload();
+      const events=page.waitForResponse(response=>response.url().endsWith('/api/events') && response.ok());
+      await refresh.click();
+      await events;
+      await expect(refresh).toBeEnabled();
     }
     await expect(consumed).toBeVisible();
+    await consumed.scrollIntoViewIfNeeded();
+    await expect(consumed).toBeInViewport();
   }
   async function review(name,role) {
     await page.getByLabel('Demo role').selectOption(role);
