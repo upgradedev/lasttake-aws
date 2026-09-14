@@ -31,7 +31,7 @@ Built for the AWS Agents for Humans hackathon, Professional Agents track.
 |---|---|
 | A real EventBridge target consumed a domain event | Run a checkpoint, open **History**, and read **EventBridge subscriber consumed** beside the event. The separate Lambda writes an immutable S3 receipt. It does not start Strands or prove editorial delivery. |
 | Strands pauses for people and resumes after process death | The orchestrator uses eight `@tool` functions, two `ToolContext.interrupt` transitions and `S3SessionManager`. The [cross-process proof](docs/strands-interrupt-resume.md) fails if the same process resumes or the saved session is removed. |
-| The gate cannot turn missing evidence into a pass | Every finding cites source digests and a sealed serialized record. Plain Python checks the required result set, seals, revisions, policy version and role-bound decisions. |
+| The gate cannot turn missing evidence into a pass | Every finding cites source digests and sealed serialized records. Plain Python checks the required result set, seals, revisions, policy version and role-bound decisions. |
 | A disconnect cannot replay a decision or delivery | The service worker caches only the app shell. One last-confirmed run snapshot is read-only, one evidence draft stays in the current tab, and reconnect performs authoritative reads before any new write. |
 | Editorial receives the reviewed revision | A separate 1st AD wrap interrupt precedes a versioned turnover. Handoff reads the saved manifest back with its source map, accepted exceptions and SHA-256 byte digest. |
 
@@ -152,6 +152,29 @@ lasttake approve --yes
 ```
 
 Expected: Strands restores the run and publishes one idempotent pickup event. The CLI proves checkpoint, pause and resume. Use the browser for the complete wrap and handoff.
+
+## Bring your own record
+
+The live API accepts a synthetic take or release record. Create a private session with `POST /api/session`, create its run with `POST /api/reset`, and keep the returned handle private. Then replace both placeholders below:
+
+```bash
+curl -s -X POST "$URL/api/ingest" -H 'content-type: application/json' -d '{
+  "run_id": "REPLACE_WITH_YOUR_RUN_ID",
+  "session_id": "REPLACE_WITH_YOUR_PRIVATE_SESSION_ID",
+  "kind": "take",
+  "document": {
+    "take_id": "T-900", "shot_id": "S-42-PICKUP", "beat_ids": ["B-17"],
+    "slate": "42L/1", "camera_roll": "A007", "sound_roll": "SR07",
+    "timecode_in": "23:04:00:00", "timecode_out": "23:04:41:00",
+    "lens_mm": 50, "media_id": "A007R2G01",
+    "preferred": true, "usable": true,
+    "note": "Pickup on the reaction. Clean single.",
+    "visible_people": ["DELPHINE"]
+  }
+}'
+```
+
+An owned run refuses a missing or different session handle with HTTP 403. A take reruns all four checks; a release reruns rights only. The [record guide](docs/bring-your-own-record.md) documents shapes and refusals.
 
 <a id="what-it-will-not-do"></a>
 <a id="assurance-and-residual-gaps"></a>
