@@ -363,7 +363,7 @@
    "expected_outcome": "The shell and one bounded snapshot remain usable for review, the one draft remains editable, and LastTake never queues or replays a mutation. Reconnect reads authoritative state, exposes a changed digest, requires explicit review and sends exactly one intentional ingest.",
    "negative_recovery_case": "No confirmed snapshot means no offline run view. Cross-session or malformed storage is ignored. Unknown outcomes, approvals and deliveries are never replayed, and a changed digest keeps writes disabled until review.",
    "automation_mapping": [
-    "tests/e2e/reliability.spec.ts: LT-OFFLINE reload keeps one scoped draft read-only and reconnect never replays it",
+    "tests/e2e/reliability.spec.ts: LT-OFFLINE cached shell and scoped draft stay read-only; reconnect never replays it",
     "tests/connectivity.test.ts",
     "tests/app.test.tsx",
     "public/sw.js"
