@@ -94,19 +94,19 @@ This is the four-step journey the automated test follows (see [What the walk is 
 2. **Turnover for this run** now shows the saved record. **Download turnover** downloads the stored manifest as JSON. The tested journey checks that the download matches the manifest on screen (`web/video/hero-journey.mjs:108-110`).
 3. **Download handoff summary** and **Copy handoff summary** give a text version: the retained exceptions with their next actions, the beat-to-take map and the source digests. The browser builds this text from the manifest, and it is not separately sealed. **Find beat or take in turnover** searches the saved map.
 4. Set **Receipt purpose** to **Wrap review** and press **Prepare receipt**. **Receipt ready for review** appears with the recorded approval and every open item. **Download receipt** saves the sealed JSON. **Copy evidence summary** and **Download evidence summary** give its text.
-5. Open **Delivery status**. It lists deliveries that can be retried and any delivery the bus did not accept, each with the bus's answer. When every row was accepted, the panel stays closed behind its title (`frontend/src/DeliveryStatus.tsx:17-23`).
+5. Open **Delivery status**. It lists deliveries that can be retried and any delivery the bus did not accept, each with its status and recorded response. A delivery's status is pending, accepted, rejected or unknown, and the row title puts it in the words below (`frontend/src/DeliveryStatus.tsx:8`). When every row was accepted, the panel stays closed behind its title (`frontend/src/DeliveryStatus.tsx:17-23`).
 
 | Row says | What it means | What to do |
 |---|---|---|
 | accepted by the event bus | the bus API took the event. That is not proof anything downstream received it or finished. | nothing |
 | no response recorded yet, or outcome unknown | nothing is established | do not resend. Refresh saved state, then give the run and receipt identifiers to the operator. |
-| rejected by the event bus | the bus definitely refused it | as 1st AD, press **Retry rejected delivery**, which rechecks the current approval first |
+| rejected by the event bus | the bus definitely refused it | as 1st AD, press **Retry rejected delivery**, which rechecks the current approval first. Only a retryable delivery offers it (`DeliveryStatus.tsx:25`). |
 
 6. Evidence added after a turnover leaves that turnover in place as a **Historical record**, with the reason it stopped being current, and **Download turnover** still works. The next-step panel then offers **Start a fresh shoot-day run** for a new turnover (`frontend/tests/e2e/hero.spec.ts:60-73`).
 
 ### When a fresh checkpoint is required
 
-The current policy version is 1.1.0 (`src/lasttake/domain/policy.py:37`). If a run's saved findings were written under a different policy version, the page shows **Fresh checkpoint required** with the server's reason. The run's counts are then history, not current eligibility (`src/lasttake/app/workspace.py:119-126`).
+The current policy version is 1.1.0 (`src/lasttake/domain/policy.py:37`). If a run's saved findings were judged under any other policy version, older or newer, the page shows **Fresh checkpoint required** with the server's reason. The run's counts are then history, not current eligibility (`src/lasttake/app/workspace.py:119-126`).
 
 1. If a request is pending, decline it first. The page says "Open the pending approval in Scene review and decline it before checking again."
 2. Press **Run fresh checkpoint**.
@@ -131,7 +131,7 @@ Source CI is not deployment evidence. What the live URL serves depends on the fr
 Two statuses stay open:
 
 - The final recording is `NOT_CONFIGURED`: the final demo video capture has not been set up, and it waits for the owner to verify it.
-- Human UAT is `NOT_RUN`: no person has completed the testbook. Automated journeys never mark it as passed.
+- Human UAT is `NOT_RUN`: no person has completed the 22-case manual UAT testbook (the `cases` list in `frontend/UAT.testbook.json`). It is separate from automated acceptance, and automated journeys never mark it as passed (`tests/test_claim_drift.py:83` pins `human_signoff` at `NOT_RUN`).
 
 Session authority comes from the browser's saved session handle, never from an imported document. LT-FILE posts a valid document with no session, then with another session's handle, and both get HTTP 403 (`hero.spec.ts:104-110`).
 
@@ -181,7 +181,7 @@ The first screen, headed "Know what still blocks wrap.", needs no upload and no 
 
 Which role may decide which check comes from the authority table the gate enforces. The API sends that table with the scene (`src/lasttake/app/scene_view.py:127-137`).
 
-The take and release forms save through the Python backend (`POST /api/ingest`), which reruns the affected checks.
+The take and release forms save through the Python backend (`POST /api/ingest`), which reruns the affected checks. A new take reruns all four, because each check cites the takes; a release reruns only rights (`src/lasttake/domain/events.py:129-131`).
 
 **Open guided demo** shows **Walk through a fictional shoot day**, five short steps, and adds the labelled example buttons to the intake form. The panel states that these flows run no Bedrock inference, no footage or audio analysis, no email and no payment. It also says the AWS event-bus requests are real, and that bus acceptance does not establish downstream completion (`App.tsx:105`).
 
@@ -230,7 +230,7 @@ Scene review puts three panes side by side, with jump links named **Script & tak
 
 The status strip stays visible above the decision form while the form scrolls.
 
-Choosing a finding links back to the beat it is about. A finding matches a beat when its requirement is that beat, the beat's continuity reference, one of the beat's takes, or a person or asset visible in one of those takes. It also matches when a take locator names one of those takes (`frontend/src/model.ts:31-35`). A finding with no requirement identifier never matches a beat that also has no continuity reference.
+Choosing a finding links back to the beat it is about. A finding matches a beat when its requirement is that beat, the beat's continuity reference, one of the beat's takes, or a person or asset visible in one of those takes. It also matches when a take locator names one of those takes (`frontend/src/model.ts:31-35`). A finding with no requirement identifier never matches any beat, not even through a take locator (`frontend/src/model.ts:33`).
 
 A shot-plan advisory with no linked beat keeps its source evidence and reads "Unmatched source: this finding has no linked beat in the current script." Its review label is **Advisory, not a wrap blocker**, because the gate skips findings with no requirement identifier (`frontend/src/projection.ts:56-59`).
 
@@ -264,7 +264,7 @@ Three things stay separate: eligibility, a pending wrap request whose evidence h
 
 The manifest holds the beat-to-take map, the technical identity report, source digests, human decisions, retained exceptions and the model identifier recorded on each finding. **Inspect saved manifest** shows it as JSON (`src/lasttake/domain/turnover.py`).
 
-**Recorded events** lists the run's stored events, twenty to a page and newest first, with **Newer events** and **Older events**; consecutive events of one type share a row. On AWS every run event reaches the event bus, including one `finding.recorded` per finding (`src/lasttake/adapters/aws/infrastructure.py:258-307`). A stored event is an attempted publication, not a delivery receipt; the bus's answers are under **Delivery status** (`History.tsx:49-53`, `DeliveryStatus.tsx:18`).
+**Recorded events** lists the run's stored events, twenty to a page and newest first, with **Newer events** and **Older events**; consecutive events of one type share a row. On AWS every run event is sent to the event bus, including one `finding.recorded` per finding (`src/lasttake/adapters/aws/infrastructure.py:258-307`). A stored event is an attempted publication, not a delivery receipt (`History.tsx:49-53`, `DeliveryStatus.tsx:18`). **Delivery status** lists only retryable deliveries and deliveries the bus did not accept, so accepted answers for events such as `finding.recorded` do not appear there (`DeliveryStatus.tsx:17`).
 
 ## What each chair is holding, and what leaves the building
 
@@ -279,7 +279,7 @@ A script supervisor on the floor and a 1st AD at the truck each need three answe
 
 Which items are yours is read from the same authority table the deterministic gate enforces. The API sends it with the scene: `src/lasttake/app/scene_view.py:127-137` projects `policy.AUTHORITY` and `policy.MAY_ACCEPT_EXCEPTION`. Moving a check to a different role therefore moves these lists without anyone editing the page.
 
-A single summary ordered by where the cost falls exists only in the older static page, [`src/lasttake/app/static/index.html`](../src/lasttake/app/static/index.html): the `paintMine` panel at lines 938-990, ordered by `COST_ORDER` at line 469. The handler serves that page only at `/` on the HTTP API endpoint; the CloudFront URL serves the React workspace (`handler.py:687`, `infra/frontend_stack.py:15-23`).
+A single summary ordered by where the cost falls exists only in the older static page, [`src/lasttake/app/static/index.html`](../src/lasttake/app/static/index.html): the `paintMine` function at lines 970-1023 (its section begins at line 938), ordered by `COST_ORDER` at line 469. The handler serves that page at `/` and `/index.html` on the HTTP API endpoint; the CloudFront URL serves the React workspace (`handler.py:687`, `infra/frontend_stack.py:15-23`).
 
 The sealed receipt is the packet meant to be read away from the page, so it carries its own context (`src/lasttake/domain/receipt.py:141-226`):
 

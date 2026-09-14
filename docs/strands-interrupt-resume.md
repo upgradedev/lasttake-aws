@@ -32,10 +32,12 @@ itself in the same process (`cli.py:144-150`, `handler.py:278-286`). No EventBri
 that event: `infra/stack.yaml:130-136` declares the bus and nothing that subscribes to it.
 
 Both approvals are addressed to the 1st AD. The interrupt is named `first-ad-pickup-approval` or
-`first-ad-wrap-approval` (`tools.py:90`), and `publish_approved` refuses an answer whose role is
-not the 1st AD (`runtime.py:179-180`). On a session-owned run the HTTP API refuses an answer
-whose claimed role is not `first_ad` (`workspace.py:162-163`). That role is a claim in the
-request, not an authenticated identity.
+`first-ad-wrap-approval` (`tools.py:90`). `publish_approved` refuses a payload whose
+`approved_by_role` is not `first_ad` (`runtime.py:179-180`), but both approval tools set that
+field to `first_ad` themselves (`tools.py:285`, `:347`), so that check does not show who answered.
+Only a session-owned HTTP run checks the role the answer claims (`workspace.py:162-163`). The CLI
+(`cli.py:180-208`) and HTTP runs with no owner (`workspace.py:72-75`) check no role at all. Even
+on an owned run, that role is a claim in the request, not an authenticated identity.
 
 What resumes is the saved Strands session. On the deployed stack, findings, decisions,
 eligibility packets and the audit trail are stored in Aurora DSQL (`dsql.py:193-334`), but a
@@ -46,8 +48,9 @@ computes no digest over the session it saves (`handler.py:164-168`). Session obj
 ## In CI: two processes and a negative control
 
 The job named `interrupt survives process death` (`ci.yml:254-293`) runs with the rest of
-`ci.yml`: on pushes to the branches listed at `ci.yml:7-9`, on every pull request, and on manual
-dispatch (`ci.yml:5-13`). It has no condition of its own. Each `run:` step starts a new shell, so
+`ci.yml`: on pushes to `main`, `build/**` and `codex/**` (`ci.yml:7-9`), on every pull request
+(`ci.yml:11`), and on manual dispatch (`ci.yml:13`). A push to any other branch does not run it.
+The job has no condition of its own. Each `run:` step starts a new shell, so
 each command below runs in its own operating system process (the comment at `ci.yml:265-267`
 says so).
 
@@ -77,8 +80,9 @@ If `lasttake approve --yes` succeeds instead, the job prints
 (`cli.py:196`, `:211-226`). It builds a new agent on the same `FileSessionManager` directory
 (`cli.py:188`) and answers with an `interruptResponse` (`cli.py:201`). If no interrupt is found,
 the command exits 1 (`cli.py:197-199`). If Strands cannot resume, it raises. Either way the step
-fails. In a local run, the `find` step lists `agent.json` and one file per message under
-`session_run-sc042-wrap-checkpoint/agents/agent_default/`.
+fails. In a local run, the `find` step lists `session.json` under
+`session_run-sc042-wrap-checkpoint/`, and `agent.json` plus one `messages/message_N.json` file per
+message under its `agents/agent_default/`.
 
 **What this job does not show.**
 
@@ -87,14 +91,19 @@ fails. In a local run, the `find` step lists `agent.json` and one file per messa
 - No step compares the two process ids or checks the approval message. The checkpoint and the
   approval each print a `[pid N]` line (`cli.py:116`, `:186`), so the ids can be read in the log,
   but nothing asserts them.
-- The late-take step reruns all four checks (`cli.py:292-297`), not a narrower set.
+- The late-take step name says only the affected checks rerun. For a new take that is all four
+  checks, coverage, continuity, metadata and rights, not a narrower set, because each check
+  cites the takes (`events.py:129-130`, the comment at `cli.py:282-286`). The four reruns are at
+  `cli.py:292-297`.
 - The negative control runs after process 2 has already answered the only interrupt. At that
   point `lasttake approve --yes` exits 1 with `Nothing is waiting for a decision.` even when the
   session is left in place. A local run on 2026-09-14 showed this by running the job's commands
   in its order (`checkpoint`, `approve --yes --hours 7.5`, `late-take --beat B-17`,
   `resolve rights --subject BG-07`, `events`) and then `approve --yes` without the wipe. So this
   step shows that the CLI refuses when it finds nothing to resume. On its own, it does not show
-  that the session files are what let process 2 resume.
+  that the session files are what let process 2 resume. The step also sends stderr to `/dev/null`
+  and checks only for a non-zero exit (`ci.yml:289`), so any failure, a crash included, prints the
+  same `NEGATIVE CONTROL HELD` line.
 
 **A local run that does isolate the session files.** Run from the repository root:
 
@@ -193,8 +202,10 @@ behind an idempotency key derived from the event payload. See `src/lasttake/agen
 - **Where it is written down.** The module docstring records the rule and says it was found in a
   spike on 2026-08-22 (`tools.py:8-14`).
 - **The boundary in the pickup tool.** In `request_pickup_approval` the boundary is a comment
-  (`tools.py:248-249`). Above it, the tool only looks up the beat and the approval record. Below
-  it, after the answer, it publishes `pickup.requested` (`tools.py:279-288`).
+  (`tools.py:248-249`). Above it, the tool only looks up the beat (`tools.py:244-246`). Below it
+  and before the answer, it loads or builds the approval record (`tools.py:250`) and, on the first
+  raise only, saves that record and an audit entry (`tools.py:91-94`). After the answer it
+  publishes `pickup.requested` (`tools.py:279-288`).
 - **The saved review.** The review record the 1st AD answers is saved when the interrupt is first
   raised, and reloaded on replay rather than rebuilt (`tools.py:73-98`).
 - **The idempotency key.** The key is a digest of the event type, production, scene, payload and

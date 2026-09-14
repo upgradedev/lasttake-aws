@@ -230,6 +230,8 @@ in source CI with a detached writer that outlives the driver, and they replay th
 bytes: [`frontend/scripts/replay-hero-measurement.mjs`](../frontend/scripts/replay-hero-measurement.mjs)
 re-checks every original hash, the source identity, exit 0 and the 20 passed slots, and requires the
 replayed statistics to match. A replay is not another measured cohort and does not measure newer
-source. The replay step runs only for branch `codex/hero-measurement-20260910`, on a push to it or a
-pull request from it. Live acceptance of the deployed site is a separate record, described in
+source. The three steps that fetch, replay and upload the spent cohort check the branch, not the
+event: they run only when the run's branch is `codex/hero-measurement-20260910`, as on a push to it
+or a manual dispatch on it, or when a pull request comes from it (frontend-ci.yml, lines 204, 213 and
+217). Live acceptance of the deployed site is a separate record, described in
 [release-and-acceptance.md](release-and-acceptance.md#current-automated-acceptance).

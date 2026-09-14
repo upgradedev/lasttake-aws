@@ -2,8 +2,8 @@
 
 **Real-model evaluation has not been run.** No real model has answered the 16 labelled
 development cases, so there is no accuracy figure for either of the two bounded language
-questions. The tools record this as `NOT_RUN`, and the owner's tracking items for this evidence,
-LT2 and C1, stay open ([model-evidence-inventory.json](model-evidence-inventory.json)). The hosted
+questions. The tools record this as `NOT_RUN`, and the owner's two tracking items for this evidence
+stay open ([model-evidence-inventory.json](model-evidence-inventory.json)). The hosted
 demo always runs offline, with no Bedrock switch.
 
 This page is for anyone checking a claim about a model in LastTake, and for the owner preparing a
@@ -120,12 +120,16 @@ offline interpreter and for an interpreter that cannot be reached:
 PYTHONPATH=src python -m pytest -q tests/test_corpus_counts.py
 ```
 
-That test asserts the offline column in full and, for an unreachable interpreter, 0 corroborated
-and 33 declared ([test_corpus_counts.py](../tests/test_corpus_counts.py):48-123). It does not
-assert the unreachable column's other two rows. They are 0 confirmed, because neither run has a
-human decision, and 1 insufficient, because B-17 has no take at all (the comment at
-test_corpus_counts.py:83); an in-memory run of the same checks printed both on 2026-09-14. This
-page has no basis breakdown for the Bedrock run.
+For the offline column, that test asserts the four basis keys, a total of 34, 1 insufficient, and
+that corroborated plus confirmed equals the 31 covered beats, which together fix 2 declared
+([test_corpus_counts.py](../tests/test_corpus_counts.py):48-84). It does not separately assert 31
+corroborated and 0 confirmed, so a split of 30 and 1 would also pass. For an unreachable
+interpreter it asserts 0 covered, 0 corroborated and 33 declared (test_corpus_counts.py:87-123),
+and not the other two rows. So four values in the table rest on no separate assertion: 31
+corroborated and 0 confirmed offline, and 0 confirmed and 1 insufficient unreachable. Confirmed is
+0 because neither run has a human decision, and insufficient is 1 because B-17 has no take at all
+(the comment at test_corpus_counts.py:83). An in-memory run of the same checks on 2026-09-14
+printed both columns as the table shows. This page has no basis breakdown for the Bedrock run.
 
 Read the two columns together and the 31-against-19 gap stops being a mystery. **What the
 production declared does not move**: the 33 declarations the unreachable column keeps are the 2
@@ -206,7 +210,7 @@ that time, 34385084102 and 34382836826, list no artifacts. The newer run's log k
 rationale cut at 220 characters and a separate connectivity-only `OK` response. None of it
 establishes accuracy.
 
-Real-model evaluation remains `NOT_RUN`; LT2/C1 is not closed. The frozen offline instrument is
+Real-model evaluation remains `NOT_RUN`, and the two tracking items stay open. The frozen offline instrument is
 unchanged. The separate bounded collector in the next section prepares a future owner-activated
 cohort. Unrecorded model usage and cost, and runner and infrastructure cost, remain `UNKNOWN`.
 Zero model calls describes only offline execution.
@@ -271,7 +275,8 @@ decimal rate strings in the parent's digest-bound grant can authorize the plan (
 112-149), and the supervisor also refuses rates below those reference figures
 (tools/evaluation_runner.py:84-86). The entire worst-case cohort must fit this application's
 allocated share before the SDK client is created (lines 146-147, checked before line 269). The
-shared USD 5 pool is never read as LastTake's available balance.
+USD 5 budget that LastTake shares with the owner's two other applications is never read as
+LastTake's available balance.
 
 ## Private supervisor: prepared, inactive, live verification NOT_RUN
 
@@ -316,9 +321,8 @@ The current run ID is bound by the supervisor after dispatch, not guessed in adv
 run number refuses activation and needs a fresh review (evaluation_runner.py:109-116). Changing
 whitespace in the approved JSON also invalidates its configured digest.
 
-This implementation consumes **LastTake's slice only**. The plan's other two applications, Merismos
-and Archon, must remain inactive until their runners consume their own slices from the same fixed
-parent plan. The sum check is not a deployed distributed budget controller, an AWS billing limit,
+This implementation consumes **LastTake's slice only**. The plan's two other applications must
+remain inactive until their runners consume their own slices from the same fixed parent plan. The sum check is not a deployed distributed budget controller, an AWS billing limit,
 or permission to give each application a fresh USD 5 grant.
 
 Before any AWS credentials exist in the job (the reserve step at ci.yml:223 comes before the

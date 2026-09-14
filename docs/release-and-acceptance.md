@@ -6,7 +6,7 @@ This page is for the release owner, and for a reviewer checking whether the live
 
 [Current automated acceptance](https://d3kf6hquzlli8g.cloudfront.net/acceptance.html) compares the frontend and backend commits the site serves now with the latest public aggregate receipt, [/acceptance.json](https://d3kf6hquzlli8g.cloudfront.net/acceptance.json). Missing, malformed, mismatched or older-than-24-hour proof cannot establish a current pass.
 
-Human UAT remains `NOT_RUN`. That status means no person has worked through the manual UAT testbook: all 22 cases in [frontend/UAT.testbook.json](../frontend/UAT.testbook.json) record `human_signoff` as `NOT_RUN`. An automated pass never changes it.
+Human UAT remains `NOT_RUN`. That status means no person has completed the 22-case manual UAT testbook: all 22 cases in [frontend/UAT.testbook.json](../frontend/UAT.testbook.json) record `human_signoff` as `NOT_RUN`. It is separate from automated acceptance, and an automated pass never changes it.
 
 The page reads `/release.json`, `/healthz`, the commit marker in the root HTML, `/acceptance.json` and the per-run copy that the receipt names. It then reads the three identity sources a second time, in case a release lands during the check. The verdict comes from the `assess` function in [frontend/public/acceptance.js](../frontend/public/acceptance.js):
 
@@ -23,7 +23,7 @@ On 2026-09-14 at 06:52 GMT, `/acceptance.json` recorded run [34771631979](https:
 
 ## Frontend release and live acceptance on every push to main
 
-Every push to `main` starts [frontend-deploy.yml](../.github/workflows/frontend-deploy.yml). That includes a merged pull request and a change to documentation only, because the workflow has no path filter (`frontend-deploy.yml:2-5`). It can also be started by hand. It runs three jobs in order:
+Every push to `main` starts [frontend-deploy.yml](../.github/workflows/frontend-deploy.yml) ([run list on GitHub Actions](https://github.com/upgradedev/lasttake-aws/actions/workflows/frontend-deploy.yml)). That includes a merged pull request and a change to documentation only, because the workflow has no path filter (`frontend-deploy.yml:2-5`). It can also be started by hand. It runs three jobs in order:
 
 | Job | What it does | AWS credentials |
 | --- | --- | --- |
@@ -68,7 +68,7 @@ The split keeps stack updates and real Bedrock calls out of ordinary merges. It 
 | Apply | Replaces a stack stuck in `ROLLBACK_COMPLETE` or `REVIEW_IN_PROGRESS`, removes an orphaned data bucket only if it is empty, then applies `infra/stack.yaml` as `lasttake-app` with the commit as a parameter. | 126-204 |
 | Health | The HTTP API endpoint must answer 200, and `/healthz` must report `ok` and a `run_state_store` of `aurora-dsql`. | 206-228 |
 | Interrupt across containers | `POST /api/checkpoint` must stop the run for the 1st AD with 31 beats covered. A configuration change then retires every warm container. `POST /api/approve` must be served by a different container (`c1 != c2`), with the pickup event accepted by the bus. Late take and rights resolution follow. | 230-331 |
-| Blocked runs | `GET /api/blocked` must return the list of runs with open exceptions. | 333-347 |
+| Blocked runs | `GET /api/blocked` must return a JSON body with a `blocked` key (`deploy.yml:342`). The step then prints the run id and counts of up to ten rows, which fails only if a row lacks those fields. An empty list passes. | 333-347 |
 | Bedrock | Runs `lasttake doctor --bedrock` and `lasttake checkpoint --bedrock` on the GitHub runner with the `lasttake-ci` keys, not with the Lambda execution role. It requires 34 model-touched findings with `bedrock:` model identifiers and confidence below 1.0, 34 required beats, and no more than 31 covered. One direct `aws bedrock-runtime converse` call follows, also from the runner, despite its step name. | 356-429 |
 
 Every HTTP check in the deploy job calls the HTTP API endpoint that the stack publishes as its `LiveUrl` output, not the CloudFront URL (`deploy.yml:194-197`). The interrupt check is explained in [Interrupt and resume across process death](strands-interrupt-resume.md#on-lambda-two-requests-two-containers-historical).
@@ -129,7 +129,7 @@ The publisher and the page are tested in CI:
 
 | Command | Where it runs | What it exercises |
 | --- | --- | --- |
-| `python infra/test_frontend_acceptance.py` | `aws-hosting-ci.yml:28-29`, only on pushes and pull requests that touch the paths listed at `aws-hosting-ci.yml:3-7` | Malformed and false JUnit, the 20-case minimum, retries and expected failures, a changed pair, stale dispatch, old or future proof, immutable collisions, a release change during publication, a newer latest receipt, publisher retries, root HTML markers and conditional publication |
+| `python infra/test_frontend_acceptance.py` | `aws-hosting-ci.yml:28-29`, on pull requests and on pushes to `main` or `codex/**` when they touch the paths listed at `aws-hosting-ci.yml:3-7`, or by hand (`aws-hosting-ci.yml:8`) | Malformed and false JUnit, the 20-case minimum, retries and expected failures, a changed pair, stale dispatch, old or future proof, immutable collisions, a release change during publication, a newer latest receipt, publisher retries, root HTML markers and conditional publication |
 | `npx playwright test --config playwright.proof.config.ts` | `frontend-ci.yml:240-243` | The anonymous acceptance page's refusal states, from source-only fixtures |
 | `python infra/frontend_acceptance.py inspect-junit` | `frontend-ci.yml:244-246` | The receipt parser on the source run's own JUnit. Its output is marked `SOURCE_CI_ONLY`, meaning it describes a source run and is never published. |
 
@@ -174,9 +174,9 @@ Archival is now manual opt-in. The job runs only on a `workflow_dispatch` with `
 
 Repository validation runs in GitHub Actions. The source workflows below check code and build artifacts; they deploy nothing and publish no acceptance receipt.
 
-- [ci.yml](../.github/workflows/ci.yml) runs on pushes to `main`, `build/**` and `codex/**`, on pull requests, and by hand (`ci.yml:5-18`). Its `hero` job runs the interrupt across two processes; see [Interrupt and resume across process death](strands-interrupt-resume.md#in-ci-two-processes-and-a-negative-control). Its `evaluation-parent` job is separate from release: it can assume an OIDC role only on a gated manual dispatch, and no code in this repository provisions that role.
+- [ci.yml](../.github/workflows/ci.yml) runs on pushes to `main`, `build/**` and `codex/**`, on every pull request, and on manual dispatch (`ci.yml:5-18`). Its `hero` job, shown in Actions as `interrupt survives process death` (`ci.yml:254-255`), has no condition of its own and runs the interrupt across two processes; see [Interrupt and resume across process death](strands-interrupt-resume.md#in-ci-two-processes-and-a-negative-control). Its `evaluation-parent` job is separate from release: it can assume an OIDC role only on a gated manual dispatch, and no code in this repository provisions that role.
 - [frontend-ci.yml](../.github/workflows/frontend-ci.yml) runs on pushes to `main` and `codex/**`, on pull requests, by hand, and as the `verify` job of every frontend release (`frontend-ci.yml:2-18`).
-- [aws-hosting-ci.yml](../.github/workflows/aws-hosting-ci.yml) runs only when hosting files change (`aws-hosting-ci.yml:2-8`). It tests the frontend stack template and renders it, but does not deploy it.
+- [aws-hosting-ci.yml](../.github/workflows/aws-hosting-ci.yml) runs on pull requests and on pushes to `main` or `codex/**` when they touch the hosting paths it lists, or by hand (`aws-hosting-ci.yml:2-8`). It tests the frontend stack template and renders it, but does not deploy it.
 
 **The HTTP handler, exercised by frontend-ci.yml.** The `verify` job has `contents: read` and sets `AWS_EC2_METADATA_DISABLED`, so it has no AWS identity and needs no model credentials (`frontend-ci.yml:126-134`). In order, it:
 
@@ -196,7 +196,13 @@ Publishing to AWS happens only in the `release` job of `frontend-deploy.yml`, de
 - It runs only on two branches, `codex/security-boundaries-20260910` and `codex/history-pagination-20260910`, after the `test` and `hero` jobs pass (`ci.yml:156-157`). It does not run on `main`.
 - It resolves arm64 wheels for `strands-agents`, `pydantic`, `psycopg` and `boto3` (`ci.yml:169-177`). [tools/package_lambda.py](../tools/package_lambda.py) then writes `lasttake.zip` with `src/lasttake`, `corpus/*.json`, those dependencies and a `_lasttake_build.json` manifest (`tools/package_lambda.py:71-113`). The artifact is kept for 90 days as `lasttake-lambda-arm64-<sha>-<attempt>` (`ci.yml:180-186`).
 - The manifest records the source commit, the git trees of the source, backend and corpus, the workflow run, each dependency's name and version, the dependency report hash, and a SHA-256 for every source and corpus file (`tools/package_lambda.py:40-46`, `:91-104`). A separate `build-receipt.json` adds the ZIP's SHA-256, the base64 Lambda code checksum, and byte and file counts (`:120-123`).
-- It refuses to package when the checkout differs from the workflow commit or is not clean (`:33-39`), when `boto3`, `botocore`, `strands`, `pydantic` or `psycopg` is missing (`:18`, `:75-77`), when a native library is not 64-bit little-endian arm64 ELF (`:57-68`), when the unpacked or zipped size exceeds 250 MiB or 50 MiB (`:16-17`, `:107-108`, `:118-119`), or when the ZIP fails its integrity test (`:114-116`).
+- It refuses to package when:
+  - the checkout differs from the workflow commit or is not clean (`:33-39`)
+  - `boto3`, `botocore`, `strands`, `pydantic` or `psycopg` is missing (`:18`, `:75-77`)
+  - a native library is not 64-bit little-endian arm64 ELF (`:57-68`)
+  - the unpacked size exceeds 250 MiB (`:16`, `:107-108`)
+  - the zipped size exceeds 50 MiB (`:17`, `:118-119`)
+  - the ZIP fails its integrity test (`:114-116`)
 
 The code is cross-compiled and never executed on arm64 or on AWS; the manifest says so with `verification_scope` set to `SOURCE_ONLY_CROSS_COMPILED_NOT_EXECUTED_ON_ARM64_OR_AWS` (`:101`). The artifact does not deploy, does not update `LASTTAKE_COMMIT_SHA`, and proves nothing about live acceptance. Its `runtime_environment_commit` of `NOT_OBSERVED_OR_CHANGED` means the job neither read nor changed the commit the live function reports (`:102`). A release owner rolling it out must verify the code checksum and `LASTTAKE_COMMIT_SHA` separately (`:103`). Current AWS status stays on `/acceptance.html`.
 
