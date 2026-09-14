@@ -3,152 +3,207 @@
     "persona": "Script supervisor and 1st AD",
     "live_url": "https://d3kf6hquzlli8g.cloudfront.net/",
     "try_flow": "Create a run; checkpoint; inspect sources; answer the saved request; export History evidence. Guided intake offers editable success, refusal and correction examples.",
-    "real_vs_demo": "Synthetic records and offline interpretation; real HTTP persistence and Strands tool/session replay. No footage/audio analysis, real email or payment.",
-    "evidence_limits": "Historical entries below are preserved, not exact-current-release acceptance. Hashes identify bytes, not truth; model identity only comes from serialized finding records. Human benefit and active time are unmeasured.",
-    "disclosures": "README.md Pre-existing components; revised narration is NOT_CONFIGURED pending a measured preview and fresh owner approval, and no final video exists yet."
+    "real_vs_demo": "The public browser runs the real Strands SDK, tools and session path with a scripted planner and offline lexical interpreter. Aurora DSQL holds run state. Strands S3SessionManager holds the suspended agent session. The records are synthetic, and no footage or audio is analysed.",
+    "evidence_limits": "Historical entries elsewhere in the repository are preserved, not exact-current-release acceptance. Hashes identify bytes, not truth; model identity only comes from serialized finding records. Human benefit, active time, quality improvement and production suitability are unmeasured.",
+    "disclosures": "Demo-role selection is not staff authentication. Amazon Bedrock is exercised by a separate deployment check and is not active in the public browser path. Amazon Bedrock AgentCore is not deployed. Revised narration is NOT_CONFIGURED pending a measured preview and fresh owner approval, and no final video exists yet."
   },
   "schema": "lasttake/build-stories/v1",
-  "status": "DRAFT, NOT PUBLISHED",
+  "status": "DRAFT",
+  "publication_note": "Nothing in this file has been published. The owner must re-run the named evidence commands at the linked commit, add exact run links where required, review the rendered copy and publish it.",
   "what_this_is": [
-    "Three builder.aws build-story drafts for LastTake, prepared from decisions that",
-    "actually shipped and numbers that were actually measured. Nothing here is",
-    "published: publishing is an outward-facing action and belongs to the owner.",
-    "Public links go in published_url when that happens, and until then the field",
-    "stays null rather than holding a URL nobody has visited."
+    "Three publication-ready AWS Builder story drafts for LastTake. Each story can stand alone and states the boundary between source evidence, deployment evidence and product claims.",
+    "Every published_url remains null until a stranger can open the corresponding article without an account.",
+    "These stories describe engineering decisions and their failure modes. They do not award the product a score or turn a test harness into user research."
   ],
   "rules_these_drafts_were_written_under": [
-    "Every number carries the command that produced it. A number with no command",
-    "does not go in a story.",
-    "No invented experiment, no copied text from another entry, and no claim of",
-    "superiority over anything we did not measure.",
-    "The corpus is synthetic and each story says so, because a reader who assumes",
-    "a real production was served has been misled by omission.",
-    "A story describes what was built and what it cost to get right. It does not",
-    "score the product."
+    "Every measured figure is paired with the command that produces it. Re-run that command at the commit linked from the article before publishing.",
+    "No invented experiment, copied entry text, time-saved estimate, cost claim, quality advantage or production outcome.",
+    "The corpus and the people in it are fictional. The public demo uses a scripted planner and offline lexical interpreter, while the separate deployment gate exercises the Amazon Bedrock interpreter path.",
+    "A stored hash proves byte identity, not the truth, provenance or legal sufficiency of the supplied record."
   ],
   "stories": [
     {
       "id": "BS-01",
-      "working_title": "The bug that only appears when you delete the model",
+      "working_title": "Agents for Humans: Making a Strands approval survive process death",
       "published_url": null,
-      "the_decision_it_is_about": [
-        "Running the whole pipeline with the interpreter removed, as an ablation,",
-        "to see how much of the result the model is actually responsible for."
-      ],
-      "what_happened": [
-        "The covered count went up when the model was removed: 31 became 32. A",
-        "check that fails open looks like a check that passes, and it looks most",
-        "like one exactly when the thing it depends on is missing.",
-        "Two fail-opens came out of it. Continuity was blocking only on CONFLICTING",
-        "rather than on any exception state, and a beat was being counted covered",
-        "without its coverage finding being VERIFIED. Both are one-line changes and",
-        "neither was visible in a passing test suite.",
-        "The general shape: absent evidence has to be a finding. An ablation is the",
-        "cheapest way to find the places where it silently became a pass."
+      "deck": "A human-in-the-loop agent is only useful if the question survives longer than the process that asked it. LastTake separates the suspended Strands session from authoritative run state, then makes absence and model failure block rather than pass.",
+      "sections": [
+        {
+          "heading": "The hard part begins after the agent asks",
+          "paragraphs": [
+            "LastTake checks a fictional shoot-day package before a production-to-post handoff. The Strands orchestrator calls bounded tools for coverage, continuity, media identity and rights, then hands their saved findings to deterministic eligibility policy. It cannot approve a pickup, approve a wrap or turn missing evidence into a pass.",
+            "Both human approval tools accept a Strands ToolContext and interrupt the run. A request may be answered after the Lambda invocation that created it has disappeared. Treating that pause as an in-memory callback would make the human step decorative: the question would exist only while the original process remained warm."
+          ]
+        },
+        {
+          "heading": "Two stores, two different responsibilities",
+          "paragraphs": [
+            "The deployed architecture deliberately does not rebuild run state from S3. Aurora DSQL is the run-state store for findings, decisions, delivery outcomes and review state. Strands S3SessionManager stores the suspended agent session needed to resume the interrupted tool call. S3 also holds supplied artifacts and write-once receipts, but it is not the deployed run-state database.",
+            "That distinction matters during recovery. The HTTP handler constructs a new WrapRun over Aurora DSQL and a new Strands Agent over the existing S3 session. The resumed tool body starts again from its beginning, and ToolContext.interrupt returns the saved answer. Any outward effect therefore sits after the interrupt and behind a content-derived idempotency boundary."
+          ]
+        },
+        {
+          "heading": "A process boundary is an assertion the deployment must prove",
+          "paragraphs": [
+            "A local test creates a fresh Agent object over the persisted session and confirms that the approval resumes and routes the accepted request once. That proves reconstruction, but it does not prove Lambda process death or the AWS storage adapters.",
+            "The deployment workflow closes that gap. It starts the checkpoint, records the pending interrupt and serving container, changes the Lambda configuration so existing execution environments retire, verifies that the health endpoint still reports Aurora DSQL, and submits the approval in a later request. The gate refuses to pass unless the second response comes from a different container and the resumed workflow reports an accepted delivery outcome. This draft describes the gate; the published article must link the exact successful deployment run for its source commit."
+          ]
+        },
+        {
+          "heading": "Fail closed when the reader disappears",
+          "paragraphs": [
+            "Durable pause and resume solve only the transport problem. The eligibility result also has to remain conservative when an interpreter fails. Expected checks are derived from the package, not from whichever findings an agent happened to return. A missing result is therefore an exception rather than an implicit pass.",
+            "On the synthetic corpus, `PYTHONPATH=src python tools/ablation.py` reports that the normal offline reader supports coverage for 31 of 34 required beats, while the deliberately unreachable reader supports 0 of 34. All 31 affected beats become unknown rather than passing. Those figures describe this fixed fictional package and this command only; they are not an accuracy score or a comparison with another product."
+          ]
+        },
+        {
+          "heading": "What I would carry into another agent",
+          "paragraphs": [
+            "Persist the agent continuation and business state explicitly, and do not describe them as the same thing. Put external effects after an interrupt, make replay observable, and use a stable idempotency key. Then derive required work independently of the model so a missing tool result cannot erase a requirement.",
+            "LastTake still has important boundaries. The public browser uses a scripted planner and offline lexical interpreter; Amazon Bedrock is exercised separately. Amazon Bedrock AgentCore is not deployed. The role selector is a demo control, not staff authentication. The records are synthetic, and no human-time or production-benefit study has been run."
+          ]
+        }
       ],
       "evidence": {
-        "command": "PYTHONPATH=src python tools/ablation.py",
-        "artifact": "docs/ablation.json",
+        "commands": [
+          "PYTHONPATH=src python -m pytest tests/test_end_to_end.py::test_the_pickup_request_stops_the_run_and_a_second_agent_resumes_it tests/test_handler.py::test_a_second_request_resumes_the_run_the_first_one_stopped tests/test_claim_drift.py::test_backend_release_preserves_real_model_and_process_boundary_proofs -q",
+          "PYTHONPATH=src python tools/ablation.py"
+        ],
         "code": [
+          "src/lasttake/agents/orchestrator.py",
+          "src/lasttake/agents/tools.py",
+          "src/lasttake/domain/policy.py",
           "src/lasttake/domain/rollup.py",
-          "tools/ablation.py"
-        ]
+          "src/lasttake/adapters/aws/dsql.py",
+          "src/lasttake/app/handler.py",
+          ".github/workflows/deploy.yml"
+        ],
+        "publication_requirement": "Link an exact-commit deploy run whose logs show different container ids across interrupt and resume, Aurora DSQL on both sides, and no retry or skipped proof step."
       },
-      "aws_content": [
-        "The ablation runs against the local adapters that implement the same ports",
-        "as the deployed Lambda, so it needs no account to reproduce."
-      ],
-      "synthetic_notice": "Every figure is over a synthetic scene package. No real production data."
+      "synthetic_notice": "All measured counts are from the repository's fictional scene package. They do not describe a real production or independent evaluation."
     },
     {
       "id": "BS-02",
-      "working_title": "An approval should expire when the evidence moves",
+      "working_title": "Agents for Humans: Proving EventBridge delivery without claiming editorial action",
       "published_url": null,
-      "the_decision_it_is_about": [
-        "Binding a human decision to the SHA-256 of the finding it was taken about,",
-        "rather than to the finding's id."
-      ],
-      "what_happened": [
-        "Finding ids are deterministic, so `<run>:con:CR-01` is the same string",
-        "before and after a rerun. A supervisor could accept a continuity conflict",
-        "as intentional, a new take could change the evidence completely, the",
-        "finding would be recomputed, and the old acceptance would still close it.",
-        "Nobody would have looked at the new facts and nothing would have said so.",
-        "The fix is small: HumanDecision carries finding_sha256, and the gate skips",
-        "a decision whose bound digest no longer matches. The interface consequence",
-        "is larger. The page cannot simply drop the approval, because an approval",
-        "that vanishes is its own confusion, so it says which decision no longer",
-        "applies and why, and puts the control back.",
-        "Building this on Strands surfaced a related property worth stating: on",
-        "resume a tool body replays from its first line, so any external effect has",
-        "to sit after the interrupt behind an idempotency key or it fires twice."
+      "deck": "An accepted PutEvents call proves that EventBridge accepted an entry. LastTake adds a separate terminal Lambda and a content-bound S3 receipt to prove that a subscriber consumed it, while refusing to call that editorial work.",
+      "sections": [
+        {
+          "heading": "Acceptance is not consumption",
+          "paragraphs": [
+            "LastTake publishes domain events for checkpoints, findings, approvals and turnover. The publisher can record whether EventBridge accepted or rejected an entry, but acceptance does not prove that a target received it. Calling that downstream completion would turn a transport acknowledgement into a workflow claim.",
+            "The solution is a separate EventBridge rule whose target is a dedicated delivery-recorder Lambda. The subscriber is terminal by design: it validates the envelope, records consumption and stops. It has no EventBridge publish permission, imports no orchestrator builder and never starts or resumes Strands. The Strands workflow starts synchronously from the HTTP request path."
+          ]
+        },
+        {
+          "heading": "Bind the receipt to the bytes that arrived",
+          "paragraphs": [
+            "The recorder checks the EventBridge source, domain event type, schema, canonical identifiers, payload shape and the content-derived idempotency key before writing anything. A valid receipt carries the domain event id, EventBridge transport id and time, correlation id, digest of the domain detail, Lambda request id, consumption time and deployed commit SHA. It deliberately omits the event payload.",
+            "The S3 key is derived from the correlation and domain event ids. PutObject uses `IfNoneMatch: *`, so a duplicate delivery cannot overwrite the first observation. A byte-identical redelivery returns the original receipt. A colliding domain id with a different transport identity or digest is surfaced as an error rather than hidden as a duplicate."
+          ]
+        },
+        {
+          "heading": "Make the proof visible without broadening it",
+          "paragraphs": [
+            "The History API reads receipts only under the requested correlation prefix and joins one to an event only when schema, subscriber, event id, event type, correlation id and detail digest all match. Until then the interface says `not_observed`, because asynchronous absence is not proof of delivery failure. After a match it says the EventBridge subscriber consumed the event and shows the recorder identity and transport metadata.",
+            "That label is intentionally narrow. It proves that the configured rule invoked the recorder and the recorder stored a matching receipt. It does not prove that editorial acted, that an email or payment occurred, that a handoff was accepted, or that EventBridge triggered an agent."
+          ]
+        },
+        {
+          "heading": "Test the code path and the deployed wiring",
+          "paragraphs": [
+            "The source tests cover valid storage, duplicate delivery without overwrite, collision refusal, malformed envelope rejection, configured-bucket use, absence of an event-publish or orchestrator path, and correlation-scoped reads. Those tests exercise the contract without pretending to be AWS delivery evidence.",
+            "The deployment workflow separately asks CloudFormation for the rule and recorder, verifies that the rule target is the dedicated Lambda, polls the product event history, and requires a consumed receipt whose deployed SHA matches the candidate. The published story must cite the exact successful run for the linked commit; source code alone is not evidence that the current AWS release delivered an event."
+          ]
+        },
+        {
+          "heading": "Boundaries that remain",
+          "paragraphs": [
+            "The public demo uses fictional production records, a scripted planner and an offline lexical interpreter. Amazon Bedrock is tested through a separate deployment path and is not active in the public browser. Amazon Bedrock AgentCore is not deployed. Demo-role selection is not staff authentication.",
+            "No human benefit, delivery-time improvement or production outcome has been measured. The receipt proves a bounded infrastructure fact and nothing beyond it."
+          ]
+        }
       ],
       "evidence": {
         "commands": [
-          "PYTHONPATH=src python -m pytest tests/test_gate.py -q",
-          "npx playwright test web/tests/intake.spec.mjs --config web/playwright.config.mjs"
+          "PYTHONPATH=src python -m pytest tests/test_event_consumer.py tests/test_handler.py::test_the_event_log_reads_back_with_the_chain_and_subscriber_receipts tests/test_claim_drift.py::test_submission_surfaces_match_bounded_offline_and_terminal_subscriber_truth -q"
         ],
         "code": [
-          "src/lasttake/domain/policy.py",
-          "src/lasttake/domain/findings.py",
-          "web/tests/intake.spec.mjs"
-        ]
+          "src/lasttake/adapters/aws/event_consumer.py",
+          "src/lasttake/adapters/aws/infrastructure.py",
+          "src/lasttake/app/event_history.py",
+          "infra/stack.yaml",
+          ".github/workflows/deploy.yml"
+        ],
+        "publication_requirement": "Link an exact-commit deploy run that verifies the EventBridge rule target and observes a matching immutable receipt with the candidate SHA."
       },
-      "aws_content": [
-        "Every HTTP request is a separate Lambda invocation and the run is rebuilt",
-        "from S3 each time, so the pause between a checkpoint and an approval",
-        "genuinely crosses a process boundary rather than holding a stack frame.",
-        "Strands S3SessionManager persists the session; Aurora DSQL holds run state."
-      ],
-      "synthetic_notice": "The scene, the people and the records are invented."
+      "synthetic_notice": "The events describe a fictional shoot day. A consumption receipt is delivery evidence, not evidence that a real editorial department acted."
     },
     {
       "id": "BS-03",
-      "working_title": "Three defects a browser test found that a green suite did not",
+      "working_title": "Agents for Humans: Offline review without replaying a human mutation",
       "published_url": null,
-      "the_decision_it_is_about": [
-        "Treating browser to API to persistent state to visible result as the unit",
-        "of done, and running it against the deployed URL rather than a local build."
-      ],
-      "what_happened": [
-        "A beat click in the test landed on a take pill, because a scripted click",
-        "skips hit testing and a real cursor does not. That was a real overlap.",
-        "A page-level refusal never reached the form. The API returned the missing",
-        "field name; the browser layer treated every non-200 as a failure to answer",
-        "and put a one-line error in a banner at the top of the page instead. The",
-        "form's own output stayed empty and the field names were discarded by the",
-        "code that had asked for them.",
-        "A click during a background request vanished entirely. Accepting an",
-        "exception posts one request and chains a second, and a button pressed",
-        "during the second was swallowed with no message, because the guard",
-        "returned early and the button was static markup that no repaint had told.",
-        "None of the three was reachable from unit tests, and all three were on the",
-        "deployed build with a green suite behind them."
+      "deck": "LastTake keeps a bounded, tab-scoped view and an unsent draft through a disconnect. Reconnect reads authority from the server; it never turns offline state into a queued approval or an automatic write.",
+      "sections": [
+        {
+          "heading": "Offline is a trust-boundary decision",
+          "paragraphs": [
+            "A script supervisor may lose connectivity while reviewing a scene. Preserving context is useful, but replaying a decision after the evidence changed is not. LastTake therefore implements bounded offline review rather than general offline synchronization.",
+            "The service worker caches only the application shell and built assets. API, health, acceptance and UAT responses bypass the cache. The application stores one last-confirmed workspace snapshot and one unsent evidence draft in sessionStorage, scoped to the exact session and run. The draft also records the package revision on which it was prepared. Malformed, mismatched or oversized values are ignored."
+          ]
+        },
+        {
+          "heading": "A cached view is never authority",
+          "paragraphs": [
+            "During a disconnect the saved snapshot is labelled read-only. Creating a run, recording a decision, answering an approval and saving evidence remain disabled. If a mutation loses its response, the interface marks the outcome unknown and does not retry it automatically.",
+            "Reconnect performs fresh reads for the session and selected run. If the authoritative package revision differs from the draft or prior snapshot, writes stay disabled and the changed digests are shown for review. Only an explicit review action rebases the draft. The person may then choose to save it, producing a new request rather than a replay of the earlier attempt."
+          ]
+        },
+        {
+          "heading": "The browser journey checks the negative space",
+          "paragraphs": [
+            "The end-to-end journey saves a draft, confirms the shell cache, disconnects, verifies read-only state, changes the server revision through a separate client, reconnects, requires revision review and finally saves once. Its request counter is as important as the visible screen: no ingest request occurs while offline or during reconnect, and one occurs only after review and an explicit click.",
+            "This is not a queue, conflict-free replicated data type or background merge. It does not cache API responses, replay approvals or decisions, synchronize across tabs, or promise that every browser can reload a document under every automation protocol."
+          ]
+        },
+        {
+          "heading": "State the WebKit harness limit instead of hiding it",
+          "paragraphs": [
+            "The Chromium journey exercises a full top-level reload from the cached shell while the browser context is offline. Playwright WebKit rejects an offline top-level navigation in its protocol layer before a controlling service worker can answer, so the WebKit branch does not claim that document-reload proof.",
+            "The WebKit branch still inspects the real shell cache and exercises the live disconnect, read-only workspace, authoritative reconnect, revision-review barrier and no-replay request count. This separates a product assertion from a harness limitation: cached-document reload is proved in Chromium, while the remaining recovery contract is exercised in WebKit."
+          ]
+        },
+        {
+          "heading": "What this demo does and does not establish",
+          "paragraphs": [
+            "The feature demonstrates a conservative recovery path over fictional records. It does not establish full offline operation, authenticated staff authority or production readiness. Demo roles are not staff authentication, and a stored draft is not a saved production record.",
+            "The public path uses the real Strands SDK with a scripted planner and offline lexical interpreter. Amazon Bedrock runs only in a separate deployment check, Amazon Bedrock AgentCore is not deployed, and no footage or audio is analysed. Human-time and quality benefits remain unmeasured."
+          ]
+        }
       ],
       "evidence": {
         "commands": [
-          "npx playwright test --config web/playwright.config.mjs",
-          "python tools/dast_probe.py <base-url>"
+          "cd frontend && npx vitest run tests/connectivity.test.ts tests/offline-workspace.test.tsx tests/reliability.test.tsx",
+          "cd frontend && npx playwright test tests/e2e/reliability.spec.ts --grep LT-OFFLINE --project desktop",
+          "cd frontend && npx playwright test --config playwright.webkit.config.ts --grep LT-OFFLINE"
         ],
-        "artifact": "the live-surface workflow run, which stores the Playwright trace",
         "code": [
-          "src/lasttake/app/static/index.html",
-          "web/tests/intake.spec.mjs",
-          "web/tests/handover.spec.mjs"
-        ]
+          "frontend/public/sw.js",
+          "frontend/src/connectivity.ts",
+          "frontend/src/useWorkspace.ts",
+          "frontend/tests/e2e/reliability.spec.ts",
+          "frontend/playwright.webkit.config.ts"
+        ],
+        "publication_requirement": "Re-run the browser commands at the linked commit with no retries or skipped assertions, and describe Chromium document reload and WebKit recovery coverage separately."
       },
-      "aws_content": [
-        "The suite runs in CI against the API Gateway URL after each deploy, so the",
-        "thing under test is the artifact a judge opens rather than a local copy."
-      ],
-      "synthetic_notice": "The journey walks a fictional shoot day; the page says so on its face."
+      "synthetic_notice": "The cached workspace and draft belong to a fictional shoot day. No real production data or offline human study is represented."
     }
   ],
   "before_any_of_these_is_published": [
-    "The repository has to be public, because a story linking into a private repo",
-    "is a dead link.",
-    "Every command quoted has to be re-run at the commit the story links to, and",
-    "any number that has moved has to move in the text.",
-    "The owner publishes. Nothing here goes out from this session."
+    "Confirm that the repository, live demo and exact evidence links are reachable in a private browser with no account.",
+    "Re-run every quoted command at the commit the story links to. If a measured figure changes, update the prose before publishing.",
+    "For AWS-only claims, add the exact successful deployment workflow URL; do not substitute source code or a historical run.",
+    "Keep all synthetic, unmeasured, authentication, Amazon Bedrock public-path and AgentCore disclosures in each standalone story.",
+    "The owner reviews and publishes. Set published_url only after the public article has been opened anonymously."
   ]
 }
