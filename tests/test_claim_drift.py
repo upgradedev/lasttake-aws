@@ -83,6 +83,31 @@ def test_current_docs_distinguish_live_demo_history_and_unknown_benefits():
     assert uat["human_signoff"] == uat["live_aws_acceptance"] == "NOT_RUN"
 
 
+def test_submission_surfaces_do_not_claim_unmeasured_time_or_automatic_trigger():
+    paths = (
+        "frontend/src/Landing.tsx",
+        "src/lasttake/app/static/index.html",
+        "video/narration.json",
+        "docs/submission_description.json",
+    )
+    for path in paths:
+        source = text(path).lower()
+        assert "fifteen minutes" not in source, path
+        assert "a pickup day" not in source, path
+
+    narration = json.loads(text("video/narration.json"))
+    trigger = next(segment for segment in narration["segments"] if segment["id"] == "trigger")
+    assert "no EventBridge rule or subscriber triggers it" in trigger["captionText"]
+    assert "offline lexical interpreter" in trigger["captionText"]
+    assert "Bedrock is not active in this browser" in trigger["captionText"]
+
+    description = json.loads(text("docs/submission_description.json"))
+    assert "no EventBridge rule or subscriber triggers" in description["what_it_does"]
+    assert "offline lexical interpreter" in description["how_we_built_it"]
+    assert "Bedrock is not active in the hosted browser path" in description["how_we_built_it"]
+    assert "A frontend release does not repeat the Lambda proof" in description["accomplishments"]
+
+
 def test_backend_release_preserves_real_model_and_process_boundary_proofs():
     workflow = text(".github/workflows/deploy.yml")
     for assertion in ("assert len(interpreted) == 34", '== {"coverage", "continuity"}',

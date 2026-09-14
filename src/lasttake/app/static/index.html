@@ -408,16 +408,14 @@ var ROLE_NAME = {
   production_coordinator: 'production'
 };
 
-/* What each kind of exception costs while the set is standing, against what the
-   same fact costs once it is struck. Stated in time and never in money: the
-   asymmetry is the argument and it is defensible, a euro figure would be
-   invented. */
+/* How the review context changes before and after wrap. These are possible
+   next actions, not measured time, cost or avoided-work claims. */
 var KIND = {
   coverage: {
     label: 'Coverage',
     title: 'A required beat has no viable coverage',
-    now: 'One setup, while the lighting is still up.',
-    later: 'A pickup day. Cast, crew and location recalled.'
+    now: 'Review the gap while the current scene records are still in hand.',
+    later: 'Carry the unresolved gap into a later production decision.'
   },
   continuity: {
     label: 'Continuity',

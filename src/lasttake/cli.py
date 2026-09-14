@@ -141,10 +141,13 @@ def cmd_checkpoint(args) -> int:
         f"WRAP CHECKPOINT  ·  {run.package.production_id}  ·  scene "
         f"{run.package.scene_id}  ·  revision {run.package.revision}"
     )
-    print(f"[pid {os.getpid()}] a checkpoint event fired. Nobody pressed a button.")
     run.publish(
         EventType.WRAP_CHECKPOINT_REQUESTED,
         {"requested_by_role": "script_supervisor", "scene_id": run.package.scene_id},
+    )
+    print(
+        f"[pid {os.getpid()}] recorded scene.wrap-checkpoint.requested; "
+        "this command starts the orchestrator directly. No EventBridge rule or subscriber triggers it."
     )
 
     agent = build_orchestrator(run, session_dir=paths["sessions"])

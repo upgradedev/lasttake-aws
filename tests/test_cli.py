@@ -36,13 +36,14 @@ def test_checkpoint_prints_the_count_and_stops_for_the_first_ad(work, capsys):
     assert "correlation token:" in out
 
 
-def test_the_checkpoint_fires_from_an_event(work, capsys):
+def test_the_checkpoint_records_an_event_then_starts_directly(work, capsys):
     _run(work, "checkpoint")
     assert _run(work, "events") == 0
     out = capsys.readouterr().out
     assert "scene.wrap-checkpoint.requested" in out
     assert "finding.recorded" in out
-    assert "Nobody pressed a button" in out
+    assert "this command starts the orchestrator directly" in out
+    assert "No EventBridge rule or subscriber triggers it" in out
 
 
 def test_approve_resumes_the_run_and_routes_the_pickup(work, capsys):
