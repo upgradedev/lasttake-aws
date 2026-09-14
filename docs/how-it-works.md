@@ -10,77 +10,70 @@ The picture follows one wrap checkpoint as the hosted demo runs it, from the req
 flowchart TB
     WS["React workspace<br/>Run wrap checkpoint"]
     CLI["CLI<br/>checkpoint command"]
-    REQ["Checkpoint request<br/>POST /api/checkpoint, or the CLI"]
-    ORCH["Orchestrator<br/>one Strands agent, decides nothing"]
-    EV(["scene.wrap-checkpoint.requested<br/>published, starts nothing"])
-
+    PKG[("Bundled scene package<br/>plus S3 amendments,<br/>what every check reads")]
+    REQ["Checkpoint request<br/>POST /api/checkpoint,<br/>or the CLI"]
+    LATE["Late take<br/>or release<br/>API route or CLI,<br/>no orchestrator;<br/>a take reruns<br/>all four checks,<br/>a release reruns<br/>rights only"]
+    EV(["Checkpoint event<br/>1. recorded first,<br/>starts nothing"])
+    ORCH("Orchestrator<br/>2. started directly<br/>one Strands agent,<br/>decides nothing")
+    subgraph checks["4 bounded checks"]
+        COV("Coverage<br/>asks the<br/>interpreter")
+        CON("Continuity<br/>asks the<br/>interpreter")
+        MET("Metadata<br/>never asks<br/>interpreter")
+        RIG("Rights<br/>never asks<br/>interpreter")
+    end
+    INT("Interpreter port<br/>offline lexical<br/>when hosted,<br/>Amazon Bedrock<br/>on CLI --bedrock")
+    FIND[("Sealed findings<br/>Aurora DSQL")]
+    GATE{{"Deterministic gate<br/>no model, versioned<br/>policy, fails closed;<br/>drops findings whose<br/>cited digests moved"}}
+    REV["Role review<br/>exceptions go to<br/>script supervisor, DIT,<br/>production coordinator"]
+    AD("1st AD<br/>gets eligibility and<br/>causes, answers<br/>pickup and wrap")
+    APR("Approval tool<br/>resumed by the answer,<br/>publishes under an<br/>idempotency key")
+    BUS(["EventBridge bus<br/>every run event,<br/>no rule declared"])
+    TURN[("Turnover manifest<br/>POST /api/turnover,<br/>sealed, saved to S3")]
+    ED["Editorial"]
     WS --> REQ
     CLI --> REQ
-    REQ -->|"2. starts it directly"| ORCH
-    REQ -.->|"1. publishes"| EV
-
-    subgraph checks["Four bounded checks"]
-        COV["Coverage"]
-        CON["Continuity"]
-        MET["Metadata<br/>takes and camera report"]
-        RIG["Rights"]
-    end
-
-    PKG[("Bundled scene package<br/>plus S3 amendments")]
-    LATE["Late take or release<br/>API route or CLI, no orchestrator"]
-    PKG --> checks
-    ORCH -->|"tool calls"| checks
-    LATE -->|"a per-event table<br/>picks the checks"| checks
-
-    INT["Interpreter port<br/>hosted: offline lexical<br/>CLI --bedrock: Amazon Bedrock"]
-    FIND[("Sealed findings<br/>Aurora DSQL")]
+    PKG --> REQ
+    PKG --> LATE
+    REQ -.-> EV
+    REQ ---> ORCH
+    ORCH --> COV
+    ORCH --> CON
+    ORCH --> MET
+    ORCH --> RIG
     COV -.-> INT
     CON -.-> INT
-    checks --> FIND
-
-    GATE{{"Deterministic gate<br/>no model, versioned policy, fails closed<br/>drops findings whose cited digests moved"}}
+    COV --> FIND
+    CON --> FIND
+    MET --> FIND
+    RIG --> FIND
+    LATE -----> FIND
     FIND --> GATE
-
-    REV["Role review<br/>script supervisor, DIT,<br/>production coordinator"]
-    AD["1st AD<br/>answers pickup and wrap"]
-    GATE -->|"exceptions"| REV
-    GATE -->|"eligibility and causes"| AD
-
-    BUS[("EventBridge bus<br/>every run event, no rule declared")]
-    TURN[("Turnover manifest<br/>sealed, saved to S3")]
-    ED["Editorial"]
-    AD -->|"resumed approval tool publishes<br/>under an idempotency key"| BUS
-    AD -->|"Publish approved turnover"| TURN
+    GATE --> REV
+    GATE --> AD
+    AD --> APR
+    APR --> BUS
+    AD --> TURN
     TURN --> ED
 
-    class WS,CLI,LATE surface
-    class REQ edge
-    class EV event
-    class ORCH compute
-    class PKG storage
-    class COV,CON,MET,RIG check
-    class INT interpreter
-    class FIND store
-    class GATE gate
-    class REV,AD human
-    class BUS integration
-    class TURN turnover
-    class ED actor
-
-    %% palette: placeholder
-    classDef actor fill:#141a2e,stroke:#aab2c8,color:#eef1fa
-    classDef surface fill:#1b2447,stroke:#9b8cff,color:#eef1fa
-    classDef event fill:#1b2447,stroke:#c7a6ff,color:#eef1fa
-    classDef check fill:#1b2447,stroke:#7aa2ff,color:#eef1fa
-    classDef interpreter fill:#16213d,stroke:#8b96b8,stroke-dasharray:4 3,color:#c8cfe3
-    classDef gate fill:#1b2447,stroke:#eef1fa,stroke-width:2px,color:#eef1fa
-    classDef human fill:#2a2238,stroke:#f0c275,stroke-width:2px,color:#eef1fa
-    classDef store fill:#16213d,stroke:#4fd1b0,stroke-width:2px,color:#eef1fa
-    classDef storage fill:#16213d,stroke:#4fd1b0,color:#eef1fa
-    classDef integration fill:#1b2447,stroke:#c7a6ff,color:#eef1fa
-    classDef turnover fill:#16213d,stroke:#4fd1b0,color:#eef1fa
-    classDef edge fill:#1b2447,stroke:#9b8cff,color:#eef1fa
-    classDef compute fill:#1b2447,stroke:#7aa2ff,stroke-width:2px,color:#eef1fa
+    %% LastTake palette: role colour fill, navy ink pinned, so node text reads the same in GitHub light and dark
+    classDef surface fill:#8b95b8,stroke:#0b0f1e,stroke-width:1.5px,color:#0b0f1e
+    classDef agent fill:#7ea4f7,stroke:#0b0f1e,stroke-width:1.5px,color:#0b0f1e
+    classDef store fill:#4fc3a1,stroke:#0b0f1e,stroke-width:1.5px,color:#0b0f1e
+    classDef event fill:#a996ea,stroke:#0b0f1e,stroke-width:1.5px,color:#0b0f1e
+    classDef rule fill:#182043,stroke:#e8ebf5,stroke-width:2px,color:#e8ebf5
+    classDef optional fill:#182043,stroke:#7ea4f7,stroke-width:1.5px,stroke-dasharray:5 4,color:#aab2c8
+    %% human is reserved for a human decision node; here that is only the 1st AD
+    classDef human fill:#f0c275,stroke:#0b0f1e,stroke-width:2px,color:#0b0f1e
+    classDef laneFront fill:#8b95b81f,stroke:#7d88aa,stroke-width:1px
+    classDef laneBack fill:#7ea4f71f,stroke:#7d88aa,stroke-width:1px
+    classDef laneCi fill:#7d88aa1a,stroke:#7d88aa,stroke-width:1px,stroke-dasharray:6 4
+    class WS,CLI,REQ,LATE,REV,ED surface
+    class ORCH,COV,CON,MET,RIG,INT,APR agent
+    class PKG,FIND,TURN store
+    class EV,BUS event
+    class GATE rule
+    class AD human
+    class checks laneBack
 ```
 
 What each part does:
@@ -88,12 +81,12 @@ What each part does:
 - **Starting a checkpoint.** The "Run wrap checkpoint" button posts to `POST /api/checkpoint`, and the CLI's `lasttake checkpoint` does the same work in its own process. Either one publishes `scene.wrap-checkpoint.requested` and then starts the orchestrator itself (`handler.py:275-286`, `cli.py:143-153`). No EventBridge rule routes that event or any other: `infra/stack.yaml` declares the bus with no rule or target, and nothing in `src/` subscribes to it.
 - **What the checks read.** On AWS the base scene package ships inside the Lambda package, because the deploy copies `corpus/*.json` into it. Amendments a person supplies are read from S3 and replayed on top (`handler.py:72-115`, `handler.py:138`). The CLI reads `corpus/` from the checkout. The table below shows which sources each check cites.
 - **Findings.** Each finding is sealed with the SHA-256 of its own record and stored in Aurora DSQL on AWS, or in local files for the CLI. The gate verifies a finding's seal before it reads any field. Eligibility packets are sealed but not verified again when read, and decisions, audit entries and handled events are stored without a seal.
-- **The gate.** It derives the required checks from the package itself, so a check the orchestrator never ran shows up as a missing result. It drops a finding whose seal fails, whose cited source digests have moved, or that was judged under another policy version (`policy.py:197-248`). A finding from an older package revision whose cited sources did not move is kept. Its answer is an eligibility result with its causes. It is not approval to wrap.
+- **The gate.** It derives the required checks from the package itself, so a check the orchestrator never ran shows up as a missing result. It drops a finding whose seal fails, whose cited source digests have moved, or that was judged under a policy version different from the current one, older or newer (`policy.py:197-248`). A finding from an older package revision whose cited sources did not move is kept. Its answer is an eligibility result with its causes. It is not approval to wrap.
 - **Role review.** Exceptions go to the role that owns them (see the table below). A decision counts only when the deciding role holds authority for that check and the decision is bound to the finding's current seal (`policy.py:388-418`).
 - **The 1st AD.** A pickup or wrap approval is a Strands interrupt inside an approval tool. The run stops and its session is saved, on S3 when hosted. The answer, sent through `POST /api/approve` or `POST /api/wrap`, resumes the tool, which replays from its first line. Only after an approval does the tool publish `pickup.requested` or `wrap.ready`, under an idempotency key, and nothing subscribes to `wrap.ready`. On a session-owned run the workspace refuses an answer whose claimed role is not the 1st AD; that role is a claim in the request, not an authenticated identity. See [Interrupt and resume across process death](strands-interrupt-resume.md).
 - **The turnover.** It is built only when the `publish_turnover` tool runs, which the "Publish approved turnover" button in Handoff reaches through `POST /api/turnover` (`handler.py:548-566`). The tool refuses without an eligible packet and a current 1st AD wrap approval, runs the gate again, seals the manifest, saves it under `turnover/` in the artifact store and publishes `turnover.generated`. There is no separate turnover service.
 - **Reruns.** A late take or a release goes through its own API route or CLI command, which runs the checks directly, without the orchestrator. `POST /api/ingest` looks up which checks to rerun in the `AFFECTED_CHECKS` table in `src/lasttake/domain/events.py`. `POST /api/late-take` reruns all four, and `POST /api/resolve-rights` reruns rights only. A new take moves the takes digest, which every check cites, so all four rerun; a release moves only the rights ledger. The gate separately discards any finding whose cited source digests moved, so a table entry that left out an affected check would show up in the eligibility result as a missing current result, not as a pass. The intake contract is in [Bring your own record](bring-your-own-record.md).
-- **The bus.** On AWS every run event reaches EventBridge, including one `finding.recorded` per finding, and a copy of each is written to S3 first. Each publish returns a receipt that reads accepted, rejected or unknown. Bus acceptance is not downstream completion. The CLI writes its events to a local file instead.
+- **The bus.** On AWS every run event reaches EventBridge, including one `finding.recorded` per finding, and a copy of each is written to S3 first. Each publish returns a receipt that reads pending, accepted, rejected or unknown. Bus acceptance is not downstream completion. The CLI writes its events to a local file instead.
 
 | Check | Sources it cites | Question it asks the interpreter | Exceptions go to |
 |---|---|---|---|
@@ -191,9 +184,11 @@ frontend/      the React workspace judges open, served through CloudFront
   benchmark-tests/   the source hero benchmark
   scripts/           build and measurement helpers
 web/
-  tests/       21 Playwright tests against the legacy page the Lambda serves at
-               the HTTP API endpoint, run by live-surface.yml: the walk to a
-               sealed turnover, document intake, and the two-role handover
+  tests/       21 Playwright tests against the legacy page: the walk to a
+               sealed turnover, document intake, and the two-role handover.
+               live-surface.yml runs them against the page the Lambda serves
+               at the HTTP API endpoint, and legacy-source-ci.yml against the
+               offline local server
   source-tests/, support/, video/
                source contracts for the legacy page, and the journey the
                video capture shares
@@ -228,7 +223,10 @@ docs/
   evaluation_cases.json              written by tools/evaluation_cases.py
   ablation.json                      historical; tools/ablation.py prints to
                                      stdout and does not overwrite it
-  hero-measurement-protocol.json     a preregistered protocol, not yet measured
+  hero-measurement-protocol.json     a preregistered protocol, measured once
+                                     in run 34481212393 (2026-09-10); its
+                                     status field still reads
+                                     PREREGISTERED_NOT_MEASURED
   model-evidence-cases.json, model-evidence-gold.json,
   model-evidence-protocol.json       16 synthetic cases with assistant-authored
                                      labels, frozen by tools/model_evidence.py
@@ -236,6 +234,8 @@ docs/
   build_stories.json                 three unpublished drafts
   submission_description.json        an unpublished draft, not submitted
 ```
+
+`domain/`, `checks/` and `ports/` import no SDK: no Strands and no boto3. Two tests enforce it. `tests/test_contracts.py:127` fails if any Python file in those three folders imports either one, and `tests/test_contracts.py:139` imports the gate, the headline count and the coverage check in a separate Python process with both SDKs blocked.
 
 The counts, and the commands that print them:
 

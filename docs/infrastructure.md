@@ -9,71 +9,53 @@ There are two CloudFormation stacks, both in eu-west-1.
 - `lasttake-app` is declared in `infra/stack.yaml` and deployed by `.github/workflows/deploy.yml`. It holds five backend services: API Gateway, Lambda, Aurora DSQL, S3 and EventBridge.
 - `lasttake-frontend` is rendered by `infra/frontend_stack.py` and holds CloudFront and the site bucket.
 
-The frontend stack and the CI identities are set up outside any workflow. The diagram is drawn only from `infra/stack.yaml`, `infra/frontend_stack.py` and `infra/frontend.json`.
+The frontend stack and the CI identities are set up outside any workflow. The AWS resources in the diagram are declared in `infra/stack.yaml`, `infra/frontend_stack.py` and `infra/frontend.json`. Some labels come from other files: the scheduled probes from `.github/workflows/uptime.yml` and `.github/workflows/live-surface.yml`, the `/release.json` and `/acceptance.json` receipts from `infra/frontend_publish.py:68` and `infra/frontend_acceptance.py:257`, the scene package in the zip from `.github/workflows/deploy.yml:98-99`, and the note that the hosted demo never calls Bedrock from `src/lasttake/app/handler.py:146`.
 
 ```mermaid
 flowchart TB
-  U(["Browser<br/>script supervisor or 1st AD"])
-  P(["Scheduled probes<br/>uptime, hostile input"])
+    subgraph BE["lasttake-app · eu-west-1"]
+        api["Amazon API Gateway<br/>HTTP API<br/>$default route<br/>no authorizer<br/>20 req/s, burst 40<br/>integration timeout<br/>of 30 s"]
+        role{{"execution role<br/>lasttake-api-<br/>role-eu-west-1<br/>may call Bedrock;<br/>demo never does"}}
+        fn("AWS Lambda lasttake-api<br/>python3.12, arm64<br/>1024 MB<br/>reserved concurrency 20<br/>base scene package<br/>in zip<br/>logs to CloudWatch,<br/>30-day retention")
+        bus(["EventBridge custom bus<br/>gets every run event<br/>no rule or target,<br/>nothing subscribes"])
+        data[("S3 data bucket<br/>Strands sessions<br/>expire after 90 days;<br/>no expiry for events,<br/>amendments, approvals,<br/>turnovers<br/>versioned, TLS only<br/>retained on delete")]
+        dsql[("Aurora DSQL cluster<br/>IAM token auth<br/>findings, decisions,<br/>packets, audit,<br/>handled events<br/>deletion protection<br/>retained on delete")]
+    end
+    subgraph FE["lasttake-frontend · eu-west-1"]
+        browser["Browser<br/>script supervisor<br/>or 1st AD"]
+        cf["CloudFront distribution<br/>global, no WAF<br/>origin access control<br/>Function router<br/>response headers policy<br/>/api/*, /api, /healthz<br/>to API Gateway<br/>other paths to S3"]
+        web[("S3 web bucket<br/>private, versioned<br/>static files, receipts<br/>/release.json<br/>/acceptance.json")]
+    end
+    probes[/"Scheduled probes<br/>uptime, hostile input<br/>call execute-api URL,<br/>bypass CloudFront"/]
+    browser --> cf
+    cf --> web
+    cf --> api
+    api -.- probes
+    api --> fn
+    role -.- fn
+    fn --> bus
+    fn ---> data
+    fn --> dsql
 
-  subgraph FE["lasttake-frontend stack"]
-    FEN["CloudFront is global<br/>stack region eu-west-1"]
-    CF{{"Amazon CloudFront<br/>distribution, no WAF<br/>origin access control<br/>CloudFront Function router<br/>response headers policy"}}
-    WEB[("S3 web bucket<br/>private, versioned<br/>static files and receipts<br/>/release.json<br/>/acceptance.json")]
-  end
-
-  subgraph BE["#160;#160;#160;#160;#160;#160;#160;#160;#160;#160;#160;#160;#160;#160;#160;#160;#160;#160;#160;#160;#160;#160;#160;#160;lasttake-app stack (infra/stack.yaml)"]
-    ROLE["Lambda execution role<br/>lasttake-api-role-eu-west-1"]
-    API{{"Amazon API Gateway<br/>HTTP API, $default route<br/>no authorizer<br/>20 req/s, burst 40<br/>30 s integration timeout"}}
-    FN["AWS Lambda lasttake-api<br/>python3.12, arm64<br/>1024 MB<br/>reserved concurrency 20<br/>base scene package in zip"]
-    EB["Amazon EventBridge<br/>custom bus<br/>every run event published<br/>no rule or target,<br/>nothing subscribes"]
-    LOG["Amazon CloudWatch Logs<br/>30-day retention"]
-    DATA[("S3 data bucket<br/>Strands sessions,<br/>expire after 90 days<br/>event copies, amendments,<br/>approvals, turnovers<br/>versioned, TLS only<br/>retained on delete")]
-    DB[("Aurora DSQL cluster<br/>IAM token auth<br/>findings, decisions,<br/>packets, audit,<br/>handled events<br/>deletion protection<br/>retained on delete")]
-    BEN["stack region eu-west-1"]
-  end
-
-  BR["Amazon Bedrock<br/>the hosted demo<br/>never calls it"]
-
-  FEN ~~~ CF
-  WEB ~~~ P
-  U --> CF
-  CF -->|"default behaviour"| WEB
-  CF -->|"/api/*, /api, /healthz"| API
-  P -.->|"execute-api URL<br/>bypasses CloudFront"| API
-  API --> FN
-  ROLE -.- FN
-  FN --> EB
-  FN --> LOG
-  FN --> DATA
-  FN --> DB
-  ROLE -.->|"may invoke"| BR
-  EB ~~~ DATA
-  LOG ~~~ DB
-  DB ~~~ BEN
-
-  class CF,API edge
-  class FN compute
-  class WEB,DATA storage
-  class DB store
-  class EB integration
-  class LOG observe
-  class BR ml
-  class ROLE identity
-  class U,P actor
-  class FEN,BEN note
-
-%% palette: placeholder
-classDef actor fill:#141a2e,stroke:#aab2c8,color:#eef1fa
-classDef store fill:#16213d,stroke:#4fd1b0,stroke-width:2px,color:#eef1fa
-classDef storage fill:#16213d,stroke:#4fd1b0,color:#eef1fa
-classDef integration fill:#1b2447,stroke:#c7a6ff,color:#eef1fa
-classDef edge fill:#1b2447,stroke:#9b8cff,color:#eef1fa
-classDef compute fill:#1b2447,stroke:#7aa2ff,stroke-width:2px,color:#eef1fa
-classDef observe fill:#16213d,stroke:#8b96b8,color:#eef1fa
-classDef ml fill:#1b2447,stroke:#8b96b8,stroke-dasharray:4 3,color:#c8cfe3
-classDef identity fill:#2a2238,stroke:#f0c275,color:#eef1fa
-classDef note fill:#fff8e6,stroke:#f0c275,color:#3b2f12
+    %% LastTake palette: role colour fill, navy ink pinned, so node text reads the same in GitHub light and dark
+    classDef surface fill:#8b95b8,stroke:#0b0f1e,stroke-width:1.5px,color:#0b0f1e
+    classDef agent fill:#7ea4f7,stroke:#0b0f1e,stroke-width:1.5px,color:#0b0f1e
+    classDef store fill:#4fc3a1,stroke:#0b0f1e,stroke-width:1.5px,color:#0b0f1e
+    classDef event fill:#a996ea,stroke:#0b0f1e,stroke-width:1.5px,color:#0b0f1e
+    classDef rule fill:#182043,stroke:#e8ebf5,stroke-width:2px,color:#e8ebf5
+    classDef optional fill:#182043,stroke:#7ea4f7,stroke-width:1.5px,stroke-dasharray:5 4,color:#aab2c8
+    %% human is reserved for a human decision node; none appears in this block
+    classDef human fill:#f0c275,stroke:#0b0f1e,stroke-width:2px,color:#0b0f1e
+    classDef laneFront fill:#8b95b81f,stroke:#7d88aa,stroke-width:1px
+    classDef laneBack fill:#7ea4f71f,stroke:#7d88aa,stroke-width:1px
+    classDef laneCi fill:#7d88aa1a,stroke:#7d88aa,stroke-width:1px,stroke-dasharray:6 4
+    class browser,cf,api,probes surface
+    class fn agent
+    class web,data,dsql store
+    class bus event
+    class role rule
+    class FE laneFront
+    class BE laneBack
 ```
 
 What the diagram means in practice:
@@ -135,51 +117,53 @@ The two stacks are released by different workflows, with different credentials, 
 
 ```mermaid
 flowchart TB
-  subgraph AUTO["frontend-deploy.yml: automatic, every push to main"]
-    F0(["push to main<br/>no path filter"])
-    F1["verify job<br/>reusable frontend-ci.yml"]
-    F2["release job, main only<br/>upload to S3 web bucket<br/>invalidate CloudFront"]
-    F3["aws-uat.yml acceptance<br/>live Playwright journeys<br/>through CloudFront<br/>no AWS credentials"]
-    F4["aws-uat.yml publish job<br/>same role through OIDC<br/>writes /acceptance.json"]
-    F0 --> F1 --> F2 --> F3 -->|"on success"| F4
-  end
+    subgraph MAN["deploy.yml"]
+        B0[/"manual dispatch only<br/>workflow_dispatch"/]
+        B1[/"deploy job<br/>with action=deploy<br/>push to main skips it<br/>uploads the zip"/]
+        B2[("code bucket<br/>lasttake-deploy-*<br/>created or reused by<br/>CLI, not CloudFormation")]
+        B3[/"CloudFormation deploy<br/>infra/stack.yaml<br/>as lasttake-app"/]
+        B4[/"smoke checks: /healthz<br/>reports run_state_store<br/>aurora-dsql"/]
+    end
+    subgraph AUTO["frontend-deploy.yml"]
+        F0[/"every push to main<br/>no path filter"/]
+        F1[/"verify job, reusable<br/>frontend-ci.yml"/]
+        F2[/"release job, main only<br/>upload to S3 web bucket<br/>invalidate CloudFront"/]
+        F3[/"aws-uat.yml acceptance<br/>Playwright journeys<br/>live through CloudFront<br/>no AWS credentials"/]
+        F4[/"aws-uat.yml publish job<br/>on success, same role<br/>through OIDC, writes<br/>/acceptance.json"/]
+    end
+    subgraph SCHED["scheduled checks, no AWS identity"]
+        UP[/"uptime.yml, twice a day<br/>walks live API, reads<br/>CloudFront receipts"/]
+        LS[/"live-surface.yml, daily<br/>hostile input, browser<br/>journeys on live API"/]
+    end
+    NF("lasttake-frontend stack<br/>infra/frontend_stack.py<br/>bucket and CloudFront,<br/>creates the role,<br/>provisioned by hand,<br/>no workflow applies it")
+    FR{{"IAM role lasttake-<br/>frontend-release<br/>main branch only<br/>via GitHub OIDC"}}
+    NC("setup_ci_identity.py<br/>in infra/, run by hand<br/>creates the IAM user")
+    CI{{"IAM user lasttake-ci<br/>long-lived access keys<br/>in GitHub secrets"}}
+    NF -.-> FR
+    FR ----> F2
+    NC -.-> CI
+    CI ---> B1
+    F0 --> F1 --> F2 --> F3 --> F4
+    B0 --> B1 --> B2 --> B3 --> B4
+    F4 --> UP
 
-  subgraph MAN["deploy.yml: deploy job on manual dispatch only"]
-    B0(["workflow_dispatch<br/>action=deploy"])
-    B1["deploy job<br/>a push to main skips it"]
-    B2[("code bucket<br/>lasttake-deploy-*<br/>created or reused by CLI,<br/>not CloudFormation")]
-    B3["CloudFormation deploy<br/>infra/stack.yaml<br/>as lasttake-app"]
-    B4["smoke checks<br/>/healthz reports<br/>run_state_store aurora-dsql"]
-    B0 --> B1 -->|"upload zip"| B2 --> B3 --> B4
-  end
-
-  NF["lasttake-frontend stack<br/>infra/frontend_stack.py<br/>bucket, CloudFront, role<br/>provisioned by hand,<br/>no workflow applies it"]
-  FR["IAM role<br/>lasttake-frontend-release<br/>main branch only"]
-  NC["infra/setup_ci_identity.py<br/>run by hand"]
-  CI["IAM user lasttake-ci<br/>long-lived access keys"]
-
-  NF -.->|"creates"| FR
-  FR -->|"GitHub OIDC"| F2
-  NC -.->|"creates"| CI
-  CI -->|"GitHub secrets"| B1
-
-  subgraph SCHED["scheduled checks, no AWS identity"]
-    UP["uptime.yml, twice a day<br/>walks the live API,<br/>reads CloudFront receipts"]
-    LS["live-surface.yml, daily<br/>hostile input and browser<br/>journeys on the live API"]
-  end
-  F4 ~~~ UP
-  B4 ~~~ LS
-
-  class F0,F1,F2,F3,F4,B0,B1,B3,B4,UP,LS ci
-  class B2 storage
-  class FR,CI identity
-  class NF,NC note
-
-%% palette: placeholder
-classDef storage fill:#16213d,stroke:#4fd1b0,color:#eef1fa
-classDef identity fill:#2a2238,stroke:#f0c275,color:#eef1fa
-classDef ci fill:#1b2447,stroke:#aab2c8,color:#eef1fa
-classDef note fill:#fff8e6,stroke:#f0c275,color:#3b2f12
+    %% LastTake palette: role colour fill, navy ink pinned, so node text reads the same in GitHub light and dark
+    classDef surface fill:#8b95b8,stroke:#0b0f1e,stroke-width:1.5px,color:#0b0f1e
+    classDef agent fill:#7ea4f7,stroke:#0b0f1e,stroke-width:1.5px,color:#0b0f1e
+    classDef store fill:#4fc3a1,stroke:#0b0f1e,stroke-width:1.5px,color:#0b0f1e
+    classDef event fill:#a996ea,stroke:#0b0f1e,stroke-width:1.5px,color:#0b0f1e
+    classDef rule fill:#182043,stroke:#e8ebf5,stroke-width:2px,color:#e8ebf5
+    classDef optional fill:#182043,stroke:#7ea4f7,stroke-width:1.5px,stroke-dasharray:5 4,color:#aab2c8
+    %% human is reserved for a human decision node; none appears in this block
+    classDef human fill:#f0c275,stroke:#0b0f1e,stroke-width:2px,color:#0b0f1e
+    classDef laneFront fill:#8b95b81f,stroke:#7d88aa,stroke-width:1px
+    classDef laneBack fill:#7ea4f71f,stroke:#7d88aa,stroke-width:1px
+    classDef laneCi fill:#7d88aa1a,stroke:#7d88aa,stroke-width:1px,stroke-dasharray:6 4
+    class F0,F1,F2,F3,F4,B0,B1,B3,B4,UP,LS surface
+    class B2 store
+    class FR,CI rule
+    class NF,NC optional
+    class AUTO,MAN,SCHED laneCi
 ```
 
 | Trigger | Credential | Target stack | What proves success |
@@ -213,7 +197,7 @@ The run state started on S3, and it worked for one scene with one writer. It is 
 Two smaller reasons follow:
 
 - **Findings are upserted by key.** The S3 store rewrote the whole set, so a targeted rerun and a human decision landing together could overwrite each other. An upsert replaces only its own rows (`dsql.py:224-251`, `tests/test_dsql_store.py:67`).
-- **A shooting day has more than one scene.** `GET /api/blocked` lists every run that still has an untriaged exception, and how many checks are involved, in one query instead of a bucket scan per scene (`dsql.py:378-409`, `src/lasttake/app/handler.py:705-720`). On an S3 run store that route returns 501.
+- **A shooting day has more than one scene.** `GET /api/blocked` answers from one SQL query instead of a bucket scan per scene. The query returns each run that has a finding that is not verified and has no recorded decision, with how many check types are involved (`dsql.py:385-399`). The route then checks S3 once for each returned run and leaves out any run with an owner record, which every run the workspace registers to a session through `/api/reset` has (`src/lasttake/app/handler.py:643-644,716-717`, `src/lasttake/app/workspace.py:58-64`). On an S3 run store the route returns 501 (`handler.py:710-715`).
 
 **Why DSQL rather than a Postgres somebody has to keep alive.** The reason is recorded in the template: DSQL is serverless, with no instance to size or keep running, which is the same reason everything else here is serverless (`infra/stack.yaml:112-115`). It speaks ordinary Postgres, so the queries are plain SQL (`dsql.py:18-20`). This page quotes no price.
 
@@ -255,7 +239,7 @@ So the backend deploy uses long-lived access keys, although the frontend release
 
 The script that creates the keys deletes the user's previous keys first and pipes the new secret straight into the GitHub secrets. Nobody's personal credentials are copied into CI, and the secret is never written to a file (`infra/setup_ci_identity.py:254-298`).
 
-Both buckets that hold content are private, encrypted and versioned, and both refuse any request that is not TLS (`infra/stack.yaml:52-65,83-101`, `infra/frontend_stack.py:58-74,144-158`). Only the one CloudFront distribution may read the site bucket.
+The data bucket and the site bucket are private, encrypted and versioned, and both refuse any request that is not TLS (`infra/stack.yaml:52-65,83-101`, `infra/frontend_stack.py:58-74,144-158`). Only the one CloudFront distribution may read the site bucket. The code bucket blocks public access, but the deploy workflow sets no versioning, encryption or TLS-only policy on it (`.github/workflows/deploy.yml:107-124`).
 
 ## DSQL runtime authority preparation, not activated
 

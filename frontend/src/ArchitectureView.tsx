@@ -26,7 +26,7 @@ export function ArchitectureView({runId}:{runId?:string}) {
       <div className="toolbar"><a className="button" href={link('overview',runId)}>Back to wrap status</a></div>
     </div>
     <figure className="panel arch-figure">
-      <img src="/architecture.svg" alt="LastTake architecture: a React workspace served from S3 through CloudFront calls the API through API Gateway; a wrap checkpoint request starts an orchestrator on Lambda, four bounded checks read the scene package bundled with the function plus amendments stored on S3 and write findings to Aurora DSQL, a deterministic gate with no model in it combines them, two material transitions suspend the run for a named human, every run event is published to EventBridge, and a sealed, versioned turnover is saved for editorial." width="1180" height="760"/>
+      <img src="/architecture.svg" alt="LastTake architecture: a React workspace served from S3 through CloudFront calls the API through API Gateway; a wrap checkpoint request starts an orchestrator on Lambda, four bounded checks read the scene package bundled with the function plus amendments stored on S3 and write findings to Aurora DSQL, a deterministic gate with no model in it combines them, two material transitions suspend the run for a named human, every run event is published to EventBridge, and a sealed, versioned turnover is saved for editorial." width="880" height="1347"/>
       <figcaption>The same file as docs/architecture.svg in the repository. Every box on it is deployed.</figcaption>
     </figure>
     <ol className="arch-tiers">

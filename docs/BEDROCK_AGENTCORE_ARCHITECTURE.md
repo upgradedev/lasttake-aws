@@ -1,6 +1,8 @@
 # LastTake: optional AgentCore design notes
 
-For a script supervisor and the 1st AD, the running application is [LastTake on AWS](https://d3kf6hquzlli8g.cloudfront.net/). Create a run, start a checkpoint, review sources and answer the saved approval. Handoff exports the turnover, an evidence summary, receipts and their stated limits. The current browser is an offline synthetic demo using real Strands tool replay and S3 sessions; it does not analyze footage/audio. Pre-existing component disclosures are in the README.
+This page is for a reviewer asking what moving LastTake onto AgentCore would involve, and it expands [README, What is deployed, and what it costs](../README.md#what-is-deployed-and-what-it-costs). It describes today's code as it is and marks every AgentCore step as a proposal.
+
+For a script supervisor and the 1st AD, the running application is [LastTake on AWS](https://d3kf6hquzlli8g.cloudfront.net/). Create a run, start a checkpoint, review sources and answer the saved approval. Handoff exports the turnover, an evidence summary, receipts and their stated limits. The current browser is an offline synthetic demo using real Strands tool replay and S3 sessions; it does not analyse footage or audio. Pre-existing component disclosures are in the README.
 
 > **Status: a design proposal. None of the AgentCore migration below is deployed, validated or part of the current reliability implementation.**
 >
@@ -9,8 +11,6 @@ For a script supervisor and the 1st AD, the running application is [LastTake on 
 > The hosted HTTP demo always runs offline, with no Bedrock switch: interpretations on the live URL come from the offline lexical interpreter and a scripted planner drives the orchestrator, so no language model is called. This document is what a move onto AgentCore could look like. Every sentence about LastTake on AgentCore describes an intention, not a running system, and nothing in it should be read as a capability claim.
 >
 > LastTake is aimed at **one script supervisor on one shoot day**, with the 1st AD holding pickup and wrap authority, which is the positioning the README leads with.
-
-This page is for a reviewer asking what moving LastTake onto AgentCore would involve. It expands [README, What is deployed, and what it costs](../README.md#what-is-deployed-and-what-it-costs), describes today's code as it is, and marks every AgentCore step as a proposal.
 
 ## 1. Summary
 
@@ -33,33 +33,44 @@ Every box below belongs to the proposal. Several of the same parts run today ins
 flowchart TB
     subgraph prop["Proposal, not deployed"]
         direction TB
-        REQ["Checkpoint request<br/>CLI or POST /api/checkpoint"]
-        REC["Supplied shoot-day records<br/>camera reports, sound reports, script notes"]
-        RT["AgentCore Runtime session<br/>one Strands orchestrator, decides nothing"]
-        CK["Four checks<br/>in-process Strands tools"]
-        INT["Interpreter port<br/>coverage and continuity only"]
-        DB[("Aurora DSQL<br/>findings, decisions, packets, audit, claims")]
-        GATE["Deterministic gate<br/>no model"]
-        INTR["Approval interrupt<br/>ToolContext.interrupt, to the 1st AD"]
-        SES[("Strands session on S3<br/>outlives any microVM")]
-        AD["1st AD answer<br/>POST /api/approve or /api/wrap"]
-        ACT["Approved pickup or wrap<br/>one EventBridge event per idempotency key"]
+        REQ["Checkpoint request<br/>CLI or<br/>POST /api/checkpoint"]
+        REC["Supplied shoot-day<br/>records: camera and<br/>sound reports,<br/>script notes"]
+        RT("AgentCore Runtime<br/>session: one Strands<br/>orchestrator,<br/>decides nothing")
+        CK("Four checks<br/>run as in-process<br/>Strands tools")
+        INT("Interpreter port<br/>two bounded<br/>questions, coverage<br/>and continuity only")
+        DB[("Aurora DSQL<br/>findings sealed;<br/>decisions, packets,<br/>audit, claims")]
+        GATE{{"Deterministic gate<br/>evaluated by the<br/>session, no model"}}
+        INTR("Approval interrupt<br/>requested through<br/>ToolContext.interrupt<br/>to the 1st AD")
+        SES[("Strands session<br/>on S3: pause saved,<br/>outlives any microVM")]
+        AD["1st AD answer<br/>POST /api/approve<br/>or /api/wrap"]
+        ACT("Approved pickup<br/>or wrap, resumed in<br/>a new microVM: one<br/>EventBridge event<br/>per idempotency key")
     end
     REQ --> RT
-    RT -->|"runs"| CK
+    RT --> CK
     REC --> CK
-    CK -.->|"two bounded questions"| INT
-    CK -->|"sealed findings"| DB
-    RT -->|"evaluates"| GATE
+    CK -.-> INT
+    CK --> DB
+    RT --> GATE
     DB --> GATE
-    RT -->|"requests approval"| INTR
-    INTR -->|"pause saved"| SES
+    RT --> INTR
+    INTR ---> SES
     AD --> SES
-    SES -->|"resumed in a new microVM"| ACT
-    class REQ,REC,RT,CK,INT,DB,GATE,INTR,SES,AD,ACT optional
+    SES --> ACT
 
-    %% palette: placeholder
-    classDef optional fill:#141a2e,stroke:#8b96b8,stroke-dasharray:5 4,color:#c8cfe3
+    %% LastTake palette: role colour fill, navy ink pinned, so node text reads the same in GitHub light and dark
+    classDef surface fill:#8b95b8,stroke:#0b0f1e,stroke-width:1.5px,color:#0b0f1e
+    classDef agent fill:#7ea4f7,stroke:#0b0f1e,stroke-width:1.5px,color:#0b0f1e
+    classDef store fill:#4fc3a1,stroke:#0b0f1e,stroke-width:1.5px,color:#0b0f1e
+    classDef event fill:#a996ea,stroke:#0b0f1e,stroke-width:1.5px,color:#0b0f1e
+    classDef rule fill:#182043,stroke:#e8ebf5,stroke-width:2px,color:#e8ebf5
+    classDef optional fill:#182043,stroke:#7ea4f7,stroke-width:1.5px,stroke-dasharray:5 4,color:#aab2c8
+    %% human is reserved for a human decision node; nothing in this proposal is deployed, so every node is optional
+    classDef human fill:#f0c275,stroke:#0b0f1e,stroke-width:2px,color:#0b0f1e
+    classDef laneFront fill:#8b95b81f,stroke:#7d88aa,stroke-width:1px
+    classDef laneBack fill:#7ea4f71f,stroke:#7d88aa,stroke-width:1px
+    classDef laneCi fill:#7d88aa1a,stroke:#7d88aa,stroke-width:1px,stroke-dasharray:6 4
+    class REQ,REC,RT,CK,INT,DB,GATE,INTR,SES,AD,ACT optional
+    class prop laneBack
 ```
 
 The input is supplied records, not telemetry. No arrow leaves the event bus: no EventBridge rule routes events today, and this proposal adds none.
@@ -111,10 +122,10 @@ Of the constraints that earlier draft listed, only beat coverage exists, and in 
 
 **Today, on Lambda.**
 
-- **The pause.** `request_pickup_approval` and `request_wrap_approval` stop the run with `ToolContext.interrupt`. `S3SessionManager` saves the Strands session under `sessions/` in the data bucket, where a lifecycle rule expires it after 90 days.
+- **The pause.** `request_pickup_approval` and `request_wrap_approval` stop the run with `ToolContext.interrupt`. `S3SessionManager` saves the Strands session under `sessions/` in the data bucket, where a lifecycle rule expires it after 90 days (`expire-demo-sessions` in `infra/stack.yaml`).
 - **The resume.** A 1st AD approval request (POST /api/approve or /api/wrap) rebuilds the agent from its S3 session and continues, subject to current evidence and delivery guards. There is no webhook route. The container that resumes need not be the one that paused; see [On Lambda: two requests, two containers, historical](strands-interrupt-resume.md#on-lambda-two-requests-two-containers-historical).
 - **Replay.** On resume the tool body re-enters from its first line and `interrupt()` returns the stored answer. It is a replay, not a frozen stack frame, so every approved action puts its external call after the interrupt, behind an idempotency key. See [Replay, not a frozen stack frame](strands-interrupt-resume.md#replay-not-a-frozen-stack-frame).
-- **Idempotency.** Idempotency keys and DSQL claims prevent duplicate pickup, wrap-ready and turnover publications during retries. A claim is one `INSERT ... ON CONFLICT DO NOTHING` into the `handled_events` table, so the database decides which of two concurrent attempts wins. Gate evaluation is deterministic and is not deduplicated. The pending, accepted, rejected and unknown delivery outcomes are handled in `src/lasttake/agents/runtime.py`. The case for a database here is in [Why a database and not more S3](infrastructure.md#why-a-database-and-not-more-s3).
+- **Idempotency.** Idempotency keys and DSQL claims prevent duplicate pickup, wrap-ready and turnover publications during retries. A claim is one `INSERT ... ON CONFLICT DO NOTHING` into the `handled_events` table, so the database decides which of two concurrent attempts wins. Gate evaluation is deterministic and is not deduplicated. A delivery receipt can be pending, accepted, rejected or unknown, and `src/lasttake/agents/runtime.py` handles each outcome. The case for a database here is in [Why a database and not more S3](infrastructure.md#why-a-database-and-not-more-s3).
 - **Guards.** Before an approved wrap is published, `publish_approved` refuses unless the answer came from the `first_ad` role, the reviewed evidence and decisions still match, the scene is still eligible, and no later wrap review superseded the approval.
 - **Seals.** Source artifacts and emitted records (findings, eligibility packets, turnover and receipts) carry SHA-256 digests, and the gate verifies the seal on each finding. LastTake computes no digest over the Strands session it saves on S3.
 
