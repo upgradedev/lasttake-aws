@@ -136,7 +136,7 @@ Source CI is not deployment evidence. What the live URL serves depends on the fr
 
 Two statuses stay open:
 
-- Narration is `NOT_CONFIGURED`: this revised seven-scene script still needs a measured timing preview and fresh owner approval before capture. The final recording must bind the exact live frontend/backend pair, and the owner reviews the resulting MP4 separately before upload.
+- Narration is `READY_OWNER_VERIFIED`: the owner approved preview run `34906235283` for C0 `5777be505a14e7c91484d5ba451a302c5601924f`. PR #45 changed only Builder copy, so current main carries the same narration bytes. The final recording must still bind the exact live frontend/backend pair, and the owner reviews the resulting MP4 separately before upload.
 - Human UAT is `NOT_RUN`: no person has completed the 22-case manual UAT testbook (the `cases` list in `frontend/UAT.testbook.json`). It is separate from automated acceptance, and automated journeys never mark it as passed (`tests/test_claim_drift.py:83` pins `human_signoff` at `NOT_RUN`).
 
 Session authority comes from the browser's saved session handle, never from an imported document. LT-FILE posts a valid document with no session, then with another session's handle, and both get HTTP 403 (`frontend/tests/e2e/hero.spec.ts:113-119`).

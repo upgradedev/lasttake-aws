@@ -8,8 +8,9 @@ import {assertSceneBudget,heroSceneIds} from '../../web/video/hero-journey.mjs';
 test('capture uses the complete CI-exercised journey and refuses a truncated or unmeasured beat',async()=>{
   const spec=JSON.parse(await readFile('../video/narration.json','utf8'));
   assert.deepEqual(spec.segments.map(segment=>segment.id),heroSceneIds);
-  assert.equal(spec.recording_status,'NOT_CONFIGURED');
-  assert.match(spec._comment,/fresh owner approval/);
+  assert.equal(spec.recording_status,'READY_OWNER_VERIFIED');
+  assert.match(spec._comment,/preview 34906235283/);
+  assert.match(spec._comment,/5777be505a14e7c91484d5ba451a302c5601924f/);
   for(const segment of spec.segments){
     assert.ok(segment.captionText.length>=20);
     assert.ok(segment.speechText.length>=20);

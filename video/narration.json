@@ -1,5 +1,5 @@
 {
-  "_comment": "Narration changed after the previous approval and is NOT_CONFIGURED. Run the timing-only preview, bind the exact deployed frontend/backend release, and obtain fresh owner approval before changing recording_status to READY_OWNER_VERIFIED. No final recording exists.",
+  "_comment": "Owner approved this exact narration in chat with 'narration OK for C0 5777be505a14e7c91484d5ba451a302c5601924f preview 34906235283'. Preview run 34906235283 measured 173.928 seconds with narration source SHA-256 e8d7df23e022b1a13a4765b981b430b661c2b7229fcb77c7795f8175fb5ce48f. The final recording still must bind the exact live frontend and backend release pair.",
   "schemaVersion": "lasttake.submission-video/v1",
   "provider": "elevenlabs",
   "elevenLabs": {
@@ -44,5 +44,5 @@
       "speechText": "Publish the turnover, reload it, and read it back in Handoff. Its manifest and receipt carry the evidence revision, human decision, source digests, take map and open exceptions. Hashes identify bytes, not truth, and nothing declares creative or legal clearance. Open the live demo and its public acceptance receipt."
     }
   ],
-  "recording_status": "NOT_CONFIGURED"
+  "recording_status": "READY_OWNER_VERIFIED"
 }
