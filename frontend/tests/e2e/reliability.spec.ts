@@ -79,3 +79,51 @@ test('LT-RELIABLE-WRAP both API routes refuse stale review, decline recovers, ne
   await info.attach('wrap-review-outcome',{body:JSON.stringify(await call('state')),contentType:'application/json'});
   await page.screenshot({path:info.outputPath('reliability-wrap.png'),fullPage:true});
 });
+
+test('LT-OFFLINE reload keeps one scoped draft read-only and reconnect never replays it',async({page,context,request},info)=>{
+  const body=await start(page);
+  await page.getByRole('button',{name:'Add take or release'}).click();
+  await page.getByLabel('Advanced JSON entry').check();
+  const draft='{"take_id":"T-OFFLINE-DRAFT"}';
+  await page.getByLabel('Document JSON').fill(draft);
+  await expect(page.getByText(/Unsent draft kept in this tab/)).toBeVisible();
+
+  await page.evaluate(async()=>{
+    if(navigator.serviceWorker.controller)return;
+    await new Promise<void>((resolve,reject)=>{
+      const timer=setTimeout(()=>reject(new Error('service worker did not control the page')),10_000);
+      navigator.serviceWorker.addEventListener('controllerchange',()=>{clearTimeout(timer);resolve();},{once:true});
+    });
+  });
+
+  let browserIngests=0;
+  page.on('request',pending=>{if(new URL(pending.url()).pathname==='/api/ingest')browserIngests++;});
+  await context.setOffline(true);
+  await page.reload({waitUntil:'domcontentloaded'});
+  await expect(page.getByTestId('connectivity-status')).toContainText('Offline');
+  await expect(page.getByTestId('connectivity-status')).toContainText('Saved snapshot · read-only');
+  await page.getByRole('button',{name:'Add take or release'}).click();
+  await expect(page.getByLabel('Document JSON')).toHaveValue(draft);
+  await expect(page.getByRole('button',{name:'Save evidence & rerun checks'})).toBeDisabled();
+  expect(browserIngests).toBe(0);
+
+  const changed=await request.post('/api/ingest',{data:{...body,kind:'rights_record',document:{
+    record_id:'REL-OFFLINE-EXTERNAL',subject_id:'BG-07',subject_kind:'person',
+    document_type:'background release',scope:'all media',territory:'worldwide',status:'executed',
+  }}});
+  expect(changed.status()).toBe(200);
+
+  await context.setOffline(false);
+  await expect(page.getByRole('heading',{name:'Saved evidence changed since your last confirmed view'})).toBeVisible();
+  await expect(page.getByTestId('connectivity-status')).toContainText('Connected');
+  await expect(page.getByLabel('Document JSON')).toHaveValue(draft);
+  await expect(page.getByRole('button',{name:'Save evidence & rerun checks'})).toBeDisabled();
+  expect(browserIngests).toBe(0);
+
+  await page.getByRole('button',{name:'I reviewed the current saved revision'}).click();
+  await expect(page.getByRole('button',{name:'Save evidence & rerun checks'})).toBeEnabled();
+  await page.getByRole('button',{name:'Save evidence & rerun checks'}).click();
+  await expect(page.getByRole('heading',{name:'Add evidence to this shoot day'})).toBeHidden();
+  expect(browserIngests).toBe(1);
+  await info.attach('offline-reconnect',{body:JSON.stringify({run_id:body.run_id,browser_ingest_requests:browserIngests}),contentType:'application/json'});
+});

@@ -42,6 +42,17 @@ export function ServerMessage({text,waiting}:{text:string;waiting:boolean}) {
   return <p className={waiting?'message-waiting':'saved'} role="status">{text.split(RECEIPT_ID).map((part,i)=>i%2?<code key={i} title={part}>{part.slice(0,8)}</code>:part)}</p>;
 }
 
+export function ConnectivityStatus({status,lastConfirmedAt,cached,unknownOutcome,shellReady}:{status:'checking'|'online'|'offline'|'uncertain';lastConfirmedAt:string|null;cached:boolean;unknownOutcome:string|null;shellReady:boolean}) {
+  const label={checking:'Reconnecting',online:'Connected',offline:'Offline',uncertain:'Connection unconfirmed'}[status];
+  return <div className="connectivity-status" data-state={status} data-testid="connectivity-status" role="status" aria-live="polite">
+    <strong>{label}</strong>
+    {lastConfirmedAt?<span>Last confirmed <time dateTime={lastConfirmedAt} title={lastConfirmedAt}>{new Date(lastConfirmedAt).toLocaleString()}</time></span>:<span>No run has been confirmed in this tab yet.</span>}
+    {cached && <span>Saved snapshot · read-only.</span>}
+    {unknownOutcome && <span>The {unknownOutcome} request outcome is unknown. It has not been replayed.</span>}
+    {shellReady && <span className="sr-only">Offline reload is prepared for this tab.</span>}
+  </div>;
+}
+
 export function App() {
   const w=useWorkspace();
   const [role,setRole]=useState<Role>(()=>{const saved=readPreference('lasttake.role');return saved && Object.hasOwn(roles,saved)?saved as Role:'script_supervisor';});
@@ -71,7 +82,7 @@ export function App() {
   },[state?.run_id,route.run,selection]);
   const backToStart=()=>{history.pushState(null,'',window.location.pathname);window.dispatchEvent(new PopStateEvent('popstate'));};
 
-  const writesBlocked=w.busy || w.requiresRefresh;
+  const writesBlocked=w.busy || w.requiresRefresh || w.connectivity!=='online' || Boolean(w.revisionChanged);
   const startRun=()=>{setIntake(false);void w.create();};
   const inRun=Boolean(state && scene);
   const isDoc=route.page==='architecture';
@@ -102,6 +113,7 @@ export function App() {
       </header>
 
       <main id="main" tabIndex={-1} aria-busy={w.busy}>
+        <ConnectivityStatus status={w.connectivity} lastConfirmedAt={w.lastConfirmedAt} cached={w.usingCachedState} unknownOutcome={w.unknownOutcome} shellReady={w.offlineShellReady}/>
         {guided && <section className="guide panel"><h2>Walk through a fictional shoot day</h2><ol><li>Start the shoot day and run the wrap checkpoint.</li><li>Review the script and sources in Scene review, then answer the pickup request as the 1st AD.</li><li>Add evidence using the labelled synthetic examples.</li><li>Select changed findings and review them as the script supervisor and DIT.</li><li>Request a new wrap approval, answer as the 1st AD, then publish the turnover in Handoff.</li></ol><p>This demo uses a scripted planner and an offline lexical interpreter with real Strands interrupts. No Bedrock inference, footage/audio analysis, email or payment occurs in these demo flows. The UI or API starts the workflow directly and publishes real AWS event-bus events; no EventBridge rule or subscriber triggers it. Bus acceptance does not establish downstream completion.</p></section>}
         {storageNotice() && <p className="warning" role="status">{storageNotice()}</p>}
         {w.busy && !inRun && <div className="loading" role="status"><span className="spinner" aria-hidden="true"/>{w.progress || 'Reading the saved shoot day…'}</div>}
@@ -111,9 +123,10 @@ export function App() {
         {showLanding && <Landing session={w.session} busy={w.busy} page={route.page} start={()=>void w.create()} onNavigate={navigateTo}/>}
 
         {inRun && !isDoc && state && scene && <>
+          {w.revisionChanged && <section className="warning revision-review" role="alert"><h2>Saved evidence changed since your last confirmed view</h2><p>The server returned a different package fingerprint. The current revision is shown, but all writes stay blocked until you review it. No draft, approval or delivery was replayed.</p><details><summary>Compare package fingerprints</summary><dl className="metadata"><dt>Previous</dt><dd><code>{w.revisionChanged.from}</code></dd><dt>Current server revision</dt><dd><code>{w.revisionChanged.to}</code></dd></dl></details><button disabled={w.busy} onClick={w.acknowledgeRevision}>I reviewed the current saved revision</button></section>}
           <div className="page-heading">
             <div><p className="eyebrow">Shoot day · {scene.scene_id}</p><h1 id="page-title" tabIndex={-1}>{pages[route.page]}</h1><p>{pageTasks[route.page]}</p></div>
-            <div className="toolbar"><button disabled={w.busy} onClick={()=>void w.refresh()}>Refresh saved state</button><button disabled={w.busy} onClick={startRun}>New shoot-day run</button></div>
+            <div className="toolbar"><button disabled={w.busy} onClick={()=>void w.refresh()}>Refresh saved state</button><button disabled={writesBlocked} onClick={startRun}>New shoot-day run</button></div>
           </div>
           {w.busy && <div className="loading" role="status"><span className="spinner" aria-hidden="true"/>{w.progress || 'Reading the saved shoot day…'}</div>}
           {state.needs_checkpoint && <section className="warning" role="status"><h2>Fresh checkpoint required</h2><p>{state.recovery_reason}</p>{state.pending_approval?<p>Open the pending approval in Scene review and decline it before checking again.</p>:<button disabled={writesBlocked} onClick={()=>void w.act('checkpoint')}>Run fresh checkpoint</button>}</section>}
@@ -127,7 +140,7 @@ export function App() {
               {!state.counts && <button className="primary" disabled={writesBlocked || !!state.pending_approval} onClick={()=>void w.act('checkpoint')}>Run wrap checkpoint</button>}
               <button disabled={w.busy} onClick={()=>setIntake(!intake)} aria-expanded={intake}>Add take or release</button>
             </div>
-            {intake && <Intake key={state.run_id} scene={scene} busy={w.busy} writeBlocked={w.requiresRefresh} guided={guided} onClose={()=>setIntake(false)} onSubmit={(kind,document)=>w.act('ingest',{kind,document})}/>}
+            {intake && w.session && <Intake key={state.run_id} scene={scene} busy={w.busy} writeBlocked={writesBlocked} guided={guided} sessionId={w.session.session_id} runId={state.run_id} revisionDigest={state.package_revision_digest} revisionReviewRequired={Boolean(w.revisionChanged)} onClose={()=>setIntake(false)} onSubmit={(kind,document)=>w.act('ingest',{kind,document})}/>}
           </>}
           {route.page==='scene' && <SceneView key={state.run_id} scene={scene} state={state} selected={route.beat} selection={selection} role={role} busy={writesBlocked} act={w.act}/>}
           {route.page==='records' && <Records key={state.run_id} scene={scene} state={state} selection={selection}/>}
