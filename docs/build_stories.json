@@ -5,7 +5,7 @@
     "try_flow": "Create a run; checkpoint; inspect sources; answer the saved request; export History evidence. Guided intake offers editable success, refusal and correction examples.",
     "real_vs_demo": "Synthetic records and offline interpretation; real HTTP persistence and Strands tool/session replay. No footage/audio analysis, real email or payment.",
     "evidence_limits": "Historical entries below are preserved, not exact-current-release acceptance. Hashes identify bytes, not truth; model identity only comes from serialized finding records. Human benefit and active time are unmeasured.",
-    "disclosures": "README.md Pre-existing components; narration is owner-approved for capture, but no final video exists yet."
+    "disclosures": "README.md Pre-existing components; revised narration is NOT_CONFIGURED pending a measured preview and fresh owner approval, and no final video exists yet."
   },
   "schema": "lasttake/build-stories/v1",
   "status": "DRAFT, NOT PUBLISHED",
