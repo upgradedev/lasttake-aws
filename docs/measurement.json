@@ -33,6 +33,41 @@
       ]
     }
   ],
+  "rewrites": [
+    {
+      "case": "retry and recovery",
+      "rewritten_on": "2026-09-14",
+      "which_changed": "the product contract, on purpose, not the expectation",
+      "contract_change": {
+        "commit": "911fa59",
+        "committed_on": "2026-09-09",
+        "where": "WrapRun.publish in src/lasttake/agents/runtime.py",
+        "before": "A publish that raised released its idempotency claim and re-raised, so a later idempotent publish of the same event retried it.",
+        "after": "A publish that raises returns a receipt with status unknown and keeps its claims. A later idempotent publish of the same logical effect answers that an earlier attempt remains unresolved and does not call the bus. Only an accepted or rejected outcome releases the effect claim, so a definite rejection is the retry the contract allows."
+      },
+      "retired_scenario": "The bus raises on the first attempt, then accepts. The retry must publish and a third call must not reach the bus.",
+      "retired_expected": {
+        "first_attempt_failed": true,
+        "retry_published": true,
+        "third_was_not_republished": true,
+        "bus_calls": 2
+      },
+      "retired_observed_against_the_new_contract": {
+        "run": "origin/main at ab0a1d3, 2026-09-14, tools/measure.py unmodified",
+        "cases_matched": "7 of 8",
+        "observed": {
+          "first_attempt_failed": false,
+          "retry_published": false,
+          "third_was_not_republished": false,
+          "bus_calls": 1
+        }
+      },
+      "why_not_edited_to_match": "Setting those four literals to the observed values would have recorded 'a raised publish is never retried' as a pass for a case named retry and recovery. A disagreement is a failure here, so the retired expectation and its failing run are kept and the scenario is replaced.",
+      "new_scenario": "The bus returns a definite rejection, then accepts. The retry must publish, and a third call must return the saved receipt without reaching the bus.",
+      "new_expectations_written_from": "the WrapRun.publish contract, before the rewritten case first ran. tests/test_rerun_and_events.py::test_a_publish_that_fails_can_be_retried pins the same sequence.",
+      "raised_publish_now_pinned_by": "tests/test_reliable_workflows.py::test_ambiguous_publish_exception_does_not_blindly_resend"
+    }
+  ],
   "fixtures": {
     "files": {
       "camera_report.json": "17c0f0327b018b37bd5bc2198e6adc836646f6d2ee2003a57540fe0a5711fc94",
@@ -67,7 +102,7 @@
       "error": null,
       "correct": true,
       "mismatches": {},
-      "wall_seconds": 0.008,
+      "wall_seconds": 0.009,
       "interpreter_calls": 41,
       "human_active_seconds": null,
       "human_time_basis": "no human was observed performing this case",
@@ -96,7 +131,7 @@
       "error": null,
       "correct": true,
       "mismatches": {},
-      "wall_seconds": 0.007,
+      "wall_seconds": 0.006,
       "interpreter_calls": 41,
       "human_active_seconds": null,
       "human_time_basis": "no human was observed performing this case",
@@ -133,7 +168,7 @@
       "error": null,
       "correct": true,
       "mismatches": {},
-      "wall_seconds": 0.016,
+      "wall_seconds": 0.015,
       "interpreter_calls": 124,
       "human_active_seconds": null,
       "human_time_basis": "no human was observed performing this case",
@@ -175,21 +210,21 @@
     {
       "case": "retry and recovery",
       "expected": {
-        "first_attempt_failed": true,
+        "first_attempt_rejected": true,
         "retry_published": true,
-        "third_was_not_republished": true,
+        "third_replayed_the_saved_receipt": true,
         "bus_calls": 2
       },
       "observed": {
-        "first_attempt_failed": true,
+        "first_attempt_rejected": true,
         "retry_published": true,
-        "third_was_not_republished": true,
+        "third_replayed_the_saved_receipt": true,
         "bus_calls": 2
       },
       "error": null,
       "correct": true,
       "mismatches": {},
-      "wall_seconds": 0.029,
+      "wall_seconds": 0.123,
       "interpreter_calls": 0,
       "human_active_seconds": null,
       "human_time_basis": "no human was observed performing this case",
@@ -216,7 +251,7 @@
       "error": null,
       "correct": true,
       "mismatches": {},
-      "wall_seconds": 0.008,
+      "wall_seconds": 0.006,
       "interpreter_calls": 0,
       "human_active_seconds": null,
       "human_time_basis": "no human was observed performing this case",
@@ -264,7 +299,7 @@
       "error": null,
       "correct": true,
       "mismatches": {},
-      "wall_seconds": 0.007,
+      "wall_seconds": 0.005,
       "interpreter_calls": 41,
       "human_active_seconds": null,
       "human_time_basis": "no human was observed performing this case",
@@ -280,5 +315,588 @@
     "Bedrock inference cost: needs per-call token counts this harness does not collect",
     "judgement quality against labelled ground truth: these cases check behaviour against declared expectations, which is a weaker claim"
   ],
-  "held_out_caveat": "Written after the behaviour was fixed and not used to change it. That is weaker than a set somebody else wrote, and it is not user validation: no practising script supervisor has run any of this."
+  "held_out_caveat": "Written after the behaviour was fixed and not used to change it. That is weaker than a set somebody else wrote, and it is not user validation: no practising script supervisor has run any of this.",
+  "history": [
+    {
+      "what": "The run recorded before 911fa59 changed WrapRun.publish. Every case matched, including retry and recovery under its retired scenario.",
+      "source": "docs/measurement.json as committed in 200953e (2026-09-09). 911fa59 added only the _current_scope block and left these rows unchanged.",
+      "contract": "Before 911fa59: a publish that raised released its claim and re-raised, so a later idempotent publish of the same event retried it.",
+      "matched": "8 of 8",
+      "report": {
+        "schema": "lasttake/measurement/v1",
+        "baseline": {
+          "what": "The scene package as the corpus ships it, read by the offline lexical interpreter, with no human decisions recorded.",
+          "why_this_one": "It is the configuration the live URL runs, so every number here is about the thing a judge can open. A Bedrock baseline would measure a different deployment and is reported separately in the README.",
+          "expected_headline": {
+            "required_beats": 34,
+            "covered_with_evidence": 31,
+            "raising_exceptions": 2,
+            "without_release_record": 1,
+            "not_assessed": 0
+          }
+        },
+        "corrections": [
+          {
+            "case": "missing evidence",
+            "field": "rights_findings",
+            "declared_first": 6,
+            "observed": 7,
+            "which_was_wrong": "the expectation",
+            "why": "Written from memory of the corpus rather than from the corpus. The ledger covers five people and two visible assets, so seven rights findings is correct and six never was. No product code was changed.",
+            "unchanged_assertions_that_held_first_time": [
+              "missing_release_subjects == ['BG-07']",
+              "beats_without_release == 1"
+            ]
+          }
+        ],
+        "fixtures": {
+          "files": {
+            "camera_report.json": "17c0f0327b018b37bd5bc2198e6adc836646f6d2ee2003a57540fe0a5711fc94",
+            "continuity_refs.json": "bac294917b2c0a38eefca8533153dac88d7fe91f846b7d16508f536e7a5ba0ca",
+            "rights_ledger.json": "ca173f209e25267e98d7074abfcd009489c22046df08e3ce40c4b30584ef5fde",
+            "script_notes.json": "487f17e3a12733afbbcbe5da7718c5319112ac1483637d3aa783f433e35c1597",
+            "script_revision.json": "e8257235b3787c46566439962ef1dc73128955f7bc0bfa4dffa4f6c825180f8d",
+            "shot_plan.json": "2dc09ab44395018aa00a63937074d9a01d43dcccd2825f3cb074e5700c6d9ae9",
+            "sound_report.json": "7d04ca908b78e18d13c7b80d89a155df122a3b66b5cfd2a63727cafe4c87bd9f",
+            "takes.json": "ba4a76d25911890e72d165ef083d87901396cc6178a642dd297866c85213e5d6"
+          },
+          "corpus_sha256": "4cef6432c108b8ea6385c5e44891903ee4a6b8df3f5f836bffca7f811901988b"
+        },
+        "command": "PYTHONPATH=src python tools/measure.py",
+        "development_cases": [
+          {
+            "case": "ordinary",
+            "expected": {
+              "required_beats": 34,
+              "covered_with_evidence": 31,
+              "raising_exceptions": 2,
+              "without_release_record": 1,
+              "not_assessed": 0
+            },
+            "observed": {
+              "required_beats": 34,
+              "covered_with_evidence": 31,
+              "raising_exceptions": 2,
+              "without_release_record": 1,
+              "not_assessed": 0
+            },
+            "error": null,
+            "correct": true,
+            "mismatches": {},
+            "wall_seconds": 0.008,
+            "interpreter_calls": 41,
+            "human_active_seconds": null,
+            "human_time_basis": "no human was observed performing this case",
+            "human_interruptions": null,
+            "human_corrections_of_the_output": null,
+            "interventions_basis": "not measured. These count what a person did during a run and no person ran one; a zero here would read as 'needed no help'",
+            "cost_usd": 0.0,
+            "cost_basis": "offline lexical interpreter, no model call, so no inference cost. Bedrock cost is not measured here: it needs per-call token counts this harness does not collect"
+          },
+          {
+            "case": "missing evidence",
+            "expected": {
+              "rights_findings": 7,
+              "missing_release_subjects": [
+                "BG-07"
+              ],
+              "beats_without_release": 1
+            },
+            "observed": {
+              "rights_findings": 7,
+              "missing_release_subjects": [
+                "BG-07"
+              ],
+              "beats_without_release": 1
+            },
+            "error": null,
+            "correct": true,
+            "mismatches": {},
+            "wall_seconds": 0.007,
+            "interpreter_calls": 41,
+            "human_active_seconds": null,
+            "human_time_basis": "no human was observed performing this case",
+            "human_interruptions": null,
+            "human_corrections_of_the_output": null,
+            "interventions_basis": "not measured. These count what a person did during a run and no person ran one; a zero here would read as 'needed no help'",
+            "cost_usd": 0.0,
+            "cost_basis": "offline lexical interpreter, no model call, so no inference cost. Bedrock cost is not measured here: it needs per-call token counts this harness does not collect"
+          },
+          {
+            "case": "changed input",
+            "expected": {
+              "b17_before": [
+                "no_viable_coverage",
+                "insufficient_evidence"
+              ],
+              "b17_after": [
+                "covered_with_evidence",
+                "corroborated_by_the_interpreter"
+              ],
+              "stale_findings_discarded": true
+            },
+            "observed": {
+              "b17_before": [
+                "no_viable_coverage",
+                "insufficient_evidence"
+              ],
+              "b17_after": [
+                "covered_with_evidence",
+                "corroborated_by_the_interpreter"
+              ],
+              "stale_findings_discarded": true
+            },
+            "error": null,
+            "correct": true,
+            "mismatches": {},
+            "wall_seconds": 0.016,
+            "interpreter_calls": 124,
+            "human_active_seconds": null,
+            "human_time_basis": "no human was observed performing this case",
+            "human_interruptions": null,
+            "human_corrections_of_the_output": null,
+            "interventions_basis": "not measured. These count what a person did during a run and no person ran one; a zero here would read as 'needed no help'",
+            "cost_usd": 0.0,
+            "cost_basis": "offline lexical interpreter, no model call, so no inference cost. Bedrock cost is not measured here: it needs per-call token counts this harness does not collect"
+          },
+          {
+            "case": "refusal",
+            "expected": {
+              "missing_field_named": [
+                "slate"
+              ],
+              "wrong_type_refused": true,
+              "foreign_report_row_refused": true
+            },
+            "observed": {
+              "missing_field_named": [
+                "slate"
+              ],
+              "wrong_type_refused": true,
+              "foreign_report_row_refused": true
+            },
+            "error": null,
+            "correct": true,
+            "mismatches": {},
+            "wall_seconds": 0.0,
+            "interpreter_calls": 0,
+            "human_active_seconds": null,
+            "human_time_basis": "no human was observed performing this case",
+            "human_interruptions": null,
+            "human_corrections_of_the_output": null,
+            "interventions_basis": "not measured. These count what a person did during a run and no person ran one; a zero here would read as 'needed no help'",
+            "cost_usd": 0.0,
+            "cost_basis": "offline lexical interpreter, no model call, so no inference cost. Bedrock cost is not measured here: it needs per-call token counts this harness does not collect"
+          },
+          {
+            "case": "retry and recovery",
+            "expected": {
+              "first_attempt_failed": true,
+              "retry_published": true,
+              "third_was_not_republished": true,
+              "bus_calls": 2
+            },
+            "observed": {
+              "first_attempt_failed": true,
+              "retry_published": true,
+              "third_was_not_republished": true,
+              "bus_calls": 2
+            },
+            "error": null,
+            "correct": true,
+            "mismatches": {},
+            "wall_seconds": 0.029,
+            "interpreter_calls": 0,
+            "human_active_seconds": null,
+            "human_time_basis": "no human was observed performing this case",
+            "human_interruptions": null,
+            "human_corrections_of_the_output": null,
+            "interventions_basis": "not measured. These count what a person did during a run and no person ran one; a zero here would read as 'needed no help'",
+            "cost_usd": 0.0,
+            "cost_basis": "offline lexical interpreter, no model call, so no inference cost. Bedrock cost is not measured here: it needs per-call token counts this harness does not collect"
+          }
+        ],
+        "held_out_cases": [
+          {
+            "case": "no interpreter reachable",
+            "expected": {
+              "covered": 0,
+              "declared": 33,
+              "corroborated": 0
+            },
+            "observed": {
+              "covered": 0,
+              "declared": 33,
+              "corroborated": 0
+            },
+            "error": null,
+            "correct": true,
+            "mismatches": {},
+            "wall_seconds": 0.008,
+            "interpreter_calls": 0,
+            "human_active_seconds": null,
+            "human_time_basis": "no human was observed performing this case",
+            "human_interruptions": null,
+            "human_corrections_of_the_output": null,
+            "interventions_basis": "not measured. These count what a person did during a run and no person ran one; a zero here would read as 'needed no help'",
+            "cost_usd": 0.0,
+            "cost_basis": "offline lexical interpreter, no model call, so no inference cost. Bedrock cost is not measured here: it needs per-call token counts this harness does not collect"
+          },
+          {
+            "case": "a record edited in storage",
+            "expected": {
+              "eligible": false,
+              "named_the_seal": true
+            },
+            "observed": {
+              "eligible": false,
+              "named_the_seal": true
+            },
+            "error": null,
+            "correct": true,
+            "mismatches": {},
+            "wall_seconds": 0.011,
+            "interpreter_calls": 41,
+            "human_active_seconds": null,
+            "human_time_basis": "no human was observed performing this case",
+            "human_interruptions": null,
+            "human_corrections_of_the_output": null,
+            "interventions_basis": "not measured. These count what a person did during a run and no person ran one; a zero here would read as 'needed no help'",
+            "cost_usd": 0.0,
+            "cost_basis": "offline lexical interpreter, no model call, so no inference cost. Bedrock cost is not measured here: it needs per-call token counts this harness does not collect"
+          },
+          {
+            "case": "the missing release filed",
+            "expected": {
+              "without_release_record": 0,
+              "covered": 32,
+              "still_raising_exceptions": 2
+            },
+            "observed": {
+              "without_release_record": 0,
+              "covered": 32,
+              "still_raising_exceptions": 2
+            },
+            "error": null,
+            "correct": true,
+            "mismatches": {},
+            "wall_seconds": 0.007,
+            "interpreter_calls": 41,
+            "human_active_seconds": null,
+            "human_time_basis": "no human was observed performing this case",
+            "human_interruptions": null,
+            "human_corrections_of_the_output": null,
+            "interventions_basis": "not measured. These count what a person did during a run and no person ran one; a zero here would read as 'needed no help'",
+            "cost_usd": 0.0,
+            "cost_basis": "offline lexical interpreter, no model call, so no inference cost. Bedrock cost is not measured here: it needs per-call token counts this harness does not collect"
+          }
+        ],
+        "what_was_not_measured": [
+          "human active time, interruptions and corrections: no human was observed",
+          "Bedrock inference cost: needs per-call token counts this harness does not collect",
+          "judgement quality against labelled ground truth: these cases check behaviour against declared expectations, which is a weaker claim"
+        ],
+        "held_out_caveat": "Written after the behaviour was fixed and not used to change it. That is weaker than a set somebody else wrote, and it is not user validation: no practising script supervisor has run any of this."
+      }
+    },
+    {
+      "what": "The retired retry and recovery case run against the 911fa59 contract, before the case was rewritten. It did not match, and it is kept.",
+      "source": "PYTHONPATH=src python tools/measure.py on origin/main at ab0a1d3, 2026-09-14, with tools/measure.py unmodified.",
+      "contract": "Since 911fa59: a publish that raises returns status unknown and keeps its claims, so a later idempotent publish of the same effect is not sent.",
+      "matched": "7 of 8",
+      "report": {
+        "schema": "lasttake/measurement/v1",
+        "baseline": {
+          "what": "The scene package as the corpus ships it, read by the offline lexical interpreter, with no human decisions recorded.",
+          "why_this_one": "It is the configuration the live URL runs, so every number here is about the thing a judge can open. A Bedrock baseline would measure a different deployment and is reported separately in the README.",
+          "expected_headline": {
+            "required_beats": 34,
+            "covered_with_evidence": 31,
+            "raising_exceptions": 2,
+            "without_release_record": 1,
+            "not_assessed": 0
+          }
+        },
+        "corrections": [
+          {
+            "case": "missing evidence",
+            "field": "rights_findings",
+            "declared_first": 6,
+            "observed": 7,
+            "which_was_wrong": "the expectation",
+            "why": "Written from memory of the corpus rather than from the corpus. The ledger covers five people and two visible assets, so seven rights findings is correct and six never was. No product code was changed.",
+            "unchanged_assertions_that_held_first_time": [
+              "missing_release_subjects == ['BG-07']",
+              "beats_without_release == 1"
+            ]
+          }
+        ],
+        "fixtures": {
+          "files": {
+            "camera_report.json": "17c0f0327b018b37bd5bc2198e6adc836646f6d2ee2003a57540fe0a5711fc94",
+            "continuity_refs.json": "bac294917b2c0a38eefca8533153dac88d7fe91f846b7d16508f536e7a5ba0ca",
+            "rights_ledger.json": "ca173f209e25267e98d7074abfcd009489c22046df08e3ce40c4b30584ef5fde",
+            "script_notes.json": "487f17e3a12733afbbcbe5da7718c5319112ac1483637d3aa783f433e35c1597",
+            "script_revision.json": "e8257235b3787c46566439962ef1dc73128955f7bc0bfa4dffa4f6c825180f8d",
+            "shot_plan.json": "2dc09ab44395018aa00a63937074d9a01d43dcccd2825f3cb074e5700c6d9ae9",
+            "sound_report.json": "7d04ca908b78e18d13c7b80d89a155df122a3b66b5cfd2a63727cafe4c87bd9f",
+            "takes.json": "ba4a76d25911890e72d165ef083d87901396cc6178a642dd297866c85213e5d6"
+          },
+          "corpus_sha256": "4cef6432c108b8ea6385c5e44891903ee4a6b8df3f5f836bffca7f811901988b"
+        },
+        "command": "PYTHONPATH=src python tools/measure.py",
+        "development_cases": [
+          {
+            "case": "ordinary",
+            "expected": {
+              "required_beats": 34,
+              "covered_with_evidence": 31,
+              "raising_exceptions": 2,
+              "without_release_record": 1,
+              "not_assessed": 0
+            },
+            "observed": {
+              "required_beats": 34,
+              "covered_with_evidence": 31,
+              "raising_exceptions": 2,
+              "without_release_record": 1,
+              "not_assessed": 0
+            },
+            "error": null,
+            "correct": true,
+            "mismatches": {},
+            "wall_seconds": 0.006,
+            "interpreter_calls": 41,
+            "human_active_seconds": null,
+            "human_time_basis": "no human was observed performing this case",
+            "human_interruptions": null,
+            "human_corrections_of_the_output": null,
+            "interventions_basis": "not measured. These count what a person did during a run and no person ran one; a zero here would read as 'needed no help'",
+            "cost_usd": 0.0,
+            "cost_basis": "offline lexical interpreter, no model call, so no inference cost. Bedrock cost is not measured here: it needs per-call token counts this harness does not collect"
+          },
+          {
+            "case": "missing evidence",
+            "expected": {
+              "rights_findings": 7,
+              "missing_release_subjects": [
+                "BG-07"
+              ],
+              "beats_without_release": 1
+            },
+            "observed": {
+              "rights_findings": 7,
+              "missing_release_subjects": [
+                "BG-07"
+              ],
+              "beats_without_release": 1
+            },
+            "error": null,
+            "correct": true,
+            "mismatches": {},
+            "wall_seconds": 0.007,
+            "interpreter_calls": 41,
+            "human_active_seconds": null,
+            "human_time_basis": "no human was observed performing this case",
+            "human_interruptions": null,
+            "human_corrections_of_the_output": null,
+            "interventions_basis": "not measured. These count what a person did during a run and no person ran one; a zero here would read as 'needed no help'",
+            "cost_usd": 0.0,
+            "cost_basis": "offline lexical interpreter, no model call, so no inference cost. Bedrock cost is not measured here: it needs per-call token counts this harness does not collect"
+          },
+          {
+            "case": "changed input",
+            "expected": {
+              "b17_before": [
+                "no_viable_coverage",
+                "insufficient_evidence"
+              ],
+              "b17_after": [
+                "covered_with_evidence",
+                "corroborated_by_the_interpreter"
+              ],
+              "stale_findings_discarded": true
+            },
+            "observed": {
+              "b17_before": [
+                "no_viable_coverage",
+                "insufficient_evidence"
+              ],
+              "b17_after": [
+                "covered_with_evidence",
+                "corroborated_by_the_interpreter"
+              ],
+              "stale_findings_discarded": true
+            },
+            "error": null,
+            "correct": true,
+            "mismatches": {},
+            "wall_seconds": 0.019,
+            "interpreter_calls": 124,
+            "human_active_seconds": null,
+            "human_time_basis": "no human was observed performing this case",
+            "human_interruptions": null,
+            "human_corrections_of_the_output": null,
+            "interventions_basis": "not measured. These count what a person did during a run and no person ran one; a zero here would read as 'needed no help'",
+            "cost_usd": 0.0,
+            "cost_basis": "offline lexical interpreter, no model call, so no inference cost. Bedrock cost is not measured here: it needs per-call token counts this harness does not collect"
+          },
+          {
+            "case": "refusal",
+            "expected": {
+              "missing_field_named": [
+                "slate"
+              ],
+              "wrong_type_refused": true,
+              "foreign_report_row_refused": true
+            },
+            "observed": {
+              "missing_field_named": [
+                "slate"
+              ],
+              "wrong_type_refused": true,
+              "foreign_report_row_refused": true
+            },
+            "error": null,
+            "correct": true,
+            "mismatches": {},
+            "wall_seconds": 0.0,
+            "interpreter_calls": 0,
+            "human_active_seconds": null,
+            "human_time_basis": "no human was observed performing this case",
+            "human_interruptions": null,
+            "human_corrections_of_the_output": null,
+            "interventions_basis": "not measured. These count what a person did during a run and no person ran one; a zero here would read as 'needed no help'",
+            "cost_usd": 0.0,
+            "cost_basis": "offline lexical interpreter, no model call, so no inference cost. Bedrock cost is not measured here: it needs per-call token counts this harness does not collect"
+          },
+          {
+            "case": "retry and recovery",
+            "expected": {
+              "first_attempt_failed": true,
+              "retry_published": true,
+              "third_was_not_republished": true,
+              "bus_calls": 2
+            },
+            "observed": {
+              "first_attempt_failed": false,
+              "retry_published": false,
+              "third_was_not_republished": false,
+              "bus_calls": 1
+            },
+            "error": null,
+            "correct": false,
+            "mismatches": {
+              "first_attempt_failed": [
+                true,
+                false
+              ],
+              "retry_published": [
+                true,
+                false
+              ],
+              "third_was_not_republished": [
+                true,
+                false
+              ],
+              "bus_calls": [
+                2,
+                1
+              ]
+            },
+            "wall_seconds": 0.067,
+            "interpreter_calls": 0,
+            "human_active_seconds": null,
+            "human_time_basis": "no human was observed performing this case",
+            "human_interruptions": null,
+            "human_corrections_of_the_output": null,
+            "interventions_basis": "not measured. These count what a person did during a run and no person ran one; a zero here would read as 'needed no help'",
+            "cost_usd": 0.0,
+            "cost_basis": "offline lexical interpreter, no model call, so no inference cost. Bedrock cost is not measured here: it needs per-call token counts this harness does not collect"
+          }
+        ],
+        "held_out_cases": [
+          {
+            "case": "no interpreter reachable",
+            "expected": {
+              "covered": 0,
+              "declared": 33,
+              "corroborated": 0
+            },
+            "observed": {
+              "covered": 0,
+              "declared": 33,
+              "corroborated": 0
+            },
+            "error": null,
+            "correct": true,
+            "mismatches": {},
+            "wall_seconds": 0.004,
+            "interpreter_calls": 0,
+            "human_active_seconds": null,
+            "human_time_basis": "no human was observed performing this case",
+            "human_interruptions": null,
+            "human_corrections_of_the_output": null,
+            "interventions_basis": "not measured. These count what a person did during a run and no person ran one; a zero here would read as 'needed no help'",
+            "cost_usd": 0.0,
+            "cost_basis": "offline lexical interpreter, no model call, so no inference cost. Bedrock cost is not measured here: it needs per-call token counts this harness does not collect"
+          },
+          {
+            "case": "a record edited in storage",
+            "expected": {
+              "eligible": false,
+              "named_the_seal": true
+            },
+            "observed": {
+              "eligible": false,
+              "named_the_seal": true
+            },
+            "error": null,
+            "correct": true,
+            "mismatches": {},
+            "wall_seconds": 0.012,
+            "interpreter_calls": 41,
+            "human_active_seconds": null,
+            "human_time_basis": "no human was observed performing this case",
+            "human_interruptions": null,
+            "human_corrections_of_the_output": null,
+            "interventions_basis": "not measured. These count what a person did during a run and no person ran one; a zero here would read as 'needed no help'",
+            "cost_usd": 0.0,
+            "cost_basis": "offline lexical interpreter, no model call, so no inference cost. Bedrock cost is not measured here: it needs per-call token counts this harness does not collect"
+          },
+          {
+            "case": "the missing release filed",
+            "expected": {
+              "without_release_record": 0,
+              "covered": 32,
+              "still_raising_exceptions": 2
+            },
+            "observed": {
+              "without_release_record": 0,
+              "covered": 32,
+              "still_raising_exceptions": 2
+            },
+            "error": null,
+            "correct": true,
+            "mismatches": {},
+            "wall_seconds": 0.007,
+            "interpreter_calls": 41,
+            "human_active_seconds": null,
+            "human_time_basis": "no human was observed performing this case",
+            "human_interruptions": null,
+            "human_corrections_of_the_output": null,
+            "interventions_basis": "not measured. These count what a person did during a run and no person ran one; a zero here would read as 'needed no help'",
+            "cost_usd": 0.0,
+            "cost_basis": "offline lexical interpreter, no model call, so no inference cost. Bedrock cost is not measured here: it needs per-call token counts this harness does not collect"
+          }
+        ],
+        "what_was_not_measured": [
+          "human active time, interruptions and corrections: no human was observed",
+          "Bedrock inference cost: needs per-call token counts this harness does not collect",
+          "judgement quality against labelled ground truth: these cases check behaviour against declared expectations, which is a weaker claim"
+        ],
+        "held_out_caveat": "Written after the behaviour was fixed and not used to change it. That is weaker than a set somebody else wrote, and it is not user validation: no practising script supervisor has run any of this."
+      }
+    }
+  ]
 }
