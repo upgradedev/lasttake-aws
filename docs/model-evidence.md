@@ -41,7 +41,7 @@ Whatever that step's name says, it runs on the same runner with the same keys, a
 connectivity only.
 
 **What the checkpoint exercises.** `--bedrock` swaps only the interpreter.
-[cli.py](../src/lasttake/cli.py) builds `BedrockInterpreter` (cli.py:74-85), which runs two Strands
+[cli.py](../src/lasttake/cli.py) builds `BedrockInterpreter` (cli.py:75-86), which runs two Strands
 agents on `BedrockModel` and calls `structured_output` for the two bounded questions
 ([bedrock_interpreter.py](../src/lasttake/adapters/aws/bedrock_interpreter.py):126-200). The
 planner that drives the orchestrator stays the scripted offline one. So `BedrockModel` plus

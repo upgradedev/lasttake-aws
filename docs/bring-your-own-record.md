@@ -4,11 +4,11 @@ This page is for someone putting their own take or release record into LastTake,
 
 ## Why intake takes a document
 
-The legacy single page the Lambda still serves at `/` on the HTTP API endpoint has two controls that write a fixed take, T-041, and a fixed release, REL-007, through `POST /api/late-take` and `POST /api/resolve-rights`. Each appears as a guided step and as an inbox button (`src/lasttake/app/static/index.html:511-524`, `:1304-1329`, `src/lasttake/app/handler.py:343-361`, `:400-409`, `:687`). They show which checks rerun, but they write the same two records every time, so nobody can put their own scene through them, which makes them a fixture with a play button. The React workspace has no such control. Intake takes a document instead (`frontend/src/App.tsx:130`).
+The legacy single page the Lambda still serves at `/` on the HTTP API endpoint has two controls that write a fixed take, T-041, and a fixed release, REL-007, through `POST /api/late-take` and `POST /api/resolve-rights`. Each appears as a guided step and as an inbox button (`src/lasttake/app/static/index.html:511-524`, `:1304-1329`, `src/lasttake/app/handler.py:344-362`, `:401-410`, `:689`). They show which checks rerun, but they write the same two records every time, so nobody can put their own scene through them, which makes them a fixture with a play button. The React workspace has no such control. Intake takes a document instead (`frontend/src/App.tsx:130`).
 
 A request names the run, the `kind` of record and the `document`. The workspace form builds the same document from its fields (`frontend/src/model.ts:41-46`) and sends it to the same route. An accepted document goes through four steps:
 
-1. The handler checks the `run_id` format, then session ownership, then the document shape, all before the run is built (`src/lasttake/app/handler.py:733-750`).
+1. The handler checks the `run_id` format, then session ownership, then the document shape, all before the run is built (`src/lasttake/app/handler.py:735-752`).
 2. The document becomes a package amendment, replayed in memory onto the base scene package. On AWS the base package is the corpus bundled with the Lambda, and amendments are kept in the S3 artifact store (`src/lasttake/app/handler.py:72-115`, `src/lasttake/app/ingest.py:46-87`).
 3. The checks listed for the document's event rerun against the amended package. [What reruns, and why](#what-reruns-and-why) explains which ones.
 4. Only after that is the amendment written, the new findings stored and the event published (`src/lasttake/app/ingest.py:312-330`).
@@ -70,8 +70,8 @@ The walk that uses these flows is in [Using the LastTake workspace](workspace-gu
 - Repeated or oversized lists are refused before any write. The tests compare every stored byte and the package digest before and after (`tests/test_security_boundaries.py:242-279`).
 - An unknown beat identifier is not silently removed: it is accepted and stored as supplied (`tests/test_security_boundaries.py:281-289`).
 - Some older amendments predate the rule against repeats. Their repeated links are collapsed only in the scene projection the workspace reads; the stored amendment and its digest do not change (`src/lasttake/app/scene_view.py:38-43`, `tests/test_security_boundaries.py:338`).
-- A 201st amendment is not written. The code raises an error first, and the HTTP handler returns it as a generic HTTP 500 (`src/lasttake/app/ingest.py:60-66`, `src/lasttake/app/handler.py:786-797`).
-- When a storage read gives an uncertain answer, the API returns HTTP 503 with "Saved state is temporarily unavailable." It never falls back to treating the run as unowned, or to an empty saved state (`src/lasttake/app/handler.py:671-678`, `tests/test_security_boundaries.py:90-176`).
+- A 201st amendment is not written. The code raises an error first, and the HTTP handler returns it as a generic HTTP 500 (`src/lasttake/app/ingest.py:60-66`, `src/lasttake/app/handler.py:788-799`).
+- When a storage read gives an uncertain answer, the API returns HTTP 503 with "Saved state is temporarily unavailable." It never falls back to treating the run as unowned, or to an empty saved state (`src/lasttake/app/handler.py:673-680`, `tests/test_security_boundaries.py:90-176`).
 - A supplied record does not expire. Amendments sit under the data bucket's `artifacts/` prefix, and its lifecycle rules expire only `runs/` and `sessions/` (`infra/stack.yaml:66-78`). Use fictional records only, as the form asks (`frontend/src/Intake.tsx:34`).
 
 ## What reruns, and why
@@ -88,7 +88,7 @@ Which checks rerun is looked up by event type in the `AFFECTED_CHECKS` table in 
 | Check | Artifacts it cites | Source |
 | --- | --- | --- |
 | coverage | `script_revision`, `takes`, `shot_plan` | `src/lasttake/checks/coverage.py:39-50` |
-| continuity | `continuity_refs`, `script_notes`, `takes` | `src/lasttake/checks/continuity.py:47-57` |
+| continuity | `continuity_refs`, `script_notes`, `takes` | `src/lasttake/checks/continuity.py:61-71` |
 | metadata | `takes`, `camera_report` | `src/lasttake/checks/metadata.py:38-43` |
 | rights | `rights_ledger`, `takes` | `src/lasttake/checks/rights.py:50-55` |
 
@@ -100,7 +100,7 @@ The rerun happens inside the API route, without the orchestrator, and the event 
 
 The response carries the run's new state plus `affected_checks`, `ingested` (the kind and the run's amendment count), `withdrawn_decisions` and `delivery` (`src/lasttake/app/ingest.py:349-360`). Its `message` says the checks reran "because that is which artifact digests moved", but the list itself comes from the table above. If the bus does not accept the event, the message adds that the evidence is saved and asks you to review delivery status before retrying.
 
-Two other routes do not use the table to choose checks. `POST /api/late-take` always reruns all four checks, and `POST /api/resolve-rights` always reruns rights only (`src/lasttake/app/handler.py:376-380`, `:423`). Both still fill the response's `affected_checks` from the table (`src/lasttake/app/handler.py:385`, `:429`). The CLI commands `lasttake late-take` and `lasttake resolve rights` choose the same checks in code, all four and rights only (`src/lasttake/cli.py:292-297`, `:352-354`).
+Two other routes do not use the table to choose checks. `POST /api/late-take` always reruns all four checks, and `POST /api/resolve-rights` always reruns rights only (`src/lasttake/app/handler.py:377-381`, `:424`). Both still fill the response's `affected_checks` from the table (`src/lasttake/app/handler.py:386`, `:430`). The CLI commands `lasttake late-take` and `lasttake resolve rights` choose the same checks in code, all four and rights only (`src/lasttake/cli.py:293-298`, `:353-355`).
 
 ## An approval does not survive the evidence it was about
 
@@ -108,8 +108,8 @@ A human decision used to bind to a finding id, and finding ids are deterministic
 
 A decision now carries the digest of the finding it was taken about:
 
-- Every new decision stores the finding's seal in its own `finding_sha256` field. The seal is `record_sha256`, a SHA-256 over the finding record, including the digest of each source the finding cites (`src/lasttake/domain/findings.py:134-156`). Both `POST /api/decide` (`src/lasttake/app/handler.py:465-476`) and the CLI command `lasttake resolve decision` (`src/lasttake/cli.py:374-382`) set it, so neither creates an unbound decision. The decision record itself is not sealed.
-- On a session-owned run, `POST /api/decide` must also send the `finding_sha256` the person reviewed, or it is refused with HTTP 400 (`src/lasttake/app/workspace.py:166-167`). If the finding has changed since that review, the request is refused with HTTP 409 (`src/lasttake/app/handler.py:447-448`).
+- Every new decision stores the finding's seal in its own `finding_sha256` field. The seal is `record_sha256`, a SHA-256 over the finding record, including the digest of each source the finding cites (`src/lasttake/domain/findings.py:134-156`). Both `POST /api/decide` (`src/lasttake/app/handler.py:466-477`) and the CLI command `lasttake resolve decision` (`src/lasttake/cli.py:375-383`) set it, so neither creates an unbound decision. The decision record itself is not sealed.
+- On a session-owned run, `POST /api/decide` must also send the `finding_sha256` the person reviewed, or it is refused with HTTP 400 (`src/lasttake/app/workspace.py:166-167`). If the finding has changed since that review, the request is refused with HTTP 409 (`src/lasttake/app/handler.py:448-449`).
 - The gate counts a decision only when its `finding_sha256` equals the finding's current seal (`src/lasttake/domain/policy.py:399-401`). It picks the latest decision from a role with authority before checking the digest, so a stale later review cannot bring back an earlier acceptance (`src/lasttake/domain/policy.py:388-396`). `tests/test_gate.py:221-252` reseals a changed finding under the same id and shows the acceptance no longer resolves it.
 
 When an amendment moves the evidence a finding cites, the rerun writes that finding again with a different seal, and a decision bound to the old seal stops applying. The ingest response lists that decision in `withdrawn_decisions`, with its `decision_id`, `finding_id`, `actor`, `role` and a `why` (`src/lasttake/app/ingest.py:332-352`). A decision is listed when it carries a `finding_sha256`, its finding is still on file, and that finding's current seal differs from the digest the decision was bound to (`src/lasttake/app/ingest.py:343-346`). A listed decision stays in the run's history; it no longer applies (`tests/test_handler.py:610-641`, `tests/test_handler.py:848-878`). The comparison is with the decision, not with the seal as it stood before this ingest, so a decision that had already stopped applying is listed again by every later ingest, a release included. A release reruns only the rights check, so a decision on a coverage, continuity or metadata finding that was still applying keeps applying after one, even though an already withdrawn decision is listed again.

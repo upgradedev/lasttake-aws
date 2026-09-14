@@ -6,7 +6,7 @@ This page is for a judge or tester who wants to walk the live site in depth, and
 
 The live workspace runs the scripted planner `offline-scripted/1.0.0` and the offline lexical interpreter `offline-lexical/1.0.0`. It makes real Strands Agents SDK tool calls, resumes Strands sessions from S3, and gates each decision by demo role. The hosted HTTP path always runs this way: it has no Bedrock switch (`src/lasttake/app/handler.py:146, 169`).
 
-Only three requests go through the Strands agent: the checkpoint, the pickup answer, and the wrap request and its answer (`/api/checkpoint`, `/api/approve`, `/api/wrap`). Evidence intake reruns the checks directly (`src/lasttake/app/ingest.py:318-330`). **Review wrap readiness** calls the gate tool directly, and **Publish approved turnover** calls the turnover tool directly (`handler.py:497-505, 548-566`).
+Only three requests go through the Strands agent: the checkpoint, the pickup answer, and the wrap request and its answer (`/api/checkpoint`, `/api/approve`, `/api/wrap`). Evidence intake reruns the checks directly (`src/lasttake/app/ingest.py:318-330`). **Review wrap readiness** calls the gate tool directly, and **Publish approved turnover** calls the turnover tool directly (`handler.py:499-507, 550-568`).
 
 It does not:
 
@@ -90,7 +90,7 @@ This is the four-step journey the automated test follows (see [What the walk is 
 
 ### Step 4: Editorial handoff
 
-1. Open **Handoff** and press **Publish approved turnover**. It is enabled only when the evidence is currently eligible and the 1st AD has approved wrap. The button posts to `/api/turnover`, which runs the `publish_turnover` tool directly (`handler.py:548-566`). Nothing in the repository subscribes to the `wrap.ready` event published at approval; this request is what builds the turnover.
+1. Open **Handoff** and press **Publish approved turnover**. It is enabled only when the evidence is currently eligible and the 1st AD has approved wrap. The button posts to `/api/turnover`, which runs the `publish_turnover` tool directly (`handler.py:550-568`). Nothing in the repository subscribes to the `wrap.ready` event published at approval; this request is what builds the turnover.
 2. **Turnover for this run** now shows the saved record. **Download turnover** downloads the stored manifest as JSON. The tested journey checks that the download matches the manifest on screen (`web/video/hero-journey.mjs:108-110`).
 3. **Download handoff summary** and **Copy handoff summary** give a text version: the retained exceptions with their next actions, the beat-to-take map and the source digests. The browser builds this text from the manifest, and it is not separately sealed. **Find beat or take in turnover** searches the saved map.
 4. Set **Receipt purpose** to **Wrap review** and press **Prepare receipt**. **Receipt ready for review** appears with the recorded approval and every open item. **Download receipt** saves the sealed JSON. **Copy evidence summary** and **Download evidence summary** give its text.
@@ -111,7 +111,7 @@ The current policy version is 1.1.0 (`src/lasttake/domain/policy.py:37`). If a r
 1. If a request is pending, decline it first. The page says "Open the pending approval in Scene review and decline it before checking again."
 2. Press **Run fresh checkpoint**.
 
-Existing decisions and receipts stay in history. An old approval request with no saved evidence binding cannot approve new evidence. The tool answers "Refusing: this older request has no saved evidence binding. Request a fresh approval." (`src/lasttake/agents/tools.py:276-278, 342-344`).
+Existing decisions and receipts stay in history. An old approval request with no saved evidence binding cannot approve new evidence. The tool answers "Refusing: this older request has no saved evidence binding. Request a fresh approval." (`src/lasttake/agents/tools.py:278-280, 344-346`).
 
 ## What the walk is tested against
 
@@ -279,7 +279,7 @@ A script supervisor on the floor and a 1st AD at the truck each need three answe
 
 Which items are yours is read from the same authority table the deterministic gate enforces. The API sends it with the scene: `src/lasttake/app/scene_view.py:127-137` projects `policy.AUTHORITY` and `policy.MAY_ACCEPT_EXCEPTION`. Moving a check to a different role therefore moves these lists without anyone editing the page.
 
-A single summary ordered by where the cost falls exists only in the older static page, [`src/lasttake/app/static/index.html`](../src/lasttake/app/static/index.html): the `paintMine` function at lines 970-1023 (its section begins at line 938), ordered by `COST_ORDER` at line 469. The handler serves that page at `/` and `/index.html` on the HTTP API endpoint; the CloudFront URL serves the React workspace (`handler.py:687`, `infra/frontend_stack.py:15-23`).
+A single summary ordered by where the cost falls exists only in the older static page, [`src/lasttake/app/static/index.html`](../src/lasttake/app/static/index.html): the `paintMine` function at lines 970-1023 (its section begins at line 938), ordered by `COST_ORDER` at line 469. The handler serves that page at `/` and `/index.html` on the HTTP API endpoint; the CloudFront URL serves the React workspace (`handler.py:689`, `infra/frontend_stack.py:15-23`).
 
 The sealed receipt is the packet meant to be read away from the page, so it carries its own context (`src/lasttake/domain/receipt.py:141-226`):
 
@@ -292,7 +292,7 @@ The sealed receipt is the packet meant to be read away from the page, so it carr
 
 **Copy evidence summary** copies the receipt's text, ready to paste into a production email. **Download receipt** saves the sealed JSON. If evidence or decisions change after you prepare a receipt, the page marks it historical and asks for a new one; earlier downloads stay as they were (`frontend/src/History.tsx:41-44`).
 
-An accepted exception travels. It stays under `still_open` with its decision beside it (`receipt.py:16-19, 124-126`). Somebody signed for it, but that does not make it fixed, and a receipt that quietly dropped it is how an approved problem reaches the edit as a surprise. The turnover keeps it too, under **What editorial still needs to know**.
+An accepted exception travels. It stays under `still_open` with its decision beside it (`receipt.py:16-19, 241-243`). Somebody signed for it, but that does not make it fixed, and a receipt that quietly dropped it is how an approved problem reaches the edit as a surprise. The turnover keeps it too, under **What editorial still needs to know**.
 
 The packet also states what it does **not** say: it is not a statement that the scene is creatively complete, cleared in law, or safe to wrap, and absent evidence in it is a gap rather than a pass.
 
@@ -303,7 +303,7 @@ Its other stated limits:
 - SHA-256 identifies bytes. It does not prove where they came from, who a person is, or that they are true.
 - Bus acceptance is not downstream delivery or completion, and a stored event copy proves only storage.
 
-All of these appear under **Receipt limits & sealed record** (`receipt.py:39-55`).
+All of these appear under **Receipt limits & sealed record** (`receipt.py:46-62`).
 
 ## Sessions, timeouts and retries
 
@@ -344,8 +344,8 @@ While a refresh is needed, **Save evidence & rerun checks** is disabled and the 
 **On the S3 or local-file fallback:**
 
 - Each page reads at most a 64 KiB (65,536-byte) window of the existing audit array, as a byte range tied to that file version, and never rewrites the file (`history.py:9, 61-112`, `src/lasttake/adapters/aws/infrastructure.py:194-225`).
-- If the file changed between pages, the API answers HTTP 409 with "Saved history changed." and asks for a list refresh (`history.py:57`, `handler.py:757-758`).
-- An unreadable or oversized historical record is refused, not skipped. The API answers "Saved state is temporarily unavailable." (`history.py:69-111`, `handler.py:671-676, 759-760`).
+- If the file changed between pages, the API answers HTTP 409 with "Saved history changed." and asks for a list refresh (`history.py:57`, `handler.py:759-760`).
+- An unreadable or oversized historical record is refused, not skipped. The API answers "Saved state is temporarily unavailable." (`history.py:69-111`, `handler.py:673-678, 761-762`).
 
 A page cursor is bound to its session, so a cursor from another session is refused (`history.py:26-39`).
 

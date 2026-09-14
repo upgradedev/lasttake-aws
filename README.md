@@ -210,7 +210,7 @@ rights.record.updated for BG-07. Affected checks: rights. Coverage, continuity a
 Reran 7 rights check(s). The other 79 finding(s) still cite digests that have not moved, so the gate accepts them without a rerun.
 ```
 
-The second line is fixed text. `resolve` counts every finding that is not a rights finding as carried and compares no digests (`src/lasttake/cli.py:355-366`), and the headline printed under it is counted from the saved findings without the gate. Straight after Step 2 that line holds. After Step 3 it does not. `resolve` rebuilds the package from `corpus/` without the late take T-041. The coverage, continuity and metadata findings written in Step 3 cite a takes digest that package no longer has, so the gate would discard them. B-17 prints as `no_viable_coverage` again.
+The second line is fixed text. `resolve` counts every finding that is not a rights finding as carried and compares no digests (`src/lasttake/cli.py:356-367`), and the headline printed under it is counted from the saved findings without the gate. Straight after Step 2 that line holds. After Step 3 it does not. `resolve` rebuilds the package from `corpus/` without the late take T-041. The coverage, continuity and metadata findings written in Step 3 cite a takes digest that package no longer has, so the gate would discard them. B-17 prints as `no_viable_coverage` again.
 
 **Step 5. Read the event log, and verify a turnover manifest.**
 

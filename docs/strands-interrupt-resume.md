@@ -21,22 +21,22 @@ The run can be stopped and resumed from the command line or through the HTTP API
 
 | | Command line | HTTP API on Lambda |
 |---|---|---|
-| Stops the run | `lasttake checkpoint` stops at the pickup approval (`cli.py:134-177`). No CLI command requests wrap approval. | `POST /api/checkpoint` stops at the pickup approval (`handler.py:275-310`). `POST /api/wrap` without an interrupt id stops at the wrap approval (`handler.py:533-534`). |
+| Stops the run | `lasttake checkpoint` stops at the pickup approval (`cli.py:135-178`). No CLI command requests wrap approval. | `POST /api/checkpoint` stops at the pickup approval (`handler.py:275-310`). `POST /api/wrap` without an interrupt id stops at the wrap approval (`handler.py:535-536`). |
 | Where the paused run is saved | `FileSessionManager` in `.lasttake/sessions` (`orchestrator.py:221-226`) | `S3SessionManager` under the `sessions/` prefix of the data bucket (`handler.py:155-169`) |
-| How the interrupt id travels | Read back from the session files (`cli.py:211-226`), or passed with `--interrupt-id` | Returned as `pending_approval.id` (`handler.py:221-226`, `:299-302`) and sent back as `interrupt_id` |
-| Resumes the run | `lasttake approve --yes` (`cli.py:180-208`) | `POST /api/approve` or `POST /api/wrap` with an interrupt id (`handler.py:313-334`, `:508-531`) |
+| How the interrupt id travels | Read back from the session files (`cli.py:212-227`), or passed with `--interrupt-id` | Returned as `pending_approval.id` (`handler.py:221-226`, `:299-302`) and sent back as `interrupt_id` |
+| Resumes the run | `lasttake approve --yes` (`cli.py:181-209`) | `POST /api/approve` or `POST /api/wrap` with an interrupt id (`handler.py:314-335`, `:510-533`) |
 
 The checkpoint request, from the command or from `POST /api/checkpoint` behind the **Run wrap
 checkpoint** button, publishes `scene.wrap-checkpoint.requested` and then starts the orchestrator
-itself in the same process (`cli.py:144-150`, `handler.py:278-286`). No EventBridge rule routes
+itself in the same process (`cli.py:145-151`, `handler.py:278-286`). No EventBridge rule routes
 that event: `infra/stack.yaml:130-136` declares the bus and nothing that subscribes to it.
 
 Both approvals are addressed to the 1st AD. The interrupt is named `first-ad-pickup-approval` or
-`first-ad-wrap-approval` (`tools.py:90`). `publish_approved` refuses a payload whose
+`first-ad-wrap-approval` (`tools.py:92`). `publish_approved` refuses a payload whose
 `approved_by_role` is not `first_ad` (`runtime.py:179-180`), but both approval tools set that
-field to `first_ad` themselves (`tools.py:285`, `:347`), so that check does not show who answered.
+field to `first_ad` themselves (`tools.py:287`, `:349`), so that check does not show who answered.
 Only a session-owned HTTP run checks the role the answer claims (`workspace.py:162-163`). The CLI
-(`cli.py:180-208`) and HTTP runs with no owner (`workspace.py:72-75`) check no role at all. Even
+(`cli.py:181-209`) and HTTP runs with no owner (`workspace.py:72-75`) check no role at all. Even
 on an owned run, that role is a claim in the request, not an authenticated identity.
 
 What resumes is the saved Strands session. On the deployed stack, findings, decisions,
@@ -77,9 +77,9 @@ If `lasttake approve --yes` succeeds instead, the job prints
 
 **What process 2 has to work with.** Process 2 shares nothing with process 1 except the
 `.lasttake` directory in the checkout. It finds the pending interrupt id in the session files
-(`cli.py:196`, `:211-226`). It builds a new agent on the same `FileSessionManager` directory
-(`cli.py:188`) and answers with an `interruptResponse` (`cli.py:201`). If no interrupt is found,
-the command exits 1 (`cli.py:197-199`). If Strands cannot resume, it raises. Either way the step
+(`cli.py:197`, `:212-227`). It builds a new agent on the same `FileSessionManager` directory
+(`cli.py:189`) and answers with an `interruptResponse` (`cli.py:202`). If no interrupt is found,
+the command exits 1 (`cli.py:198-200`). If Strands cannot resume, it raises. Either way the step
 fails. In a local run, the `find` step lists `session.json` under
 `session_run-sc042-wrap-checkpoint/`, and `agent.json` plus one `messages/message_N.json` file per
 message under its `agents/agent_default/`.
@@ -87,14 +87,14 @@ message under its `agents/agent_default/`.
 **What this job does not show.**
 
 - The times in the step names are labels. The steps run back to back, and `--hours 7.5` only
-  changes the banner text (`cli.py:185`, `:509`). Nothing waits.
+  changes the banner text (`cli.py:186`, `:510`). Nothing waits.
 - No step compares the two process ids or checks the approval message. The checkpoint and the
-  approval each print a `[pid N]` line (`cli.py:116`, `:186`), so the ids can be read in the log,
+  approval each print a `[pid N]` line (`cli.py:117`, `:187`), so the ids can be read in the log,
   but nothing asserts them.
 - The late-take step name says only the affected checks rerun. For a new take that is all four
   checks, coverage, continuity, metadata and rights, not a narrower set, because each check
-  cites the takes (`events.py:129-130`, the comment at `cli.py:282-286`). The four reruns are at
-  `cli.py:292-297`.
+  cites the takes (`events.py:129-130`, the comment at `cli.py:283-287`). The four reruns are at
+  `cli.py:293-298`.
 - The negative control runs after process 2 has already answered the only interrupt. At that
   point `lasttake approve --yes` exits 1 with `Nothing is waiting for a decision.` even when the
   session is left in place. A local run on 2026-09-14 showed this by running the job's commands
@@ -116,7 +116,7 @@ mv sessions.saved .lasttake/sessions
 lasttake approve --yes --interrupt-id "$TOKEN"
 ```
 
-`$TOKEN` holds the `correlation token` value the checkpoint prints (`cli.py:123`).
+`$TOKEN` holds the `correlation token` value the checkpoint prints (`cli.py:124`).
 
 1. With the session files moved away, the first approve exits 1. Strands refuses with
    `ValueError: Received interrupt responses but agent is not in interrupt state.`
@@ -175,7 +175,7 @@ The transcript carries no run id. It entered the README in commit `3f2296d` on 2
   [Backend release by manual dispatch](release-and-acceptance.md#backend-release-by-manual-dispatch).
 - **What `c1` and `c2` are.** Every API response carries `served_by.container_id`, a random
   eight-character id chosen once when a Lambda container loads the handler (`handler.py:69`,
-  `:175-185`). The approval request builds a new agent from the S3 session (`handler.py:313-320`,
+  `:175-185`). The approval request builds a new agent from the S3 session (`handler.py:314-321`,
   `:155-169`).
 - **How the cold start is forced.** The step changes only the function description and waits for
   the update (`deploy.yml:285-290`). It then checks that `/healthz` still reports `aurora-dsql`
@@ -202,22 +202,22 @@ behind an idempotency key derived from the event payload. See `src/lasttake/agen
 - **Where it is written down.** The module docstring records the rule and says it was found in a
   spike on 2026-08-22 (`tools.py:8-14`).
 - **The boundary in the pickup tool.** In `request_pickup_approval` the boundary is a comment
-  (`tools.py:248-249`). Above it, the tool only looks up the beat (`tools.py:244-246`). Below it
-  and before the answer, it loads or builds the approval record (`tools.py:250`) and, on the first
-  raise only, saves that record and an audit entry (`tools.py:91-94`). After the answer it
-  publishes `pickup.requested` (`tools.py:279-288`).
+  (`tools.py:250-251`). Above it, the tool only looks up the beat (`tools.py:246-248`). Below it
+  and before the answer, it loads or builds the approval record (`tools.py:252`) and, on the first
+  raise only, saves that record and an audit entry (`tools.py:93-96`). After the answer it
+  publishes `pickup.requested` (`tools.py:281-290`).
 - **The saved review.** The review record the 1st AD answers is saved when the interrupt is first
-  raised, and reloaded on replay rather than rebuilt (`tools.py:73-98`).
+  raised, and reloaded on replay rather than rebuilt (`tools.py:75-100`).
 - **The idempotency key.** The key is a digest of the event type, production, scene, payload and
   correlation id (`events.py:78-88`). Before publishing, the run also claims the logical action
   (event type, run and beat), so an unresolved earlier attempt blocks a resend
   (`runtime.py:69-79`, `:116-123`). An accepted receipt is saved and handed back on a repeat
   (`runtime.py:70-71`, `:98-100`).
 - **What it covers.** `pickup.requested` and `wrap.ready` (`runtime.py:177-192`), and
-  `turnover.generated` (`tools.py:394-398`). Gate evaluation and its `wrap.eligible` event are
-  not deduplicated (`tools.py:208-214`).
+  `turnover.generated` (`tools.py:396-400`). Gate evaluation and its `wrap.eligible` event are
+  not deduplicated (`tools.py:210-216`).
 - **A stale wrap request.** A resumed wrap request still reaches `interrupt()` so it can be
-  declined (`tools.py:306-309`). `wrap.ready` is refused if the evidence changed after the review
+  declined (`tools.py:308-311`). `wrap.ready` is refused if the evidence changed after the review
   (`runtime.py:181-182`).
 - **The test.** `tests/test_end_to_end.py:66-92` stops a run, resumes it with a second agent
   object built on the same session, and asserts that exactly one `pickup.requested` was
@@ -230,16 +230,16 @@ For the full list of tools the orchestrator calls, see
 
 | What | Where |
 |---|---|
-| Pickup approval tool, `@tool(context=True)` | [src/lasttake/agents/tools.py:231-294](../src/lasttake/agents/tools.py#L231) |
-| Wrap approval tool, `@tool(context=True)` | [src/lasttake/agents/tools.py:296-354](../src/lasttake/agents/tools.py#L296) |
-| The `interrupt()` call both tools share | [src/lasttake/agents/tools.py:85-98](../src/lasttake/agents/tools.py#L85), the call at `:90` |
+| Pickup approval tool, `@tool(context=True)` | [src/lasttake/agents/tools.py:233-296](../src/lasttake/agents/tools.py#L233) |
+| Wrap approval tool, `@tool(context=True)` | [src/lasttake/agents/tools.py:298-356](../src/lasttake/agents/tools.py#L298) |
+| The `interrupt()` call both tools share | [src/lasttake/agents/tools.py:87-100](../src/lasttake/agents/tools.py#L87), the call at `:90` |
 | The replay rule, written down | [src/lasttake/agents/tools.py:8-14](../src/lasttake/agents/tools.py#L8), and the comment at `:248-249` |
 | The external effect, after the answer | [src/lasttake/agents/runtime.py:177-192](../src/lasttake/agents/runtime.py#L177) |
 | Idempotency key and logical-action claim | [src/lasttake/domain/events.py:78-88](../src/lasttake/domain/events.py#L78) and [src/lasttake/agents/runtime.py:116-123](../src/lasttake/agents/runtime.py#L116) |
-| Local session store, `FileSessionManager` | [src/lasttake/agents/orchestrator.py:221-226](../src/lasttake/agents/orchestrator.py#L221), used by `cli.py:149` and `:188` |
+| Local session store, `FileSessionManager` | [src/lasttake/agents/orchestrator.py:221-226](../src/lasttake/agents/orchestrator.py#L221), used by `cli.py:150` and `:189` |
 | Deployed session store, `S3SessionManager` | [src/lasttake/app/handler.py:155-169](../src/lasttake/app/handler.py#L155) |
 | `build_s3_session_manager`, a helper with no caller today; its docstring says the handler uses it, but the handler builds its own `S3SessionManager` | [src/lasttake/agents/orchestrator.py:236-246](../src/lasttake/agents/orchestrator.py#L236) |
-| Resume with `interruptResponse` | [src/lasttake/cli.py:201](../src/lasttake/cli.py#L201), [src/lasttake/app/handler.py:320-329](../src/lasttake/app/handler.py#L320) and `handler.py:517-526` |
+| Resume with `interruptResponse` | [src/lasttake/cli.py:202](../src/lasttake/cli.py#L202), [src/lasttake/app/handler.py:321-330](../src/lasttake/app/handler.py#L321) and `handler.py:519-528` |
 | Container id on every response | [src/lasttake/app/handler.py:69](../src/lasttake/app/handler.py#L69) and `:175-185` |
 | Session files expire at 90 days | [infra/stack.yaml:72-75](../infra/stack.yaml#L72) |
 | CI job `interrupt survives process death` | [.github/workflows/ci.yml:254-293](../.github/workflows/ci.yml#L254) |
