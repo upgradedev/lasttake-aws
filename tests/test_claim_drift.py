@@ -4,6 +4,7 @@ import importlib.util
 import json
 import re
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -43,9 +44,51 @@ def test_video_preflight_is_explicit_and_before_any_provider_or_install():
     for path in ("video/build-video.py", "video/generate-narration.py", "web/video/capture-production.mjs"):
         source = text(path)
         assert "ARCHON_" not in source and "LASTTAKE_VIDEO_ROOT" in source
-        assert "video/upstream/" in source  # Mandatory provenance is not removed.
+        assert "No pristine upstream" in source and "vendored here" in source
+        assert "video/upstream/" not in source
         if path.endswith(".py"):
             compile(source, path, "exec")  # Parse only, never execute media tooling.
+    assert "python3 scripts/verify_video_sync.py" in workflow
+    assert workflow.index("video/build-video.py") < workflow.index("scripts/verify_video_sync.py")
+    assert "actions/cache/restore@" in workflow and "actions/cache/save@" in workflow
+
+
+def test_narration_preview_is_separate_and_cannot_capture_or_compose():
+    workflow = text(".github/workflows/narration-preview.yml")
+    assert 'test "${GITHUB_REF}" = "refs/heads/main"' in workflow
+    assert 'test "${GITHUB_SHA}" = "${LASTTAKE_RELEASE_SHA}"' in workflow
+    assert "LASTTAKE_NARRATION_MODE: preview" in workflow
+    assert "video/generate-narration.py" in workflow
+    assert "capture-production" not in workflow and "build-video.py" not in workflow
+    assert "actions/cache/restore@" in workflow and "actions/cache/save@" in workflow
+    final = text(".github/workflows/submission-video.yml")
+    cache_path = "${{ runner.temp }}/lasttake-submission-video/narration"
+    cache_prefix = "${{ runner.os }}-lasttake-narration-v2-"
+    assert cache_path in workflow and cache_path in final
+    assert cache_prefix in workflow and cache_prefix in final
+
+
+def test_narration_cache_key_changes_only_the_affected_text_or_voice(tmp_path, monkeypatch):
+    monkeypatch.setenv("LASTTAKE_VIDEO_ROOT", str(tmp_path))
+    module_spec = importlib.util.spec_from_file_location(
+        "generate_narration", ROOT / "video/generate-narration.py"
+    )
+    narration = importlib.util.module_from_spec(module_spec)
+    module_spec.loader.exec_module(narration)
+    voice = {
+        "elevenLabs": {
+            "voiceId": "pNInz6obpgDQGcFmaJgB",
+            "modelId": "eleven_multilingual_v2",
+        }
+    }
+    first = narration.cache_key("first beat", voice, "elevenlabs")
+    assert first == narration.cache_key("first beat", voice, "elevenlabs")
+    assert first != narration.cache_key("changed beat", voice, "elevenlabs")
+    changed_voice = {
+        "elevenLabs": {**voice["elevenLabs"], "voiceId": "abcdefghijklmnop"}
+    }
+    assert first != narration.cache_key("first beat", changed_voice, "elevenlabs")
+    assert "audioSha256" in text("video/generate-narration.py")
 
 
 @pytest.mark.parametrize("status", [None, "NOT_CONFIGURED", "READY", ""])
@@ -55,12 +98,27 @@ def test_narration_refuses_unconfigured_status_before_reaching_any_provider(stat
     class Spec:
         def read_text(self, **_):
             return json.dumps({"recording_status": status})
-    namespace = {"SPEC": Spec(), "json": json}
+    namespace = {"SPEC": Spec(), "json": json, "os": SimpleNamespace(environ={})}
     # Only the function is loaded. No provider functions, credentials, filesystem roots or network exist here.
     exec(compile(ast.Module(body=[main], type_ignores=[]), "narration-preflight", "exec"), namespace)
     with pytest.raises(SystemExit, match="NOT_CONFIGURED"):
         namespace["main"]()
     assert json.loads(text("video/narration.json"))["recording_status"] == "NOT_CONFIGURED"
+
+
+def test_narration_preview_can_measure_not_configured_source_before_owner_activation():
+    tree = ast.parse(text("video/generate-narration.py"))
+    main = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "main")
+    class Spec:
+        def read_text(self, **_):
+            return json.dumps({"recording_status": "NOT_CONFIGURED"})
+    namespace = {
+        "SPEC": Spec(), "json": json,
+        "os": SimpleNamespace(environ={"LASTTAKE_NARRATION_MODE": "preview"}),
+    }
+    exec(compile(ast.Module(body=[main], type_ignores=[]), "narration-preview", "exec"), namespace)
+    with pytest.raises(SystemExit, match="narration contract is invalid"):
+        namespace["main"]()
 
 
 def test_current_docs_distinguish_live_demo_history_and_unknown_benefits():

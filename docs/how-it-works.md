@@ -4,7 +4,7 @@ This page is for a technical judge or reviewer who wants the system in more deta
 
 ## System view
 
-The picture follows one wrap checkpoint as the hosted demo runs it, from the request to the turnover editorial receives. The CLI takes the same path inside one local process. Solid arrows are calls and data. Dashed arrows are the two language questions a check may ask the interpreter, and the checkpoint event, which is published but starts nothing.
+The picture follows one wrap checkpoint as the hosted demo runs it, from the request to the downloadable turnover in Handoff. The CLI takes the same path inside one local process. Solid arrows are calls and data. Dashed arrows are the two language questions a check may ask the interpreter, and the checkpoint event, which is published but starts nothing.
 
 ```mermaid
 flowchart TB
@@ -202,11 +202,11 @@ tools/         ablation, bounded_model_evidence, dast_probe, docs_gate,
                prose_gate, secret_scan, uptime_check (all .py)
 video/         the optional video build: narration, composition, release proof
 scripts/       verify_video_sync.py, the video sync gate
-requirements/  pinned dependencies for the video sync gate selftest
 .github/workflows/
                aws-hosting-ci, aws-uat, ci, codeql, deploy, frontend-ci,
                frontend-deploy, legacy-source-ci, live-surface,
-               submission-video, uptime, video-sync-gate-selftest (all .yml)
+               narration-preview, submission-video, uptime,
+               video-sync-gate-selftest (all .yml)
 docs/
   how-it-works.md                    this page
   strands-interrupt-resume.md        interrupt and resume across process death

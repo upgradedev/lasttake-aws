@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Compose the CI browser capture, measured narration, and captions.
 
-Copied from upgradedev/archon-datahub, master a1feb16, file video/build-video.py.
-The pristine copy is kept at video/upstream/archon-datahub/build-video.py, so `diff`
-shows every change the kit made. Those changes are:
+Adapted from upgradedev/archon-datahub, master a1feb16, file
+video/build-video.py. No pristine upstream copy is vendored here. The
+LastTake-specific changes are:
 
   1. OUTPUT.mkdir(exist_ok=True). The original refused to compose twice into the same
      directory, which made re-rendering one beat impossible.
@@ -15,7 +15,8 @@ shows every change the kit made. Those changes are:
      than the trim lead plus the narration produced a short video with the last beats of
      speech missing, and it passed.
 
-That describes the historical kit adaptation. LastTake now uses product-specific environment and receipt names; recording remains NOT_CONFIGURED until owner verification.
+Final composition remains owner-gated. The receipt binds the exact raw capture,
+narration timing, caption windows and shipped caption file as well as the release pair.
 """
 
 from __future__ import annotations
@@ -34,6 +35,8 @@ NARRATION = ROOT / "narration"
 CAPTURE = ROOT / "capture" / "production.webm"
 OUTPUT = ROOT / "output"
 FRAME_SECONDS = 1 / 25  # matches fps=25 in the video filter below
+EXPECTED_SCENES = ("hook", "surface", "trigger", "live", "sponsor", "evidence", "close")
+NARRATION_SPEC = pathlib.Path(__file__).with_name("narration.json")
 
 
 def run(args: list[str]) -> str:
@@ -60,8 +63,19 @@ def probe(path: pathlib.Path) -> dict[str, object]:
     )
 
 
+def sha256(path: pathlib.Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for block in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
 def main() -> None:
-    timing = json.loads((NARRATION / "timing.json").read_text(encoding="utf-8"))
+    timing_path = NARRATION / "timing.json"
+    captions_path = NARRATION / "captions.en.srt"
+    caption_windows_path = NARRATION / "caption-windows.json"
+    timing = json.loads(timing_path.read_text(encoding="utf-8"))
     capture_receipt = json.loads(
         (ROOT / "capture" / "capture-receipt.json").read_text(encoding="utf-8")
     )
@@ -74,6 +88,35 @@ def main() -> None:
     )
     scenes = timing["scenes"]
     total = float(timing["totalSeconds"])
+    scene_ids = tuple(str(scene.get("id", "")) for scene in scenes)
+    if timing.get("schemaVersion") != "lasttake.submission-video-timing/v1":
+        raise SystemExit("narration timing schema is invalid")
+    narration_source_digest = sha256(NARRATION_SPEC)
+    if timing.get("narrationSourceSha256") != narration_source_digest:
+        raise SystemExit("narration timing does not match the committed narration source")
+    if scene_ids != EXPECTED_SCENES or not 90 <= total < 175:
+        raise SystemExit("narration scene order or duration is outside the final contract")
+    expected_start = 0.0
+    for scene in scenes:
+        start = float(scene["startSeconds"])
+        hold = float(scene["holdSeconds"])
+        duration = float(scene["durationSeconds"])
+        if abs(start - expected_start) > 0.01 or not 3 <= duration <= hold <= duration + 1.0:
+            raise SystemExit("narration scene offsets or holds are outside the final contract")
+        audio = NARRATION / str(scene["audio"])
+        if not audio.is_file() or scene.get("audioSha256") != sha256(audio):
+            raise SystemExit("narration audio does not match its measured timing record")
+        expected_start += hold
+    if abs(expected_start - total) > 0.01:
+        raise SystemExit("narration scene holds do not reconstruct the total duration")
+    if capture_receipt.get("sceneCount") != len(EXPECTED_SCENES):
+        raise SystemExit("capture receipt scene count is invalid")
+    if tuple(item.get("id") for item in capture_receipt.get("sceneTimings", [])) != EXPECTED_SCENES:
+        raise SystemExit("capture receipt scene order is invalid")
+    capture_bytes = CAPTURE.stat().st_size
+    capture_digest = sha256(CAPTURE)
+    if capture_receipt.get("bytes") != capture_bytes or capture_receipt.get("sha256") != capture_digest:
+        raise SystemExit("raw capture bytes do not match the capture receipt")
     trim_lead = float(capture_receipt["trimLeadSeconds"])
     if not 0 <= trim_lead <= 30:
         raise SystemExit("capture trim lead is outside the bounded contract")
@@ -92,7 +135,7 @@ def main() -> None:
             f"adelay={delay}:all=1[{label}]"
         )
         labels.append(f"[{label}]")
-    captions = str(NARRATION / "captions.en.srt").replace("\\", "/").replace(":", "\\:")
+    captions = str(captions_path).replace("\\", "/").replace(":", "\\:")
     style = (
         "FontName=DejaVu Sans,FontSize=14,PrimaryColour=&H00FFFFFF,"
         "BackColour=&HA0000000,BorderStyle=4,Outline=0,Shadow=0,MarginV=38,Alignment=2"
@@ -150,8 +193,12 @@ def main() -> None:
             "this tolerance."
         )
     captions_out = OUTPUT / "captions.en.srt"
-    captions_out.write_bytes((NARRATION / "captions.en.srt").read_bytes())
-    digest = hashlib.sha256(final.read_bytes()).hexdigest()
+    captions_out.write_bytes(captions_path.read_bytes())
+    timing_out = OUTPUT / "timing.json"
+    timing_out.write_bytes(timing_path.read_bytes())
+    caption_windows_out = OUTPUT / "caption-windows.json"
+    caption_windows_out.write_bytes(caption_windows_path.read_bytes())
+    digest = sha256(final)
     receipt = {
         "schemaVersion": "lasttake.submission-video-receipt/v1",
         **binding,
@@ -161,6 +208,11 @@ def main() -> None:
         "sceneCount": len(scenes),
         "sha256": digest,
         "bytes": final.stat().st_size,
+        "captureSha256": capture_digest,
+        "timingSha256": sha256(timing_out),
+        "captionWindowsSha256": sha256(caption_windows_out),
+        "captionsSha256": sha256(captions_out),
+        "narrationSourceSha256": narration_source_digest,
     }
     (OUTPUT / "video-receipt.json").write_text(
         json.dumps(receipt, indent=2) + "\n", encoding="utf-8"

@@ -1,0 +1,115 @@
+name: Measure submission narration
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_sha:
+        description: Exact main SHA whose narration is being reviewed
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: narration-preview-${{ inputs.release_sha }}
+  cancel-in-progress: false
+
+jobs:
+  preview:
+    name: Synthesize and measure seven narration beats only
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      LASTTAKE_RELEASE_SHA: ${{ inputs.release_sha }}
+      LASTTAKE_NARRATION_MODE: preview
+    steps:
+      - name: Bind preview to the exact reviewed main source
+        run: |
+          set -euo pipefail
+          test "${GITHUB_REPOSITORY}" = "upgradedev/lasttake-aws"
+          test "${GITHUB_REF}" = "refs/heads/main"
+          test "${GITHUB_SHA}" = "${LASTTAKE_RELEASE_SHA}"
+          [[ "${LASTTAKE_RELEASE_SHA}" =~ ^[a-f0-9]{40}$ ]]
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Create one runner-temp narration root
+        run: |
+          set -euo pipefail
+          root="${RUNNER_TEMP}/lasttake-submission-video"
+          test ! -e "${root}"
+          mkdir -m 0700 "${root}"
+          echo "LASTTAKE_VIDEO_ROOT=${root}" >>"${GITHUB_ENV}"
+
+      - name: Install ffprobe
+        run: |
+          set -euo pipefail
+          command -v ffprobe >/dev/null 2>&1 || (sudo apt-get update && sudo apt-get install --yes --no-install-recommends ffmpeg)
+          echo "FFPROBE=$(command -v ffprobe)" >>"${GITHUB_ENV}"
+
+      - name: Restore per-beat narration cache
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ${{ runner.temp }}/lasttake-submission-video/narration
+          key: ${{ runner.os }}-lasttake-narration-v2-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            ${{ runner.os }}-lasttake-narration-v2-
+
+      - name: Generate measured preview audio and captions
+        env:
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+        run: python3 video/generate-narration.py
+
+      - name: Validate the review package
+        run: |
+          set -euo pipefail
+          root="${LASTTAKE_VIDEO_ROOT}/narration"
+          jq -e '
+            .schemaVersion == "lasttake.submission-video-timing/v1"
+            and .mode == "preview"
+            and (.narrationSourceSha256 | test("^[a-f0-9]{64}$"))
+            and .totalSeconds >= 90 and .totalSeconds < 175
+            and (.scenes | length) == 7
+            and ([.scenes[].id] == ["hook","surface","trigger","live","sponsor","evidence","close"])
+            and all(.scenes[];
+              .durationSeconds >= 3 and .durationSeconds <= 40
+              and (.audioSha256 | test("^[a-f0-9]{64}$")))
+          ' "${root}/timing.json" >/dev/null
+          jq -e '
+            .schemaVersion == "lasttake.submission-video-caption-windows/v1"
+            and ([.scenes[]] == ["hook","surface","trigger","live","sponsor","evidence","close"])
+            and (.windows | length) >= 7
+          ' "${root}/caption-windows.json" >/dev/null
+          test "$(find "${root}" -maxdepth 1 -type f -name '*.mp3' -size +3000c | wc -l)" -eq 7
+          test "$(find "${root}" -maxdepth 1 -type f -name '*.cache.json' -size +20c | wc -l)" -eq 7
+          test -s "${root}/captions.en.srt"
+
+      - name: Save per-beat narration cache
+        if: always() && env.LASTTAKE_VIDEO_ROOT != ''
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ${{ runner.temp }}/lasttake-submission-video/narration
+          key: ${{ runner.os }}-lasttake-narration-v2-${{ github.run_id }}-${{ github.run_attempt }}
+
+      - name: Upload audio review package
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: lasttake-narration-preview-${{ inputs.release_sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/lasttake-submission-video/narration/
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
+
+      - name: Remove runner narration
+        if: always() && env.LASTTAKE_VIDEO_ROOT != ''
+        run: |
+          set -euo pipefail
+          test "${LASTTAKE_VIDEO_ROOT}" = "${RUNNER_TEMP}/lasttake-submission-video"
+          rm -rf -- "${LASTTAKE_VIDEO_ROOT}"
+
+      - name: Require a clean source checkout
+        if: always()
+        run: test -z "$(git status --porcelain)"

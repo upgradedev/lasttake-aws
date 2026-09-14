@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Generate short, measured TTS scenes and aligned captions in CI.
 
-Copied from upgradedev/archon-datahub, master a1feb16, file video/generate-narration.py.
-The pristine copy is kept at video/upstream/archon-datahub/generate-narration.py, so
-`diff` shows every change the kit made. Those changes are:
+Adapted from upgradedev/archon-datahub, master a1feb16, file
+video/generate-narration.py. No pristine upstream copy is vendored here. The
+LastTake-specific changes are:
 
   1. Per-scene caching. A scene is re-synthesized only when its speech text or its
      voice settings change, so fixing one beat costs one TTS call instead of all of
@@ -15,7 +15,9 @@ The pristine copy is kept at video/upstream/archon-datahub/generate-narration.py
   4. A fail-closed check that no scene still contains an unfilled <PLACEHOLDER>, so
      the template cannot be narrated verbatim into a shipped video.
 
-That describes the historical kit adaptation. LastTake now uses product-specific environment and receipt names. Its workflow fails before synthesis until the owner configures narration and verifies the current capture.
+The timing-preview mode may synthesize and measure narration while the source is
+NOT_CONFIGURED. It cannot capture or compose a candidate. Final production remains
+gated on READY_OWNER_VERIFIED.
 """
 
 from __future__ import annotations
@@ -36,6 +38,12 @@ ROOT = pathlib.Path(os.environ["LASTTAKE_VIDEO_ROOT"])
 SPEC = pathlib.Path(__file__).with_name("narration.json")
 OUT = ROOT / "narration"
 TAIL_SECONDS = 0.65
+CACHE_SCHEMA_VERSION = "lasttake-narration-cache/v2"
+ELEVENLABS_VOICE_SETTINGS = {
+    "stability": 0.45,
+    "similarity_boost": 0.8,
+    "use_speaker_boost": True,
+}
 
 # Historical names across the fourteen entries, in precedence order. Whichever is set
 # is used. The value is never printed and never written to a receipt.
@@ -127,11 +135,7 @@ def synthesize_elevenlabs(text: str, spec: dict[str, object], retries: int = 3) 
         {
             "text": text,
             "model_id": model_id,
-            "voice_settings": {
-                "stability": 0.45,
-                "similarity_boost": 0.8,
-                "use_speaker_boost": True,
-            },
+            "voice_settings": ELEVENLABS_VOICE_SETTINGS,
         }
     ).encode("utf-8")
     last: Exception | None = None
@@ -161,12 +165,17 @@ def voice_signature(spec: dict[str, object], provider: str) -> str:
     """Everything except the text that changes how a scene sounds. Part of the cache
     key, so changing the voice re-synthesizes every scene rather than mixing voices."""
     if provider == "elevenlabs":
-        fields: dict[str, object] = {"elevenLabs": spec.get("elevenLabs")}
+        fields: dict[str, object] = {
+            "cacheSchema": CACHE_SCHEMA_VERSION,
+            "elevenLabs": spec.get("elevenLabs"),
+            "voiceSettings": ELEVENLABS_VOICE_SETTINGS,
+        }
     else:
         fields = {
             key: spec.get(key)
             for key in ("languageCode", "voice", "speakingRate")
         }
+        fields["cacheSchema"] = CACHE_SCHEMA_VERSION
     return json.dumps(fields, sort_keys=True, separators=(",", ":"))
 
 
@@ -189,6 +198,22 @@ def cached_key(sidecar: pathlib.Path) -> str | None:
     except (OSError, ValueError):
         return None
     return recorded if isinstance(recorded, str) else None
+
+
+def file_sha256(path: pathlib.Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for block in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def cached_audio_sha256(sidecar: pathlib.Path) -> str | None:
+    try:
+        recorded = json.loads(sidecar.read_text(encoding="utf-8")).get("audioSha256")
+    except (OSError, ValueError):
+        return None
+    return recorded if isinstance(recorded, str) and re.fullmatch(r"[a-f0-9]{64}", recorded) else None
 
 
 def synthesize(text: str, spec: dict[str, object], token: str) -> bytes:
@@ -235,8 +260,14 @@ def synthesize_google(text: str, spec: dict[str, object], token: str) -> bytes:
 
 def main() -> None:
     spec = json.loads(SPEC.read_text(encoding="utf-8"))
-    if spec.get("recording_status") != "READY_OWNER_VERIFIED":
-        raise SystemExit("NOT_CONFIGURED: owner must verify release, credentials, capture and timing before synthesis.")
+    mode = os.environ.get("LASTTAKE_NARRATION_MODE", "final").strip()
+    if mode not in {"preview", "final"}:
+        raise SystemExit("LASTTAKE_NARRATION_MODE must be preview or final")
+    status = spec.get("recording_status")
+    if mode == "final" and status != "READY_OWNER_VERIFIED":
+        raise SystemExit("NOT_CONFIGURED: owner must approve narration, measured timing and the exact live journey before final synthesis.")
+    if mode == "preview" and status not in {"NOT_CONFIGURED", "READY_OWNER_VERIFIED"}:
+        raise SystemExit("timing preview requires NOT_CONFIGURED or READY_OWNER_VERIFIED source")
     segments = spec.get("segments")
     if spec.get("schemaVersion") != "lasttake.submission-video/v1" or not isinstance(segments, list):
         raise SystemExit("narration contract is invalid")
@@ -256,6 +287,7 @@ def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     timing: list[dict[str, object]] = []
     cues: list[tuple[float, float, str]] = []
+    cue_windows: list[dict[str, object]] = []
     offset = 0.0
     for index, segment in enumerate(segments, start=1):
         identifier = segment.get("id")
@@ -277,26 +309,47 @@ def main() -> None:
             and "all" not in forced
             and audio.is_file()
             and cached_key(sidecar) == key
+            and cached_audio_sha256(sidecar) == file_sha256(audio)
         )
         if reuse:
             print(f"reused {audio.name}")
         else:
             audio.write_bytes(synthesize(speech, spec, token))
+            audio_digest = file_sha256(audio)
             sidecar.write_text(
-                json.dumps({"cacheKey": key, "provider": provider}, indent=2) + "\n",
+                json.dumps(
+                    {"cacheKey": key, "provider": provider, "audioSha256": audio_digest},
+                    indent=2,
+                ) + "\n",
                 encoding="utf-8",
             )
             print(f"synthesized {audio.name}")
+        audio_digest = file_sha256(audio)
         seconds = duration(audio)
         if seconds < 3 or seconds > 40:
             raise SystemExit(f"scene audio duration is unsafe: {identifier}")
         hold = seconds + TAIL_SECONDS
         sentences = [part.strip() for part in re.split(r"(?<=[.!?])\s+", caption) if part.strip()]
-        weight = sum(len(part) for part in sentences) or 1
+        spoken_sentences = [
+            part.strip() for part in re.split(r"(?<=[.!?])\s+", speech) if part.strip()
+        ]
+        if len(sentences) != len(spoken_sentences):
+            raise SystemExit(
+                f"scene {identifier} must pair each caption sentence with one spoken sentence"
+            )
+        weight = sum(len(part) for part in spoken_sentences) or 1
         cursor = 0.0
-        for sentence in sentences:
-            share = seconds * len(sentence) / weight
+        for sentence, spoken_sentence in zip(sentences, spoken_sentences, strict=True):
+            share = seconds * len(spoken_sentence) / weight
             cues.append((offset + cursor, offset + cursor + share, wrapped(sentence)))
+            cue_windows.append(
+                {
+                    "sceneId": identifier,
+                    "startSeconds": round(offset + cursor, 3),
+                    "endSeconds": round(offset + cursor + share, 3),
+                    "text": sentence,
+                }
+            )
             cursor += share
         timing.append(
             {
@@ -305,6 +358,8 @@ def main() -> None:
                 "durationSeconds": round(seconds, 3),
                 "holdSeconds": round(hold, 3),
                 "startSeconds": round(offset, 3),
+                "cacheHit": reuse,
+                "audioSha256": audio_digest,
             }
         )
         offset += hold
@@ -314,6 +369,8 @@ def main() -> None:
         json.dumps(
             {
                 "schemaVersion": "lasttake.submission-video-timing/v1",
+                "mode": mode,
+                "narrationSourceSha256": hashlib.sha256(SPEC.read_bytes()).hexdigest(),
                 "totalSeconds": round(offset, 3),
                 "scenes": timing,
             },
@@ -326,8 +383,20 @@ def main() -> None:
     for number, (start, end, text) in enumerate(cues, start=1):
         srt.extend([str(number), f"{timestamp(start)} --> {timestamp(end)}", text, ""])
     (OUT / "captions.en.srt").write_text("\n".join(srt), encoding="utf-8")
+    (OUT / "caption-windows.json").write_text(
+        json.dumps(
+            {
+                "schemaVersion": "lasttake.submission-video-caption-windows/v1",
+                "scenes": [scene["id"] for scene in timing],
+                "windows": cue_windows,
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
     token = ""
-    print(f"Generated {len(timing)} scenes across {offset:.3f} seconds")
+    print(f"Generated {len(timing)} {mode} scenes across {offset:.3f} seconds")
 
 
 if __name__ == "__main__":

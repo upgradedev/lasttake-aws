@@ -1,10 +1,9 @@
 // Drives the live URL through the shoot day and records it, one scene per
 // narration beat, holding each scene for exactly as long as its measured audio.
 //
-// Adapted from the kit's archon-datahub capture. The pristine copy is at
-// video/upstream/archon-datahub/capture-production.mjs; diff against it to see
-// what changed. The current journey, origin, namespaces and optional proof bindings
-// are LastTake-specific. Narration and release verification remain owner-gated.
+// Adapted from upgradedev/archon-datahub master a1feb16. No pristine upstream
+// copy is vendored here. The journey, origin, namespaces and proof bindings are
+// LastTake-specific. Narration and release verification remain owner-gated.
 //
 // The holds come from narration/timing.json, which generate-narration.py wrote
 // after measuring each mp3 with ffprobe. So the picture cannot drift from the
@@ -19,7 +18,7 @@ import path from "node:path";
 
 const spec = JSON.parse(readFileSync(new URL("../../video/narration.json", import.meta.url), "utf8"));
 if (spec.recording_status !== "READY_OWNER_VERIFIED") {
-  throw new Error("NOT_CONFIGURED: owner must verify release, narration, capture and timing.");
+  throw new Error("NOT_CONFIGURED: owner must approve narration, measured timing and the exact live journey before capture.");
 }
 const root = process.env.LASTTAKE_VIDEO_ROOT;
 const releaseSha = process.env.LASTTAKE_RELEASE_SHA;
@@ -72,12 +71,19 @@ const timelineStarted = Date.now();
 
 const sceneTimings=[];
 async function holdScene(id, action) {
+  const sceneStart=Date.now()-timelineStarted;
   const started = Date.now();
   const result=await action();
   const elapsed=Date.now()-started;
-  sceneTimings.push({id,actionMilliseconds:elapsed,holdMilliseconds:holds[id]});
   assertSceneBudget(id,elapsed,holds[id]);
   await page.waitForTimeout(holds[id]-elapsed);
+  sceneTimings.push({
+    id,
+    startMilliseconds:sceneStart,
+    endMilliseconds:Date.now()-timelineStarted,
+    actionMilliseconds:elapsed,
+    holdMilliseconds:holds[id],
+  });
   return result;
 }
 

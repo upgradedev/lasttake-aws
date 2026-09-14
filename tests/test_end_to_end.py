@@ -234,7 +234,7 @@ def test_the_full_loop_reaches_a_verifiable_turnover(run, tmp_path):
     message = publish()
     assert "Turnover published" in str(message)
 
-    # 5. The packet editorial receives verifies, and says what it is not.
+    # 5. The packet available in Handoff verifies, and says what it is not.
     key = next(
         e["payload"]["artifact_key"]
         for e in run.bus.replay()

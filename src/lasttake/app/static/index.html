@@ -546,7 +546,7 @@ var WALK = [
           'is highlighted, then press Next again for the other.'
   },
   {
-    id: 's6', label: 'Turnover to editorial', sub: 'sealed and versioned',
+    id: 's6', label: 'Turnover for editorial', sub: 'sealed and available in Handoff',
     role: 'first_ad',
     run: function () {
       if (STATE && STATE.wrap_approved) return call('/api/turnover').then(showTurnover);
@@ -1315,7 +1315,7 @@ function paintInbox() {
       'Put the wrap to the 1st AD', 'iWrap', !eligible || wrapped),
     item('Editorial', 'Turnover',
       wrapped
-        ? 'The wrap is approved. Publish the sealed, versioned manifest editorial receives.'
+        ? 'The wrap is approved. Publish the sealed, versioned manifest for editorial review.'
         : 'Available once the 1st AD has approved the wrap.',
       'Publish the turnover', 'iTurn', !wrapped)
   ].join('');
@@ -1337,8 +1337,8 @@ function bind(id, fn) {
 
 function showTurnover(d) {
   if (!d || !d.turnover) return d;
-  $('turnbox').innerHTML = '<h2 class="sec">Turnover to editorial</h2>' +
-    '<div class="item"><p>Published and sealed. Editorial receives a versioned manifest ' +
+  $('turnbox').innerHTML = '<h2 class="sec">Turnover for editorial</h2>' +
+    '<div class="item"><p>Published and sealed. Handoff exposes a versioned manifest ' +
     'naming every source it was built from, so any claim in it can be traced back to the ' +
     'artifact it came from.</p>' +
     (d.turnover_download

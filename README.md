@@ -73,9 +73,20 @@ Role-specific continuity and media decisions are bound to the exact finding dige
 
 ## Architecture
 
-<img src="docs/architecture.svg" width="100%" alt="LastTake on AWS: CloudFront serves the React workspace from private S3 and routes API calls to API Gateway and Lambda. A Strands orchestrator runs four checks against the bundled scene package and S3 amendments. Findings and decisions live in Aurora DSQL; sessions, amendments and turnovers live in S3. A deterministic gate controls two human interrupts. EventBridge records events but has no rule or subscriber. The hosted interpreter is offline; Bedrock runs only in deploy proof and an operator CLI.">
+```mermaid
+flowchart LR
+    U["Browser"] --> CF["CloudFront"]
+    CF --> SITE["Private S3<br/>React workspace"]
+    CF --> API["API Gateway<br/>/api and /healthz"]
+    API --> L["Lambda<br/>Strands orchestrator"]
+    L --> DB[("Aurora DSQL<br/>run state")]
+    L --> DATA[("S3<br/>sessions and turnovers")]
+    L -. "publish only" .-> EB["EventBridge<br/>no rule or subscriber"]
+    L -. "offline interpreter<br/>in hosted path" .-> CHECKS["Four bounded checks"]
+    CHECKS -. "separate deploy proof" .-> BR["Amazon Bedrock"]
+```
 
-The diagram separates the hosted public path from the credentialed Bedrock proof. The [system guide](docs/how-it-works.md) names all eight tools and the [infrastructure guide](docs/infrastructure.md) maps each AWS resource to code.
+The diagram separates the hosted public path from the credentialed Bedrock proof. The [detailed architecture map](docs/architecture.svg), [system guide](docs/how-it-works.md) and [infrastructure guide](docs/infrastructure.md) map the agents, eight tools and AWS resources to code.
 
 ## What is real
 
@@ -93,7 +104,7 @@ The diagram separates the hosted public path from the credentialed Bedrock proof
 | Email, payment or scheduling action | Not connected |
 | Human UAT | NOT_RUN; automated browser acceptance is separate |
 
-[Frontend release metadata](https://d3kf6hquzlli8g.cloudfront.net/release.json), [backend health and runtime modes](https://d3kf6hquzlli8g.cloudfront.net/api/health) and [automated acceptance](https://d3kf6hquzlli8g.cloudfront.net/acceptance.html) expose the served revisions. A green branch run is not proof that those revisions are deployed.
+[Frontend release metadata](https://d3kf6hquzlli8g.cloudfront.net/release.json), [backend health and runtime modes](https://d3kf6hquzlli8g.cloudfront.net/healthz) and [automated acceptance](https://d3kf6hquzlli8g.cloudfront.net/acceptance.html) expose the served revisions. A green branch run is not proof that those revisions are deployed.
 
 <a id="how-strands-is-load-bearing"></a>
 

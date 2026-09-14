@@ -51,7 +51,7 @@ export function Landing({session,busy,page,start,onNavigate}:{session:Session|nu
         {returning && <a className="button primary" href={link(target,newest.run_id)} onClick={go(target,newest.run_id)}>Continue my saved shoot day</a>}
         <button className={returning?'':'primary'} disabled={busy} onClick={start}>Start this fictional shoot day</button>
       </div>
-      <p className="landing-lede">For the script supervisor and 1st AD: before the set comes down, reconcile the script, the takes and the releases, record the human wrap decision, and hand editorial a traceable turnover. The synthetic demo has not measured time saved, avoided pickups or production cost.</p>
+      <p className="landing-lede">For the script supervisor and 1st AD: before the set comes down, reconcile the script, takes and releases, record the human wrap decision, and prepare a traceable turnover for editorial. The synthetic demo has not measured time saved, avoided pickups or production cost.</p>
       <p className="landing-result"><strong>Your result:</strong> a saved editorial turnover with the take map, the human decisions and any accepted exceptions still visible. Nothing is approved for you; absent evidence is a finding, never a pass.</p>
       {returning
         ? <p className="landing-saved">Saved: <strong>{runStatus(newest)}</strong> · created <time dateTime={newest.created_at}>{new Date(newest.created_at).toLocaleString()}</time>{saved.length>1 && <> · <a href={link('history',newest.run_id)} onClick={go('history',newest.run_id)}>all {saved.length} saved runs on this page</a></>}. Continuing changes nothing; a fresh shoot day keeps the old one.</p>
@@ -84,7 +84,7 @@ export function Landing({session,busy,page,start,onNavigate}:{session:Session|nu
         <ol className="stage-list">
           <li><strong>Evidence.</strong> A wrap checkpoint runs four bounded checks over the supplied records and shows every exception with its source. Absent evidence is an exception.</li>
           <li><strong>Human decision.</strong> The script supervisor and the DIT review each exception in their own role. Only the 1st AD can approve a pickup or the wrap, and the run waits for them across a real process boundary: it can be approved the next morning, in a different process, from the session saved on S3.</li>
-          <li><strong>Turnover.</strong> After the approval, a sealed manifest and a portable receipt go to editorial with every accepted exception still on them.</li>
+          <li><strong>Turnover.</strong> After approval, Handoff exposes a sealed manifest and portable receipt for editorial review, with every accepted exception still visible.</li>
         </ol>
         <p className="fine">Built on the Strands Agents SDK on AWS Lambda, with Aurora DSQL, S3 and EventBridge. This public deployment uses a scripted planner and an offline lexical interpreter; no footage or audio is analysed and nothing is cleared in law. A separate backend deployment check exercises Amazon Bedrock through the same interpreter port; Bedrock is not active in this browser. <a href={link('architecture',newest?.run_id)} onClick={go('architecture',newest?.run_id)}>What is deployed</a>.</p>
       </article>
