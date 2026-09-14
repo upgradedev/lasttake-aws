@@ -330,6 +330,56 @@ jobs:
             -d "{\"run_id\":\"$RUN\"}" | python -c "
           import json,sys; d=json.load(sys.stdin); print(d['headline']); print('affected:', d['affected_checks'])"
 
+          echo
+          echo "=== EventBridge delivered the checkpoint to its subscriber ==="
+          CONSUMER=$(aws cloudformation describe-stacks --stack-name "$STACK" \
+            --query "Stacks[0].Outputs[?OutputKey=='EventConsumerFunctionName'].OutputValue" --output text)
+          RULE=$(aws cloudformation describe-stacks --stack-name "$STACK" \
+            --query "Stacks[0].Outputs[?OutputKey=='EventDeliveryRuleName'].OutputValue" --output text)
+          TARGET=$(aws events list-targets-by-rule --event-bus-name "$BUS" --rule "$RULE" \
+            --query "Targets[?Id=='event-delivery-recorder'].Arn | [0]" --output text)
+          EXPECTED=$(aws lambda get-function --function-name "$CONSUMER" \
+            --query 'Configuration.FunctionArn' --output text)
+          test "$TARGET" = "$EXPECTED" || {
+            echo "the deployed EventBridge rule does not target the dedicated consumer"
+            exit 1
+          }
+          echo "rule target: $TARGET"
+
+          EVENTS=''
+          for attempt in $(seq 1 20); do
+            EVENTS=$(curl -sS -X POST "${URL}api/events" -H 'content-type: application/json' \
+              -d "{\"run_id\":\"$RUN\"}")
+            if echo "$EVENTS" | GITHUB_SHA="${{ github.sha }}" python -c "
+          import json,os,sys
+          body=json.load(sys.stdin)
+          rows=[row for row in body['events'] if row['event_type']=='scene.wrap-checkpoint.requested']
+          ok=(len(rows)==1 and rows[0]['eventbridge_delivery'].get('status')=='consumed'
+              and rows[0]['eventbridge_delivery'].get('deployed_sha')==os.environ['GITHUB_SHA']
+              and rows[0]['eventbridge_delivery'].get('eventbridge_event_id'))
+          raise SystemExit(0 if ok else 1)
+          "; then
+              break
+            fi
+            echo "attempt $attempt: subscriber receipt not observed yet"
+            sleep 2
+          done
+          echo "$EVENTS" | GITHUB_SHA="${{ github.sha }}" python -c "
+          import json,os,sys
+          body=json.load(sys.stdin)
+          rows=[row for row in body['events'] if row['event_type']=='scene.wrap-checkpoint.requested']
+          assert len(rows)==1, rows
+          receipt=rows[0]['eventbridge_delivery']
+          assert receipt['status']=='consumed', receipt
+          assert receipt['deployed_sha']==os.environ['GITHUB_SHA'], receipt
+          assert receipt['eventbridge_event_id'], receipt
+          assert body['eventbridge_delivery']['consumed_receipt_count'] > 0, body
+          print('domain event:', rows[0]['event_id'])
+          print('EventBridge event:', receipt['eventbridge_event_id'])
+          print('subscriber:', receipt['subscriber'])
+          print('consumed at:', receipt['consumed_at'])
+          "
+
       - name: 'the query object storage could not answer'
         if: steps.gate.outputs.ready == 'true'
         run: |

@@ -28,8 +28,10 @@ The run can be stopped and resumed from the command line or through the HTTP API
 
 The checkpoint request, from the command or from `POST /api/checkpoint` behind the **Run wrap
 checkpoint** button, publishes `scene.wrap-checkpoint.requested` and then starts the orchestrator
-itself in the same process (`cli.py:145-151`, `handler.py:278-286`). No EventBridge rule routes
-that event: `infra/stack.yaml:130-136` declares the bus and nothing that subscribes to it.
+itself synchronously in the same process (`cli.py:145-154`, `handler.py:278-288`). On AWS an
+EventBridge rule also invokes the terminal delivery recorder, but that Lambda only validates the
+event and writes an immutable S3 receipt. It has no orchestrator or publish path, so subscriber
+execution cannot start or resume Strands (`infra/stack.yaml:205-255`, `event_consumer.py:1-154`).
 
 Both approvals are addressed to the 1st AD. The interrupt is named `first-ad-pickup-approval` or
 `first-ad-wrap-approval` (`tools.py:92`). `publish_approved` refuses a payload whose
@@ -177,9 +179,11 @@ The transcript carries no run id. It entered the README in commit `3f2296d` on 2
 - **What else it asserts.** The approval message must contain `Pickup approved` and
   `Bus accepted` (`deploy.yml:307`). There must be exactly one accepted `pickup.requested`
   receipt (`deploy.yml:308-309`), and run state must be on Aurora DSQL (`deploy.yml:310`).
-  `Bus accepted` means EventBridge accepted the event. The repository declares no rule or target
-  for the bus (`infra/stack.yaml:130-136`), so this shows acceptance by the bus, not delivery to
-  anyone.
+  `Bus accepted` means EventBridge accepted the event; it is not a subscriber result. A later
+  deploy check resolves the rule's actual Lambda target and polls `/api/events` until the checkpoint
+  has a digest-matched `consumed` receipt from the deployed SHA (`deploy.yml:334-380`). That proves
+  the terminal subscriber executed and stored the receipt, not that editorial work completed.
+  If `/api/events` says `not_observed`, it makes no claim that delivery failed.
 - **Its output today.** It also prints the counts, the Lambda request id and a configuration line
   that the 2026-08-22 transcript does not have (`deploy.yml:258`, `:262`, `:297`).
 - **The test that keeps it.** `tests/test_claim_drift.py:86-92` fails if `assert c1 != c2`, the

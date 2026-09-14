@@ -12,9 +12,46 @@ export async function downloadBytes(download) {
   return Buffer.concat(chunks);
 }
 
-export function heroScenes(page,expect) {
+export function heroScenes(page,expect,{requireEventBridgeReceipt=false}={}) {
   let initialDigest,reviewedDigest,loadedTake,withdrawnFinding;
   const nav=async name=>page.getByRole('navigation').getByRole('link',{name,exact:true}).click();
+  const backToStart=async()=>{
+    await page.locator('a.brand').click();
+    await expect(page.getByRole('heading',{name:'Know what still blocks wrap.'})).toBeVisible();
+  };
+  const waitForServiceWorker=async()=>page.evaluate(async()=>{
+    if(navigator.serviceWorker.controller)return;
+    await new Promise((resolve,reject)=>{
+      const timer=setTimeout(()=>reject(new Error('service worker did not control the page')),10_000);
+      navigator.serviceWorker.addEventListener('controllerchange',()=>{clearTimeout(timer);resolve();},{once:true});
+    });
+  });
+  const postOutsideBrowser=async(path,body)=>{
+    const response=await fetch(new URL(path,page.url()),{
+      method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body),
+    });
+    if(!response.ok)throw new Error(`External demo client received HTTP ${response.status} from ${path}`);
+    return response.json();
+  };
+  async function showSubscriberReceipt() {
+    await nav('Handoff');
+    await expect(page.getByRole('heading',{name:'Handoff'})).toBeVisible();
+    await expect(page.getByRole('heading',{name:'Recorded events'})).toBeVisible();
+    if(!requireEventBridgeReceipt)return;
+    const consumed=page.getByText(/EventBridge subscriber consumed/).first();
+    const refresh=page.getByRole('button',{name:'Refresh saved state'});
+    const deadline=Date.now()+20_000;
+    while(Date.now()<deadline && !await consumed.isVisible().catch(()=>false)){
+      await page.waitForTimeout(750);
+      const events=page.waitForResponse(response=>response.url().endsWith('/api/events') && response.ok());
+      await refresh.click();
+      await events;
+      await expect(refresh).toBeEnabled();
+    }
+    await expect(consumed).toBeVisible();
+    await consumed.scrollIntoViewIfNeeded();
+    await expect(consumed).toBeInViewport();
+  }
   async function review(name,role) {
     await page.getByLabel('Demo role').selectOption(role);
     await page.locator('.finding-picker a').filter({hasText:name.replace(' ',' · ')}).click();
@@ -27,24 +64,34 @@ export function heroScenes(page,expect) {
   }
   return {
     hook:async()=>{
-      await expect(page.getByTestId('workflow-next')).toContainText('Start with the wrap checkpoint');
+      await expect(page.getByRole('heading',{name:'Know what still blocks wrap.'})).toBeVisible();
+      await expect(page.getByRole('region',{name:'Start a shoot-day review'})).toContainText('script supervisor and 1st AD');
+      await expect(page.getByRole('region',{name:'Start a shoot-day review'})).toContainText('saved editorial turnover');
       await expect(page.getByTestId('execution-mode')).toContainText('Synthetic demo');
-      await expect(page.locator('.beat .badge').first()).toHaveText('Not assessed');
     },
     surface:async()=>{
-      await page.locator('.take summary').first().click();
-      await expect(page.getByRole('table').first()).toBeVisible();
+      await nav('Architecture');
+      await expect(page.getByRole('heading',{name:'Architecture'})).toBeVisible();
+      await expect(page.getByRole('img',{name:/LastTake architecture/})).toBeVisible();
+      await expect(page.getByText(/Strands Agents SDK/).first()).toBeVisible();
     },
     trigger:async()=>{
+      await backToStart();
+      await page.getByRole('button',{name:'Start this fictional shoot day'}).click();
+      await expect(page.getByRole('button',{name:'Run wrap checkpoint'})).toBeEnabled();
+      await expect(page.getByTestId('workflow-next')).toContainText('Start with the wrap checkpoint');
+      await expect(page.locator('.beat .badge').first()).toHaveText('Not assessed');
       await page.getByRole('button',{name:'Run wrap checkpoint'}).click();
       await expect(page.getByRole('button',{name:'Refresh saved state'})).toBeEnabled();
       await expect(page.getByTestId('workflow-next')).toContainText('Review the saved pickup request');
       await expect(page.getByRole('button',{name:'Approve pickup'})).toHaveCount(0);
       await page.getByText('Current package fingerprint · SHA-256',{exact:true}).click();
       initialDigest=await page.locator('.approval-proof code').textContent();
+      await showSubscriberReceipt();
     },
     live:async()=>{
       // Record a real decision before changing the source, so withdrawal is visible.
+      await nav('Scene review');
       await review('continuity CR-01','script_supervisor');
       withdrawnFinding=await page.getByRole('article',{name:'continuity CR-01',exact:true}).locator('.fine').first().textContent();
       await page.getByLabel('Demo role').selectOption('first_ad');
@@ -55,27 +102,48 @@ export function heroScenes(page,expect) {
       await expect(page.getByTestId('wrap-status')).toContainText('Not approved');
     },
     sponsor:async()=>{
-      await nav('Scene review');
       await page.getByRole('button',{name:'Open guided demo'}).click();
       await page.getByRole('button',{name:'Add take or release'}).click();
       await page.getByRole('button',{name:'Try valid take'}).click();
-      // Reuse the editable product example as an ordinary local file, without
-      // supplying any session/run authority inside the document.
-      const downloading=page.waitForEvent('download');
-      await page.getByRole('button',{name:'Download input JSON'}).click();
-      const bytes=await downloadBytes(await downloading);
-      loadedTake=JSON.parse(bytes.toString('utf8'));
-      await page.getByLabel('Load a JSON record file').setInputFiles({name:'fictional-take.json',mimeType:'application/json',buffer:bytes});
-      await expect(page.getByLabel('Document JSON')).toHaveValue(/camera_report_row/);
-      await page.getByRole('button',{name:'Save evidence & rerun checks'}).click();
-      await expect(page.getByRole('heading',{name:'Add evidence to this shoot day'})).toBeHidden();
+      loadedTake={take_id:await page.getByLabel('Take identifier').inputValue()};
+      await expect(page.getByText(/Unsent draft kept in this tab/)).toBeVisible();
+      await waitForServiceWorker();
+      const body=await page.evaluate(()=>({
+        session_id:localStorage.getItem('lasttake.session'),
+        run_id:new URLSearchParams(location.hash.split('?')[1]).get('run'),
+      }));
+      if(!body.session_id || !body.run_id)throw new Error('The video journey lost its owned run identity.');
+      let browserIngests=0;
+      const observe=request=>{if(new URL(request.url()).pathname==='/api/ingest')browserIngests++;};
+      page.on('request',observe);
+      await page.context().setOffline(true);
+      try {
+        await page.reload({waitUntil:'domcontentloaded'});
+        await expect(page.getByTestId('connectivity-status')).toContainText('Offline');
+        await expect(page.getByTestId('connectivity-status')).toContainText('Saved snapshot · read-only');
+        await page.getByRole('button',{name:'Add take or release'}).click();
+        await expect(page.getByLabel('Take identifier')).toHaveValue(loadedTake.take_id);
+        await expect(page.getByRole('button',{name:'Save evidence & rerun checks'})).toBeDisabled();
+        await postOutsideBrowser('/api/ingest',{...body,kind:'rights_record',document:{
+          record_id:'REL-VIDEO-EXTERNAL',subject_id:'BG-07',subject_kind:'person',
+          document_type:'background release',scope:'all media',territory:'worldwide',status:'executed',
+        }});
+        await page.context().setOffline(false);
+        await expect(page.getByRole('heading',{name:'Saved evidence changed since your last confirmed view'})).toBeVisible();
+        await expect(page.getByTestId('connectivity-status')).toContainText('Connected');
+        await expect(page.getByLabel('Take identifier')).toHaveValue(loadedTake.take_id);
+        await expect(page.getByRole('button',{name:'Save evidence & rerun checks'})).toBeDisabled();
+        await page.getByRole('button',{name:'I reviewed the current saved revision'}).click();
+        await expect(page.getByRole('button',{name:'Save evidence & rerun checks'})).toBeEnabled();
+        await page.getByRole('button',{name:'Save evidence & rerun checks'}).click();
+        await expect(page.getByRole('heading',{name:'Add evidence to this shoot day'})).toBeHidden();
+      } finally {
+        await page.context().setOffline(false).catch(()=>{});
+        page.off('request',observe);
+      }
+      if(browserIngests!==1)throw new Error(`Offline recovery sent ${browserIngests} browser ingests; expected exactly one explicit save.`);
       await expect(page.getByText('Slate 42L/1',{exact:true})).toBeVisible();
       await expect(page.getByText(/Earlier decision no longer applies/)).toBeVisible();
-      await page.getByRole('button',{name:'Add take or release'}).click();
-      await page.getByLabel('Record type').selectOption('rights_record');
-      await page.getByRole('button',{name:'Fill synthetic example'}).click();
-      await page.getByRole('button',{name:'Save evidence & rerun checks'}).click();
-      await expect(page.getByRole('heading',{name:'Add evidence to this shoot day'})).toBeHidden();
       await review('continuity CR-01','script_supervisor');
       await review('metadata T-013','dit');
     },

@@ -17,8 +17,10 @@ flowchart TB
         api["Amazon API Gateway<br/>HTTP API<br/>$default route<br/>no authorizer<br/>20 req/s, burst 40<br/>integration timeout<br/>of 30 s"]
         role{{"execution role<br/>lasttake-api-<br/>role-eu-west-1<br/>may call Bedrock;<br/>demo never does"}}
         fn("AWS Lambda lasttake-api<br/>python3.12, arm64<br/>1024 MB<br/>reserved concurrency 20<br/>base scene package<br/>in zip<br/>logs to CloudWatch,<br/>30-day retention")
-        bus(["EventBridge custom bus<br/>gets every run event<br/>no rule or target,<br/>nothing subscribes"])
-        data[("S3 data bucket<br/>Strands sessions<br/>expire after 90 days;<br/>no expiry for events,<br/>amendments, approvals,<br/>turnovers<br/>versioned, TLS only<br/>retained on delete")]
+        bus(["EventBridge custom bus<br/>gets every run event<br/>rule routes all 12 types<br/>to terminal recorder"])
+        consumerRole{{"terminal consumer role<br/>receipt objects +<br/>own logs only<br/>no PutEvents"}}
+        consumer("AWS Lambda<br/>delivery recorder<br/>validates event,<br/>writes one immutable receipt<br/>starts no agent")
+        data[("S3 data bucket<br/>Strands sessions<br/>expire after 90 days;<br/>no expiry for events,<br/>subscriber receipts,<br/>amendments, approvals,<br/>turnovers<br/>versioned, TLS only<br/>retained on delete")]
         dsql[("Aurora DSQL cluster<br/>IAM token auth<br/>findings, decisions,<br/>packets, audit,<br/>handled events<br/>deletion protection<br/>retained on delete")]
     end
     subgraph FE["lasttake-frontend · eu-west-1"]
@@ -34,6 +36,9 @@ flowchart TB
     api --> fn
     role -.- fn
     fn --> bus
+    bus --> consumer
+    consumerRole -.- consumer
+    consumer --> data
     fn ---> data
     fn --> dsql
 
@@ -50,10 +55,10 @@ flowchart TB
     classDef laneBack fill:#7ea4f71f,stroke:#7d88aa,stroke-width:1px
     classDef laneCi fill:#7d88aa1a,stroke:#7d88aa,stroke-width:1px,stroke-dasharray:6 4
     class browser,cf,api,probes surface
-    class fn agent
+    class fn,consumer agent
     class web,data,dsql store
     class bus event
-    class role rule
+    class role,consumerRole rule
     class FE laneFront
     class BE laneBack
 ```
@@ -61,33 +66,39 @@ flowchart TB
 What the diagram means in practice:
 
 - **There are two public doors.** A person opens the CloudFront URL. CloudFront serves the React workspace from the private site bucket, and forwards `/api/*`, `/api` and `/healthz` to the HTTP API without caching (`infra/frontend_stack.py:48-54,110-143`). The HTTP API endpoint is public as well, and the scheduled checks call it directly, bypassing CloudFront.
-- **Events are published, not routed.** A checkpoint request comes from the CLI command `lasttake checkpoint`, or from `POST /api/checkpoint` behind the **Run wrap checkpoint** button. It publishes `scene.wrap-checkpoint.requested` and then starts the orchestrator itself (`src/lasttake/cli.py:144-154`, `src/lasttake/app/handler.py:275-286`). Every run event goes to the bus, after a copy is written under `events/` in the data bucket (`src/lasttake/adapters/aws/infrastructure.py:258-307`). A rule could route those events to another service, but none is declared, so nothing in this repository consumes them (`infra/stack.yaml:127-142`).
+- **Events are routed to proof, not orchestration.** A checkpoint request comes from the CLI command `lasttake checkpoint`, or from `POST /api/checkpoint` behind the **Run wrap checkpoint** button. It records `scene.wrap-checkpoint.requested` and then starts the orchestrator synchronously itself (`src/lasttake/cli.py:135-159`, `src/lasttake/app/handler.py:276-288`). On AWS every run event goes to the bus after a copy is written under `events/` in the data bucket (`src/lasttake/adapters/aws/infrastructure.py:265-310`). The rule invokes only the terminal recorder. That Lambda validates the event and conditionally creates a receipt under `eventbridge-consumption/`; it has no permission or code path to publish an event or start Strands (`infra/stack.yaml:141-255`, `src/lasttake/adapters/aws/event_consumer.py`).
 - **Run state and resume live in different places.** Findings, decisions, eligibility packets, audit entries and handled-event claims are rows in Aurora DSQL (`src/lasttake/adapters/aws/dsql.py:44-95`). A run paused for the 1st AD resumes in a new container from its Strands session files on S3 (`src/lasttake/app/handler.py:155-169`).
-- **The scene package is not in S3.** It ships inside the function package (`.github/workflows/deploy.yml:99`, `src/lasttake/app/handler.py:72-115`). S3 holds amendments, approvals, delivery receipts, turnovers, event copies and sessions.
+- **The scene package is not in S3.** It ships inside the function package (`.github/workflows/deploy.yml:99`, `src/lasttake/app/handler.py:72-115`). S3 holds amendments, approvals, publisher delivery receipts, terminal-subscriber receipts, turnovers, event copies and sessions.
 - **The hosted demo never calls Bedrock.** The function's role may invoke Bedrock, but the hosted HTTP demo always runs offline and has no Bedrock switch (`src/lasttake/app/handler.py:146`). Bedrock runs only from the CLI with `--bedrock`, and the backend deploy runs it that way (see [Release paths](#release-paths)).
 
 ## Resources, and where each is declared
 
 There are three S3 buckets in all: the data bucket and the site bucket, each in a stack, and the code bucket, which no template declares. Account ids and the HTTP API hostname are shown as placeholders.
 
-**Backend stack `lasttake-app`.** It is declared in `infra/stack.yaml` and deployed by `.github/workflows/deploy.yml` only on manual dispatch (`deploy.yml:32-38,185-193`). It has exactly these 12 resources. It has no EventBridge rule, target or archive, no Lambda Function URL, no API authorizer, no VPC and no WAF.
+**Backend stack `lasttake-app`.** It is declared in `infra/stack.yaml` and deployed by `.github/workflows/deploy.yml` only on manual dispatch (`deploy.yml:32-38,185-193`). It has exactly these 18 resources. It has no EventBridge archive, Lambda Function URL, API authorizer, VPC or WAF.
 
 | Resource | Settings that matter | Declared at |
 |---|---|---|
-| `DataBucket`, S3 `lasttake-data-${AWS::AccountId}-${AWS::Region}` | All public access blocked, AES256 encryption, versioning on. Three lifecycle rules: `runs/` expires at 90 days, `sessions/` at 90 days, overwritten versions at 30 days. The live stack keeps run state in DSQL, so nothing is written under `runs/`. `events/` and `artifacts/` never expire. Retained when the stack is deleted. | `infra/stack.yaml:41-81` |
+| `DataBucket`, S3 `lasttake-data-${AWS::AccountId}-${AWS::Region}` | All public access blocked, AES256 encryption, versioning on. Three lifecycle rules: `runs/` expires at 90 days, `sessions/` at 90 days, overwritten versions at 30 days. The live stack keeps run state in DSQL, so nothing is written under `runs/`. `events/`, `artifacts/` and `eventbridge-consumption/` never expire. Retained when the stack is deleted. | `infra/stack.yaml:46-83` |
 | `DataBucketPolicy` | Denies every S3 action on the bucket over plain HTTP. | `infra/stack.yaml:83-101` |
 | `Database`, Aurora DSQL cluster | IAM token authentication. Deletion protection is on for the live stack and off for a throwaway copy. Retained when the stack is deleted. Rows have no expiry. | `infra/stack.yaml:103-125` |
-| `EventBus`, `lasttake-${AWS::AccountId}` | Receives every run event. No rule, target or archive; the archive was removed because every event is already copied to S3. | `infra/stack.yaml:127-142` |
-| `LogGroup`, `/aws/lambda/lasttake-api-${AWS::AccountId}` | 30-day retention. The only log destination: the API stage has no access logs and CloudFront has no logging. | `infra/stack.yaml:144-148,299-312`, `infra/frontend_stack.py:110-143` |
-| `FunctionRole`, `lasttake-api-role-${AWS::Region}` | One inline policy. See [Least privilege, as deployed](#least-privilege-as-deployed). | `infra/stack.yaml:150-219` |
-| `ApiFunction`, `lasttake-api-${AWS::AccountId}` | python3.12 on arm64, 1024 MB, 120 s timeout, reserved concurrency 20, handler `lasttake.app.handler.handler`, code from the code bucket. The environment names the bucket, the bus, the DSQL endpoint, the commit, and a Bedrock model id (default `global.anthropic.claude-sonnet-5`) that the HTTP path never reads. | `infra/stack.yaml:29-32,221-253` |
-| `HttpApi` | HTTP protocol. CORS allows any origin, GET and POST, and the `content-type` header. | `infra/stack.yaml:255-278` |
-| `HttpIntegration` | Lambda proxy, payload format 2.0, 30 s timeout. | `infra/stack.yaml:280-287` |
-| `DefaultRoute` | One `$default` route with no authorizer; the handler owns its own routing table. | `infra/stack.yaml:289-297` |
-| `DefaultStage` | `$default`, auto-deploy, throttling at 20 requests per second with a burst of 40. | `infra/stack.yaml:299-312` |
-| `InvokePermission` | Lets API Gateway invoke the function. | `infra/stack.yaml:314-320` |
+| `EventBus`, `lasttake-${AWS::AccountId}` | Receives every run event. The archive remains removed because every event is already copied to S3. | `infra/stack.yaml:130-139` |
+| `EventConsumerLogGroup` | `/aws/lambda/lasttake-event-consumer-${AWS::AccountId}`, 30-day retention. | `infra/stack.yaml:141-145` |
+| `EventConsumerRole` | Get and put only under the data bucket's `eventbridge-consumption/*` objects, plus write access to its own log group. No EventBridge publish, DSQL or Bedrock permission. | `infra/stack.yaml:147-177` |
+| `EventConsumerFunction` | python3.12 on arm64, 256 MB, 10 s timeout, reserved concurrency 2. Handler `lasttake.adapters.aws.event_consumer.handler`; receives the same content-addressed deployment package and the deployed commit SHA. | `infra/stack.yaml:179-203` |
+| `EventDeliveryRule` | Enabled on the custom bus. Filters source `lasttake.orchestrator` and all 12 domain event types, targets only the terminal recorder, with one retry and maximum event age 300 seconds. | `infra/stack.yaml:205-233` |
+| `EventConsumerInvokePermission` | Lets only the delivery rule invoke the terminal recorder. | `infra/stack.yaml:235-241` |
+| `EventConsumerAsyncConfig` | Applies one Lambda retry and maximum event age 300 seconds to `$LATEST`. | `infra/stack.yaml:243-255` |
+| `LogGroup`, `/aws/lambda/lasttake-api-${AWS::AccountId}` | 30-day retention. The API and terminal consumer log groups are the only Lambda log destinations; the API stage has no access logs and CloudFront has no logging. | `infra/stack.yaml:141-145,257-264,412-425`, `infra/frontend_stack.py:110-143` |
+| `FunctionRole`, `lasttake-api-role-${AWS::Region}` | One inline policy. See [Least privilege, as deployed](#least-privilege-as-deployed). | `infra/stack.yaml:266-332` |
+| `ApiFunction`, `lasttake-api-${AWS::AccountId}` | python3.12 on arm64, 1024 MB, 120 s timeout, reserved concurrency 20, handler `lasttake.app.handler.handler`, code from the code bucket. The environment names the bucket, the bus, the DSQL endpoint, the commit, and a Bedrock model id (default `global.anthropic.claude-sonnet-5`) that the HTTP path never reads. | `infra/stack.yaml:29-32,334-380` |
+| `HttpApi` | HTTP protocol. CORS allows any origin, GET and POST, and the `content-type` header. | `infra/stack.yaml:382-391` |
+| `HttpIntegration` | Lambda proxy, payload format 2.0, 30 s timeout. | `infra/stack.yaml:393-403` |
+| `DefaultRoute` | One `$default` route with no authorizer; the handler owns its own routing table. | `infra/stack.yaml:405-410` |
+| `DefaultStage` | `$default`, auto-deploy, throttling at 20 requests per second with a burst of 40. | `infra/stack.yaml:412-425` |
+| `InvokePermission` | Lets API Gateway invoke the API function. | `infra/stack.yaml:427-433` |
 
-The stack outputs include `LiveUrl`, the HTTP API endpoint, which is why that endpoint is a second public door beside CloudFront (`infra/stack.yaml:322-343`).
+The stack outputs include `LiveUrl`, the HTTP API endpoint, plus the consumer function and delivery-rule names used by the deploy proof (`infra/stack.yaml:435-466`). The HTTP API endpoint is therefore a second public door beside CloudFront.
 
 **Frontend stack `lasttake-frontend`.** It is rendered by `infra/frontend_stack.py`, with the stack name and region taken from `infra/frontend.json:4-5`. No workflow deploys it. `aws-hosting-ci.yml` only renders and tests the template, and `frontend-deploy.yml` stops unless the stack is already provisioned (`.github/workflows/aws-hosting-ci.yml:30-36`, `.github/workflows/frontend-deploy.yml:35-40`). It has 7 resources and two parameters: `GitHubSubjectPrefix`, and `ApiDomain`, the HTTP API hostname (`infra/frontend_stack.py:192-200`).
 
@@ -181,12 +192,12 @@ flowchart TB
 **What proves a backend release.** The HTTP checks go to the HTTP API endpoint, not CloudFront.
 
 1. `GET /` answers 200, and `/healthz` reports ok and `run_state_store` `aurora-dsql`. The step prints the reported commit but does not compare it with the build (`deploy.yml:206-228`).
-2. A checkpoint stops for the 1st AD with 31 covered beats. The step then changes the function's description to force a cold start, and the approval must be served by a different container, with the pickup accepted on the bus (`deploy.yml:230-322`).
-3. Late take, rights resolution and `GET /api/blocked` answer (`deploy.yml:324-347`).
-4. On the runner, with the same keys and not the function's role, `lasttake checkpoint --bedrock` must give 34 model-touched findings with confidence below 1.0 and at most 31 covered beats (`deploy.yml:349-419`).
-5. One direct Converse call to Bedrock must reply (`deploy.yml:421-429`).
+2. A checkpoint stops for the 1st AD with 31 covered beats. The step then changes the API function's description to force a cold start, and the approval must be served by a different container, with the pickup accepted on the bus (`deploy.yml:230-322`).
+3. Late take, rights resolution and `GET /api/blocked` answer. The deploy then resolves the EventBridge rule's actual target and polls `/api/events` until the checkpoint has a digest-matched subscriber receipt whose deployed SHA equals the workflow SHA (`deploy.yml:324-380`).
+4. On the runner, with the same keys and not the function's role, `lasttake checkpoint --bedrock` must give 34 model-touched findings with confidence below 1.0 and at most 31 covered beats (`deploy.yml:382-452`).
+5. One direct Converse call to Bedrock must reply (`deploy.yml:454-462`).
 
-There is no public receipt for the backend. Read `/healthz` for the backend commit and `/release.json` for the frontend commit.
+There is no standalone aggregate release receipt for the backend. Read `/healthz` for the backend commit, `/release.json` for the frontend commit, and `/api/events` for a run's stored events and any matching terminal-subscriber receipts. A `consumed` receipt proves that recorder execution only, not editorial completion; `not_observed` is not a failure verdict.
 
 The step-by-step detail and the receipt rules are in [Frontend release and live acceptance on every push to main](release-and-acceptance.md#frontend-release-and-live-acceptance-on-every-push-to-main) and [Backend release by manual dispatch](release-and-acceptance.md#backend-release-by-manual-dispatch). The scheduled checks at the bottom of the diagram are listed in [Scheduled checks on the live surface](release-and-acceptance.md#scheduled-checks-on-the-live-surface).
 
@@ -226,11 +237,12 @@ The architecture routes around the block rather than arguing with it. Nothing el
 
 ## Least privilege, as deployed
 
-Four identities are declared or named in this repository. The owner's own AWS credentials, used to run the setup script and to provision the frontend stack, are not among them.
+Five identities are declared or named in this repository. The owner's own AWS credentials, used to run the setup script and to provision the frontend stack, are not among them.
 
 | Identity | Used by | Allowed | Limits and caveats | Declared at |
 |---|---|---|---|---|
-| Lambda execution role `lasttake-api-role-${AWS::Region}` | The API function | Get, put, delete and list objects in its own data bucket. Put events on, and describe, its own bus. `dsql:DbConnectAdmin` on its own cluster. Bedrock inference on `anthropic.*` foundation models in any region and on any inference profile in the account. Write its own logs. | It cannot read another bucket, touch another bus, or create or delete a cluster, but it can still delete the records it writes. `DbConnectAdmin` gives broad SQL authority over the database and schema, which does not protect records from a compromised function, and the bucket grant includes `s3:DeleteObject`. The hosted demo never uses the Bedrock grant. | `infra/stack.yaml:150-219` (caveat at 188-191) |
+| Lambda execution role `lasttake-api-role-${AWS::Region}` | The API function | Get, put, delete and list objects in its own data bucket. Put events on, and describe, its own bus. `dsql:DbConnectAdmin` on its own cluster. Bedrock inference on `anthropic.*` foundation models in any region and on any inference profile in the account. Write its own logs. | It cannot read another bucket, touch another bus, or create or delete a cluster, but it can still delete the records it writes. `DbConnectAdmin` gives broad SQL authority over the database and schema, which does not protect records from a compromised function, and the bucket grant includes `s3:DeleteObject`. The hosted demo never uses the Bedrock grant. | `infra/stack.yaml:266-332` (caveat at 304-307) |
+| Lambda execution role `lasttake-event-consumer-role-${AWS::Region}` | The terminal EventBridge delivery recorder | Get and put objects only under `eventbridge-consumption/*` in the data bucket, and write its own logs. | It cannot list the bucket, publish events, call Strands or Bedrock, or read DSQL. The function code derives the receipt prefix from a hash of the correlation id and uses a conditional create. | `infra/stack.yaml:147-177`, `src/lasttake/adapters/aws/event_consumer.py` |
 | Frontend release role `lasttake-frontend-release` | The release job in `frontend-deploy.yml` and the publish job in `aws-uat.yml` | Get, put and list objects in its own site bucket. Create and read invalidations on its own distribution. Describe its own stack. | Assumed only through GitHub OIDC from the `main` branch, for at most one hour. It has no `s3:DeleteObject`, so a release cannot delete what is already published. | `infra/frontend_stack.py:159-187`, `.github/workflows/frontend-deploy.yml:24-27,49-52`, `.github/workflows/aws-uat.yml:118-137` |
 | IAM user `lasttake-ci`, policy `lasttake-ci-deploy` | The deploy, lifecycle and teardown jobs in `deploy.yml` | CloudFormation, Lambda, S3, IAM roles, EventBridge and logs, all on `lasttake-*` names. Bedrock inference on Anthropic models and any inference profile, plus Bedrock model listing. `dsql:CreateCluster`, and `dsql:*` on every cluster in the account. Create, update and delete on every API Gateway HTTP API in the account. Creating the DSQL service-linked role. A few account-wide list and read calls. | Long-lived access keys in GitHub secrets, not OIDC. The DSQL and API Gateway grants are account-wide, not limited to `lasttake-*` names. It has no CloudFront permissions. | `infra/setup_ci_identity.py:33-219` |
 | Evaluation role named by `LASTTAKE_EVAL_ROLE_ARN` | The gated, manually dispatched evaluation job in `ci.yml` | A 900-second session whose inline session policy allows only `bedrock:InvokeModel` on one Anthropic model. | The job runs only in a private repository with an approved plan. No code in this repository provisions the role. | `.github/workflows/ci.yml:188-236` |
@@ -296,11 +308,12 @@ These are checks on source code. They do not prove the grants Aurora actually en
 **What expires on its own.** The data bucket has three lifecycle rules: `runs/` expires after 90 days, `sessions/` after 90 days, and overwritten object versions after 30 days (`infra/stack.yaml:66-78`). The live stack keeps run state in DSQL, and the deploy fails unless `/healthz` confirms it (`.github/workflows/deploy.yml:220-228`), so nothing is written under `runs/`. In practice only Strands session files expire. These have no expiry:
 
 - event copies under `events/`
-- artifacts under `artifacts/`: amendments, approvals, delivery receipts and turnovers
+- artifacts under `artifacts/`: amendments, approvals, publisher delivery receipts and turnovers
+- terminal-subscriber receipts under `eventbridge-consumption/`
 - DSQL rows
 - the site bucket, which has no lifecycle rules and gains a `releases/<commit>/` copy with every release (`infra/frontend_stack.py:58-74`, `infra/frontend_publish.py:91-94`)
 
-Logs are kept for 30 days (`infra/stack.yaml:144-148`).
+Both Lambda log groups are kept for 30 days (`infra/stack.yaml:141-145,257-264`).
 
 **One operation at a time.** The deploy, lifecycle and teardown actions all live in `deploy.yml`. They use the `lasttake-ci` keys and share one concurrency group, so they never overlap (`deploy.yml:28-30`).
 
@@ -325,7 +338,7 @@ That final check covers stacks and buckets. It does not wait for, or confirm, th
 
 The data bucket and the DSQL cluster are retained on purpose (`infra/stack.yaml:48-49,118-122`), because together they hold the audit trail. The bucket holds event copies, approvals, delivery receipts and turnovers; the cluster holds findings, decisions and audit entries. A teardown that destroys the audit trail is not a teardown. The cluster also keeps deletion protection on. If you want them gone, empty and delete the bucket, and turn off deletion protection and delete the cluster, deliberately.
 
-The log group has no `DeletionPolicy`, so it is deleted with the stack (`infra/stack.yaml:144-148`).
+The two log groups have no `DeletionPolicy`, so they are deleted with the stack (`infra/stack.yaml:141-145,257-264`).
 
 Teardown also leaves these in place:
 

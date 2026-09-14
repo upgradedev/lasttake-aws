@@ -43,7 +43,8 @@ def test_the_checkpoint_records_an_event_then_starts_directly(work, capsys):
     assert "scene.wrap-checkpoint.requested" in out
     assert "finding.recorded" in out
     assert "this command starts the orchestrator directly" in out
-    assert "No EventBridge rule or subscriber triggers it" in out
+    assert "event publication never triggers Strands" in out
+    assert "AWS subscriber, when deployed, records delivery only" in out
 
 
 def test_approve_resumes_the_run_and_routes_the_pickup(work, capsys):

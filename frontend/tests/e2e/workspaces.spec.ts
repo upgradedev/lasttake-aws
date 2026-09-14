@@ -171,7 +171,8 @@ test('LT-OFFLINE transport outage freezes decisions, preserves the run and recov
   await expect(page.getByTestId('decision-headline')).toHaveText('Refresh before deciding');
   await expect(page.getByRole('button',{name:'Record decision'})).toBeDisabled();
   await context.setOffline(false);
-  await page.getByRole('button',{name:'Retry loading saved state'}).click();
+  await expect(page.getByTestId('connectivity-status')).toContainText('Connected');
+  await expect(page.getByRole('button',{name:'Retry loading saved state'})).toHaveCount(0);
   await expect(page.getByRole('button',{name:'Record decision'})).toBeEnabled();
   await expect(page.getByTestId('decision-headline')).toHaveText('Wrap blocked by the supplied evidence');
   expect((await saved(page)).run_id).toBe(run);expect(writes).toBe(0);

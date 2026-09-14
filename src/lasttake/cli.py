@@ -147,7 +147,8 @@ def cmd_checkpoint(args) -> int:
     )
     print(
         f"[pid {os.getpid()}] recorded scene.wrap-checkpoint.requested; "
-        "this command starts the orchestrator directly. No EventBridge rule or subscriber triggers it."
+        "this command starts the orchestrator directly; event publication never triggers Strands. "
+        "The AWS subscriber, when deployed, records delivery only."
     )
 
     agent = build_orchestrator(run, session_dir=paths["sessions"])

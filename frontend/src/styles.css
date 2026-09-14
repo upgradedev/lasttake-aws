@@ -68,6 +68,11 @@
   .topbar select {max-width:220px;font-size:.875rem}
   .production-dot {display:inline-block;width:7px;height:7px;background:var(--amber);border-radius:50%;margin-right:9px}
   main {padding:24px 26px 18px;max-width:1920px;margin:auto}
+  .connectivity-status {display:flex;align-items:center;flex-wrap:wrap;gap:6px 14px;margin:0 0 16px;padding:9px 12px;border:1px solid #455074;border-radius:9px;background:#111a31;color:var(--secondary);font-size:.8125rem}
+  .connectivity-status strong {color:#c0edda}
+  .connectivity-status[data-state=offline],.connectivity-status[data-state=uncertain] {border-color:#776040;background:#362d24;color:#f3d49f}
+  .connectivity-status[data-state=offline] strong,.connectivity-status[data-state=uncertain] strong {color:#ffd596}
+  .connectivity-status[data-state=checking] strong {color:#f0c275}
   .page-heading {display:flex;justify-content:space-between;align-items:center;gap:24px;margin-bottom:20px}
   .page-heading p:not(.eyebrow) {color:var(--secondary);font-size:1rem;max-width:650px}
   .eyebrow {text-transform:uppercase;letter-spacing:.09em;font-size:.875rem;font-weight:600;color:var(--secondary);margin:0 0 .5rem}

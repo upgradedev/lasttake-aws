@@ -1,0 +1,53 @@
+const CACHE='lasttake-shell-v1';
+const ASSET=/^\/assets\/[A-Za-z0-9._-]+\.(?:js|css)$/;
+
+async function installShell() {
+  const response=await fetch(new Request('/',{cache:'reload'}));
+  if(!response.ok)throw new Error(`shell returned ${response.status}`);
+  const html=await response.clone().text();
+  const paths=['/',...[...html.matchAll(/(?:src|href)=["'](\/assets\/[A-Za-z0-9._-]+\.(?:js|css))["']/g)].map(match=>match[1])];
+  if(paths.length<2)throw new Error('shell named no built asset');
+  const cache=await caches.open(CACHE);
+  await cache.addAll([...new Set(paths)]);
+}
+
+self.addEventListener('install',event=>{
+  event.waitUntil(installShell().then(()=>self.skipWaiting()));
+});
+
+self.addEventListener('activate',event=>{
+  event.waitUntil(self.clients.claim());
+});
+
+self.addEventListener('fetch',event=>{
+  const request=event.request;
+  const url=new URL(request.url);
+  if(request.method!=='GET' || url.origin!==self.location.origin)return;
+  // API, health, proof and UAT responses are deliberately never cached. The
+  // service worker preserves only the public application shell; the app keeps
+  // one explicitly stale, read-only run snapshot in tab-scoped storage.
+  if(url.pathname.startsWith('/api/') || url.pathname==='/api' || url.pathname==='/healthz' ||
+      url.pathname.startsWith('/acceptance') || url.pathname.startsWith('/UAT.'))return;
+  if(request.mode==='navigate'){
+    // Resolve a saved shell before touching the unavailable network. WebKit's
+    // offline navigation can otherwise fail before a network-first promise
+    // reaches its cache fallback. Revalidation never delays the navigation.
+    const cache=caches.open(CACHE);
+    const refresh=cache.then(store=>fetch(request).then(async response=>{
+      if(response.ok)await store.put('/',response.clone());
+      return response;
+    }));
+    event.waitUntil(refresh.then(()=>undefined).catch(()=>undefined));
+    event.respondWith(cache.then(async store=>await store.match('/') ?? await refresh)
+      .catch(()=>Response.error()));
+    return;
+  }
+  if(ASSET.test(url.pathname)){
+    // Vite varies asset responses on Origin. This validated same-origin path
+    // is the cache identity, so an offline module request cannot miss on Vary.
+    event.respondWith(caches.match(url.pathname,{ignoreVary:true}).then(cached=>cached ?? fetch(request).then(async response=>{
+      if(response.ok)(await caches.open(CACHE)).put(request,response.clone());
+      return response;
+    })));
+  }
+});

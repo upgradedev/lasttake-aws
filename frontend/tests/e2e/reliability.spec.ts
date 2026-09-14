@@ -7,6 +7,22 @@ async function start(page:Page){
   return page.evaluate(()=>({session_id:localStorage.getItem('lasttake.session'),run_id:new URLSearchParams(location.hash.split('?')[1]).get('run')}));
 }
 
+async function reloadFromPage(page:Page){
+  // Keep this as a browser-owned reload and replace the URL first so the test
+  // proves the new document kept its exact route. The DOM sentinel proves this
+  // is a new document, not only a history or hash edit.
+  const target=new URL(page.url());
+  target.searchParams.set('offline-reload',Date.now().toString());
+  const marker=`before-${Date.now()}`;
+  await page.evaluate(({url,sentinel})=>{
+    window.history.replaceState(window.history.state,'',url);
+    document.documentElement.dataset.offlineReloadSentinel=sentinel;
+    window.setTimeout(()=>window.location.reload(),0);
+  },{url:target.toString(),sentinel:marker});
+  await expect.poll(()=>page.url()).toBe(target.toString());
+  await expect(page.locator('html')).not.toHaveAttribute('data-offline-reload-sentinel',marker);
+}
+
 test('LT-RELIABLE-INTAKE editable refusal, correction, and missing-report recovery use real HTTP',async({page},info)=>{
   const body=await start(page);
   const initial=await (await page.request.post('/api/state',{data:body})).json();
@@ -78,4 +94,69 @@ test('LT-RELIABLE-WRAP both API routes refuse stale review, decline recovers, ne
   await expect(page.getByText('Wrap ready: accepted by the event bus')).toBeVisible();
   await info.attach('wrap-review-outcome',{body:JSON.stringify(await call('state')),contentType:'application/json'});
   await page.screenshot({path:info.outputPath('reliability-wrap.png'),fullPage:true});
+});
+
+test('LT-OFFLINE cached shell and scoped draft stay read-only; reconnect never replays it',async({page,context,request,browserName},info)=>{
+  const body=await start(page);
+  await page.getByRole('button',{name:'Add take or release'}).click();
+  await page.getByLabel('Record type').selectOption('rights_record');
+  await page.getByLabel('Advanced JSON entry').check();
+  const draft=JSON.stringify({record_id:'REL-OFFLINE-DRAFT',subject_id:'BG-07',subject_kind:'person',
+    document_type:'background release',scope:'all media',territory:'worldwide',status:'executed'});
+  await page.getByLabel('Document JSON').fill(draft);
+  await expect(page.getByText(/Unsent draft kept in this tab/)).toBeVisible();
+
+  await page.evaluate(async()=>{
+    if(navigator.serviceWorker.controller)return;
+    await new Promise<void>((resolve,reject)=>{
+      const timer=setTimeout(()=>reject(new Error('service worker did not control the page')),10_000);
+      navigator.serviceWorker.addEventListener('controllerchange',()=>{clearTimeout(timer);resolve();},{once:true});
+    });
+  });
+
+  let browserIngests=0;
+  page.on('request',pending=>{if(new URL(pending.url()).pathname==='/api/ingest')browserIngests++;});
+  const shellPaths=await page.evaluate(async()=>{
+    const cache=await caches.open('lasttake-shell-v1');
+    return (await cache.keys()).map(entry=>new URL(entry.url).pathname);
+  });
+  expect(shellPaths).toContain('/');
+  expect(shellPaths.some(path=>/^\/assets\/[A-Za-z0-9._-]+\.js$/.test(path))).toBe(true);
+  expect(shellPaths.some(path=>/^\/assets\/[A-Za-z0-9._-]+\.css$/.test(path))).toBe(true);
+  const isWebKit=browserName==='webkit';
+  const beforeDisconnect=page.url();
+  await context.setOffline(true);
+  // Playwright WebKit rejects every offline top-level navigation in its
+  // protocol layer before a controlling service worker can answer. Chromium
+  // proves the full cached-document reload. WebKit still proves the real cache
+  // contents plus live disconnect, read-only state, reconnect and no replay.
+  if(isWebKit)expect(page.url()).toBe(beforeDisconnect);
+  else await reloadFromPage(page);
+  await expect(page.getByTestId('connectivity-status')).toContainText('Offline');
+  await expect(page.getByTestId('connectivity-status')).toContainText('Saved snapshot · read-only');
+  if(!isWebKit)await page.getByRole('button',{name:'Add take or release'}).click();
+  await expect(page.getByLabel('Document JSON')).toHaveValue(draft);
+  await expect(page.getByRole('button',{name:'Save evidence & rerun checks'})).toBeDisabled();
+  expect(browserIngests).toBe(0);
+
+  const changed=await request.post('/api/ingest',{data:{...body,kind:'rights_record',document:{
+    record_id:'REL-OFFLINE-EXTERNAL',subject_id:'BG-07',subject_kind:'person',
+    document_type:'background release',scope:'all media',territory:'worldwide',status:'executed',
+  }}});
+  expect(changed.status()).toBe(200);
+
+  await context.setOffline(false);
+  await expect(page.getByRole('heading',{name:'Saved evidence changed since your last confirmed view'})).toBeVisible();
+  await expect(page.getByTestId('connectivity-status')).toContainText('Connected');
+  await expect(page.getByLabel('Document JSON')).toHaveValue(draft);
+  await expect(page.getByRole('button',{name:'Save evidence & rerun checks'})).toBeDisabled();
+  expect(browserIngests).toBe(0);
+
+  await page.getByRole('button',{name:'I reviewed the current saved revision'}).click();
+  await expect(page.getByRole('button',{name:'Save evidence & rerun checks'})).toBeEnabled();
+  await page.getByRole('button',{name:'Save evidence & rerun checks'}).click();
+  await expect(page.getByRole('heading',{name:'Add evidence to this shoot day'})).toBeHidden();
+  expect(browserIngests).toBe(1);
+  await info.attach('offline-reconnect',{body:JSON.stringify({run_id:body.run_id,browser_ingest_requests:browserIngests,
+    engine:browserName,cached_paths:shellPaths,document_reload_exercised:!isWebKit}),contentType:'application/json'});
 });

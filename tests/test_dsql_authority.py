@@ -321,7 +321,7 @@ def test_staged_identifiers_refuse_injection_wildcards_and_unsupported_cross_acc
     with pytest.raises(ValueError): prepare(cluster, role)
 
 
-def test_active_iac_defaults_and_no_branch_deployment_remain_unchanged():
+def test_active_dsql_authority_and_no_branch_deployment_remain_unchanged():
     root = Path(__file__).resolve().parents[1]
     stack = (root/"infra/stack.yaml").read_text()
     assert "Action: dsql:DbConnectAdmin" in stack
@@ -330,7 +330,11 @@ def test_active_iac_defaults_and_no_branch_deployment_remain_unchanged():
     baseline = subprocess.check_output(["git","show","fbb901caf41e624d4b200f6062794d101738236c:infra/stack.yaml"],
                                        cwd=root, text=True)
     without_comments = lambda source: [line for line in source.splitlines() if not line.lstrip().startswith("#")]
-    assert without_comments(stack) == without_comments(baseline), "Active template may change comments only in preparation"
+    block = lambda source,start,end: source.split(start,1)[1].split(end,1)[0]
+    assert without_comments(block(stack, "  Database:", "  EventBus:")) == without_comments(
+        block(baseline, "  Database:", "  EventBus:"))
+    assert without_comments(block(stack, "              - Sid: ConnectToOurClusterOnly", "              - Sid: BedrockInferenceOnly")) == without_comments(
+        block(baseline, "              - Sid: ConnectToOurClusterOnly", "              - Sid: BedrockInferenceOnly"))
     for workflow in ["deploy.yml","frontend-deploy.yml","live-surface.yml"]:
         source = (root/".github/workflows"/workflow).read_text()
         assert re.search(r"push:\s+branches: \[main\]", source)

@@ -19,9 +19,10 @@ export function SceneView({scene,state,selected,selection={},role='script_superv
     const row=activeBeat?document.getElementById('beat-'+activeBeat):null;
     if(list && row && list.contains(row)){
       list.scrollTop=Math.max(0,list.scrollTop+row.getBoundingClientRect().top-list.getBoundingClientRect().top-10);
-      // A new selection also brings the pane into the window, minimally, so
-      // the row the pane just scrolled to is where the person is looking.
-      if(previousBeat.current!==activeBeat)list.closest('section')?.scrollIntoView({block:'nearest'});
+      // A new selection also brings the pane into the window. "nearest" can
+      // leave the pane only partly visible when status copy precedes the
+      // cockpit, which hides the selected row outside the browser viewport.
+      if(previousBeat.current!==activeBeat)list.closest('section')?.scrollIntoView({block:'start'});
     }
     previousBeat.current=activeBeat;
   // A filter can replace the rows above the same selected beat. Reposition for
@@ -48,7 +49,7 @@ export function SceneView({scene,state,selected,selection={},role='script_superv
       <section id="evidence-pane" tabIndex={-1} className="cockpit-pane findings" aria-label="Evidence and exceptions"><div className="pane-heading"><h2>Discrepancy & sources</h2></div><div className="pane-scroll" tabIndex={0} aria-label="Finding inspection">
         <div className="section-heading"><h3>{beat?'Selected beat':'Scene exceptions'}</h3>{(beat||selection.finding||selection.filter) && <a href={link('scene',state.run_id)}>Show all</a>}</div>{beat && <p>{beat.slug}</p>}
         {!state.counts?<p className="empty">Run a checkpoint to reconcile the records. Unchecked records are not a pass.</p>:findings.length===0?<p className="empty">No exception is associated with this selection. Review the rest of the scene before requesting wrap.</p>:<>
-          <div className="finding-picker" aria-label="Choose a finding">{findings.map(f=><a key={f.finding_id} className="finding-option" data-check={f.check_type} href={link('scene',state.run_id,beat?.beat_id,{finding:f.finding_id})} aria-current={finding?.finding_id===f.finding_id?'true':undefined}><span>{words(f.check_type)} · {f.requirement_id ?? 'Shot plan advisory'}</span><small>{words(f.truth_state)} · {reviewLabel(f,state)}</small>{hasApprovedPickup(f,state) && <small>Pickup approved · stays an exception until a take arrives</small>}</a>)}</div>
+          <div className="finding-picker" aria-label="Choose a finding">{findings.map(f=><a key={f.finding_id} className="finding-option" data-check={f.check_type} href={link('scene',state.run_id,beat?.beat_id,{finding:f.finding_id})} aria-current={finding?.finding_id===f.finding_id?'true':undefined} onClick={()=>window.setTimeout(()=>document.getElementById('script-pane')?.scrollIntoView({block:'start'}),0)}><span>{words(f.check_type)} · {f.requirement_id ?? 'Shot plan advisory'}</span><small>{words(f.truth_state)} · {reviewLabel(f,state)}</small>{hasApprovedPickup(f,state) && <small>Pickup approved · stays an exception until a take arrives</small>}</a>)}</div>
           {finding && <><Evidence finding={finding} scene={scene} decisions={state.decisions}/><div className="related-beats"><h3>Linked script beats</h3>{related.length?related.map(b=><a className="button" key={b.beat_id} href={link('scene',state.run_id,b.beat_id,{finding:finding.finding_id})}>{b.beat_id} · Page {b.page}, line {b.line}</a>):<p className="warning">Unmatched source: this finding has no linked beat in the current script. Its source records are shown above.</p>}</div><a className="button" href={link('records',state.run_id,beat?.beat_id,{finding:finding.finding_id,filter:'findings',record:finding.finding_id})}>Inspect in Records</a></>}
         </>}
       </div></section>

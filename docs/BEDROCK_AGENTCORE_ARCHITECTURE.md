@@ -2,13 +2,13 @@
 
 This page is for a reviewer asking what moving LastTake onto AgentCore would involve, and it expands [README, What is deployed, and what it costs](../README.md#what-is-deployed-and-what-it-costs). It describes today's code as it is and marks every AgentCore step as a proposal.
 
-For a script supervisor and the 1st AD, the running application is [LastTake on AWS](https://d3kf6hquzlli8g.cloudfront.net/). Create a run, start a checkpoint, review sources and answer the saved approval. Handoff exports the turnover, an evidence summary, receipts and their stated limits. The current browser is an offline synthetic demo using real Strands tool replay and S3 sessions; it does not analyse footage or audio. Pre-existing component disclosures are in the README.
+For a script supervisor and the 1st AD, the running application is [LastTake on AWS](https://d3kf6hquzlli8g.cloudfront.net/). Create a run, start a checkpoint, review sources and answer the saved approval. Handoff exports the turnover, an evidence summary, receipts and their stated limits. The connected synthetic demo uses real HTTP requests, Strands tool replay and S3 sessions; its public language interpreter is offline and lexical. It does not analyse footage or audio. Pre-existing component disclosures are in the README.
 
 > **Status: a design proposal. None of the AgentCore migration below is deployed, validated or part of the current reliability implementation.**
 >
-> LastTake does not run on Amazon Bedrock AgentCore today. What is deployed is described in the README under "What is deployed, and what it costs": one Lambda behind an HTTP API, one Aurora DSQL cluster, one data bucket and one EventBridge bus, with the web app served from a private S3 bucket through CloudFront. The backend is one CloudFormation template, `infra/stack.yaml`, applied by the deploy workflow. No workflow deploys the CloudFront frontend stack rendered by `infra/frontend_stack.py` or runs `infra/setup_ci_identity.py`, which creates the CI IAM user; the owner provisions both.
+> LastTake does not run on Amazon Bedrock AgentCore today. What is deployed is described in the README: an API Lambda, a separate EventBridge delivery-recorder Lambda, Aurora DSQL, a data bucket and a custom EventBridge bus with one rule, with the web app served from a private S3 bucket through CloudFront. The backend is one CloudFormation template, `infra/stack.yaml`, applied by the deploy workflow. No workflow deploys the CloudFront frontend stack rendered by `infra/frontend_stack.py` or runs `infra/setup_ci_identity.py`, which creates the CI IAM user; the owner provisions both.
 >
-> The hosted HTTP demo always runs offline, with no Bedrock switch: interpretations on the live URL come from the offline lexical interpreter and a scripted planner drives the orchestrator, so no language model is called. This document is what a move onto AgentCore could look like. Every sentence about LastTake on AgentCore describes an intention, not a running system, and nothing in it should be read as a capability claim.
+> The hosted HTTP demo has no Bedrock switch: interpretations on the live URL come from the offline lexical interpreter and a scripted planner drives the orchestrator, so no language model is called. The rest of the journey is online and uses the deployed AWS backend. This document is what a move onto AgentCore could look like. Every sentence about LastTake on AgentCore describes an intention, not a running system, and nothing in it should be read as a capability claim.
 >
 > LastTake is aimed at **one script supervisor on one shoot day**, with the 1st AD holding pickup and wrap authority, which is the positioning the README leads with.
 
@@ -73,7 +73,7 @@ flowchart TB
     class prop laneBack
 ```
 
-The input is supplied records, not telemetry. No arrow leaves the event bus: no EventBridge rule routes events today, and this proposal adds none.
+The input is supplied records, not telemetry. In the running release, the custom bus independently routes each emitted domain event to a terminal delivery-recorder Lambda. Its immutable S3 receipt proves that subscriber ran; it does not start Strands or prove editorial delivery. The proposal adds no new event-driven workflow.
 
 ## 3. Mapping from current modules
 
@@ -93,7 +93,7 @@ The middle column is today's code. The right column is the proposal.
 | `lasttake.app.workspace` | Refuses an approval answer whose claimed role is not `first_ad` on session-owned runs. There is no Unit Production Manager role, and the role is a request claim, not an authenticated identity. | AgentCore Identity, which works with existing identity providers, is the candidate for making the 1st AD an authenticated person rather than a claimed role. This design has not worked out how. |
 | `lasttake.adapters.aws.dsql` | Stores findings, decisions, eligibility packets, the audit trail and idempotency claims. | Would stay on Aurora DSQL. AgentCore Memory keeps conversation context, short-term within a session and long-term across sessions, not one-time claims, so it is not proposed for run state. |
 | `lasttake.domain.sealing` | Source artifacts and emitted records (findings, eligibility packets, turnover and receipts) carry SHA-256 digests. The gate verifies the seal on each finding. Hashes identify bytes, not truth. | Unchanged. |
-| EventBridge bus | Every emitted event is copied to S3 and sent with PutEvents. No rule routes events: the checkpoint request (the CLI command, or POST /api/checkpoint behind the "Run wrap checkpoint" button) publishes `scene.wrap-checkpoint.requested` and then starts the orchestrator itself. | Unchanged. The checkpoint request would start the Runtime session in the same way. |
+| EventBridge bus and `lasttake.adapters.aws.event_consumer` | Every emitted event is copied to S3 and sent with PutEvents. The checkpoint request (the CLI command, or POST /api/checkpoint behind the "Run wrap checkpoint" button) publishes `scene.wrap-checkpoint.requested` and starts the orchestrator itself. An EventBridge rule separately invokes a terminal Lambda that validates the envelope and writes one immutable, idempotent consumption receipt to S3. The subscriber cannot publish events. | Unchanged. The checkpoint request would start the Runtime session in the same way; the recorder would remain an independent receipt path, not the trigger. |
 
 **What a move would involve.** None of this is written.
 

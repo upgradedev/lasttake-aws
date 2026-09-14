@@ -61,6 +61,7 @@ from .ingest import (
 from .scene_view import scene_view
 from .request_body import BodyError, parse_body
 from . import workspace
+from . import event_history
 
 #: Minted when this container boots. Two requests that report different values
 #: were served by different processes. Two that report the same value were
@@ -587,24 +588,8 @@ def route_retry_delivery(body: dict, request_id: str) -> dict:
 def route_events(body: dict, request_id: str) -> dict:
     run = build_run(body["run_id"])
     rows = run.bus.replay(run.correlation_id)
-    return _json(
-        200,
-        {
-            "run_id": run.run_id,
-            "events": [
-                {
-                    "event_type": r["event_type"],
-                    "event_id": r["event_id"],
-                    "parent_event_id": r.get("parent_event_id"),
-                    "occurred_at": r["occurred_at"],
-                    "idempotency_key": r["idempotency_key"][:16],
-                    "payload": r["payload"],
-                }
-                for r in rows
-            ],
-        },
-        request_id,
-    )
+    receipts = run.bus.consumption_receipts(run.correlation_id)
+    return _json(200, {"run_id": run.run_id, **event_history.view(rows, receipts)}, request_id)
 
 
 def route_ingest(body: dict, request_id: str) -> dict:

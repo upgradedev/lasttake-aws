@@ -56,6 +56,18 @@ describe('intake',()=>{
   it('rejects malformed advanced JSON locally and submits repaired JSON',async()=>{const submit=act(),close=vi.fn();const user=userEvent.setup();render(<Intake scene={scene} busy={false} guided={false} onSubmit={submit} onClose={close}/>);expect(screen.queryByRole('button',{name:'Fill synthetic example'})).toBeNull();await user.click(screen.getByLabelText('Advanced JSON entry'));fireEvent.change(screen.getByLabelText('Document JSON'),{target:{value:'{'}});await user.click(screen.getByRole('button',{name:'Save evidence & rerun checks'}));expect(screen.getByRole('alert')).toHaveTextContent('valid JSON');expect(submit).not.toHaveBeenCalled();fireEvent.change(screen.getByLabelText('Document JSON'),{target:{value:'{"take_id":"T-3"}'}});await user.click(screen.getByRole('button',{name:'Save evidence & rerun checks'}));expect(submit).toHaveBeenCalled();await user.click(screen.getByRole('button',{name:'Close form'}));expect(close).toHaveBeenCalled();});
 });
 describe('history',()=>{
+  it('separates EventBridge subscriber receipts from events with no observed receipt',()=>{
+    const events=[
+      {event_id:'consumed-1',event_type:'finding.recorded',occurred_at:'2026-09-14T20:00:00Z',payload:{},eventbridge_delivery:{status:'consumed' as const,subscriber:'eventbridge-delivery-recorder/v1',consumed_at:'2026-09-14T20:00:01Z',eventbridge_event_id:'transport-1',deployed_sha:'a'.repeat(40)}},
+      {event_id:'pending-1',event_type:'finding.recorded',occurred_at:'2026-09-14T20:00:02Z',payload:{},eventbridge_delivery:{status:'not_observed' as const}},
+    ];
+    render(<History state={state} session={session} events={events} role="dit" busy={false} act={act()} handle={act()}/>);
+    const record=within(screen.getByRole('region',{name:'Recorded events'}));
+    expect(record.getByText('1/2 subscriber receipts observed')).toBeInTheDocument();
+    expect(record.getByText(/EventBridge subscriber consumed/)).toHaveTextContent('eventbridge-delivery-recorder/v1');
+    expect(record.getByText('Subscriber receipt not observed')).toBeInTheDocument();
+    expect(record.getByText(/not observed does not prove delivery failed/)).toBeVisible();
+  });
   it('pages every event newest first without changing the original records',async()=>{
     const events=Array.from({length:45},(_,i)=>({event_id:`event-${i}`,event_type:`record.${i}`,occurred_at:new Date(Date.UTC(2026,8,9,0,i)).toISOString(),payload:{index:i}}));
     const original=JSON.stringify(events);

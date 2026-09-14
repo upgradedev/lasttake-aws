@@ -22,6 +22,12 @@ function consecutiveRuns(events:EventRow[]) {
 function eventLabel(event:EventRow) { return words(event.event_type.replaceAll('.',' ')); }
 function EventTime({event}:{event:EventRow}) { return <time dateTime={event.occurred_at}>{new Date(event.occurred_at).toLocaleString()}</time>; }
 function EventDetails({event}:{event:EventRow}) { return <details><summary>Event details</summary><pre>{JSON.stringify(event.payload,null,2)}</pre><code>{event.event_id}</code></details>; }
+function EventDelivery({event}:{event:EventRow}) {
+  const receipt=event.eventbridge_delivery;
+  return receipt?.status==='consumed'
+    ? <small>EventBridge subscriber consumed · {receipt.subscriber}</small>
+    : <small>Subscriber receipt not observed</small>;
+}
 
 export function History({state,session,events,role,busy,act,handle,historyLoading=false,historyError='',olderRuns,newestRuns}:{state:RunState;session:Session;events:EventRow[];role:Role;busy:boolean;act:(path:string,extra?:Document)=>Promise<boolean>;handle:(work:()=>Promise<void>)=>Promise<boolean>;historyLoading?:boolean;historyError?:string;olderRuns?:()=>Promise<void>;newestRuns?:()=>Promise<void>}) {
   const [receipt,setReceipt]=useState<Receipt|null>(null);
@@ -46,10 +52,10 @@ export function History({state,session,events,role,busy,act,handle,historyLoadin
     <div className="toolbar"><button disabled={busy || historyLoading || !newestRuns} onClick={()=>void newestRuns?.()}>Refresh newest runs</button><button disabled={busy || historyLoading || !session.next_cursor || !olderRuns} onClick={()=>void olderRuns?.()}>Load older runs</button><p role="status">{historyLoading?'Loading saved runs…':`${runCount} ${runCount===1?'run':'runs'} on this page${session.has_more?' · older runs available':''}`}</p></div>
     {historyError && <p className="error" role="alert">{historyError} Your current page is retained. Refresh newest runs to restart pagination.</p>}
     <ul className="run-list">{session.runs.map(run=><li key={run.run_id}><a href={link('history',run.run_id)}>{run.scene_id} · {new Date(run.created_at).toLocaleString()}</a><span>{run.turnover_published?'Turnover saved':run.checked?'Checkpoint saved':'Awaiting checkpoint'}</span><small>{run.run_id}</small></li>)}</ul></section>
-  <section className="panel" aria-labelledby="events-heading"><h2 id="events-heading">Recorded events</h2><p className="fine">Stored event attempts are not delivery receipts. Use Delivery status above for the actual recorded bus response.</p>{distinctEvents.length ? <>
+  <section className="panel" aria-labelledby="events-heading"><h2 id="events-heading">Recorded events</h2><p className="fine">Publisher acceptance and subscriber consumption are separate. A consumed receipt proves the delivery recorder ran; not observed does not prove delivery failed.</p>{distinctEvents.length ? <>
     <div className="toolbar"><p role="status" aria-live="polite">Events {start+1}–{Math.min(start+20,distinctEvents.length)} of {distinctEvents.length} · newest first</p><button aria-controls="event-timeline" disabled={currentPage===0} onClick={()=>setEventPage(currentPage-1)}>Newer events</button><button aria-controls="event-timeline" disabled={currentPage===pageCount-1} onClick={()=>setEventPage(currentPage+1)}>Older events</button></div>
     <ol id="event-timeline" className="timeline" start={start+1}>{consecutiveRuns(recentEvents).map(run=>{const [first]=run;return run.length===1
-      ? <li key={first.event_id} data-event-id={first.event_id}><strong>{eventLabel(first)}</strong><EventTime event={first}/><EventDetails event={first}/></li>
-      : <li key={`run-${first.event_id}`}><strong>{`${eventLabel(first)} ×${run.length}`}</strong><EventTime event={first}/><details><summary>{`List the ${run.length} events`}</summary>{run.map(event=><div key={event.event_id} data-event-id={event.event_id}><EventTime event={event}/><EventDetails event={event}/></div>)}</details></li>;})}</ol>
+      ? <li key={first.event_id} data-event-id={first.event_id}><strong>{eventLabel(first)}</strong><EventTime event={first}/><EventDelivery event={first}/><EventDetails event={first}/></li>
+      : <li key={`run-${first.event_id}`}><strong>{`${eventLabel(first)} ×${run.length}`}</strong><EventTime event={first}/><small>{run.filter(event=>event.eventbridge_delivery?.status==='consumed').length}/{run.length} subscriber receipts observed</small><details><summary>{`List the ${run.length} events`}</summary>{run.map(event=><div key={event.event_id} data-event-id={event.event_id}><EventTime event={event}/><EventDelivery event={event}/><EventDetails event={event}/></div>)}</details></li>;})}</ol>
   </> : <p className="empty">No events yet. A checkpoint or evidence intake starts this run's record.</p>}</section></>;
 }
