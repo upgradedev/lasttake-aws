@@ -1,4 +1,4 @@
-"""The event envelope, and the eleven event types this system speaks.
+"""The event envelope, and the twelve event types this system speaks.
 
 The product's first architectural claim is that a real event starts the work,
 not a button. That only means something if the envelope carries enough to make
