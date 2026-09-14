@@ -8,8 +8,9 @@ The interesting path is deliberately two commands, not one:
 That is the product's claim made executable. The agent stops when it needs a
 human and the process ends; the human answers whenever they answer; a different
 process picks the run up from the same point. No subcommand runs the whole
-sequence: each step is invoked on its own, so it stays plain which parts were
-separate processes, and a demo that blurs that has hidden the only hard part.
+sequence: each step is invoked on its own, so which parts were separate
+processes stays visible, because a demo that blurs that has hidden the only
+hard part.
 """
 
 from __future__ import annotations
