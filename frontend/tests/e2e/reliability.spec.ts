@@ -8,13 +8,9 @@ async function start(page:Page){
 }
 
 async function reloadFromPage(page:Page){
-  // Keep this as a browser-owned reload. WebKit rejects an offline assign to a
-  // new URL before its service worker can answer, while a reload reaches the
-  // worker's cached navigation response. Replace the URL first so the test
-  // still proves the reloaded document kept its exact route. Do not use a
-  // Playwright navigation waiter here: WebKit reports an internal protocol
-  // error even when the document is replaced. The DOM sentinel proves this is
-  // a new document, not only a history or hash edit.
+  // Keep this as a browser-owned reload and replace the URL first so the test
+  // proves the new document kept its exact route. The DOM sentinel proves this
+  // is a new document, not only a history or hash edit.
   const target=new URL(page.url());
   target.searchParams.set('offline-reload',Date.now().toString());
   const marker=`before-${Date.now()}`;
@@ -100,7 +96,7 @@ test('LT-RELIABLE-WRAP both API routes refuse stale review, decline recovers, ne
   await page.screenshot({path:info.outputPath('reliability-wrap.png'),fullPage:true});
 });
 
-test('LT-OFFLINE reload keeps one scoped draft read-only and reconnect never replays it',async({page,context,request},info)=>{
+test('LT-OFFLINE cached shell and scoped draft stay read-only; reconnect never replays it',async({page,context,request,browserName},info)=>{
   const body=await start(page);
   await page.getByRole('button',{name:'Add take or release'}).click();
   await page.getByLabel('Record type').selectOption('rights_record');
@@ -120,11 +116,25 @@ test('LT-OFFLINE reload keeps one scoped draft read-only and reconnect never rep
 
   let browserIngests=0;
   page.on('request',pending=>{if(new URL(pending.url()).pathname==='/api/ingest')browserIngests++;});
+  const shellPaths=await page.evaluate(async()=>{
+    const cache=await caches.open('lasttake-shell-v1');
+    return (await cache.keys()).map(entry=>new URL(entry.url).pathname);
+  });
+  expect(shellPaths).toContain('/');
+  expect(shellPaths.some(path=>/^\/assets\/[A-Za-z0-9._-]+\.js$/.test(path))).toBe(true);
+  expect(shellPaths.some(path=>/^\/assets\/[A-Za-z0-9._-]+\.css$/.test(path))).toBe(true);
+  const isWebKit=browserName==='webkit';
+  const beforeDisconnect=page.url();
   await context.setOffline(true);
-  await reloadFromPage(page);
+  // Playwright WebKit rejects every offline top-level navigation in its
+  // protocol layer before a controlling service worker can answer. Chromium
+  // proves the full cached-document reload. WebKit still proves the real cache
+  // contents plus live disconnect, read-only state, reconnect and no replay.
+  if(isWebKit)expect(page.url()).toBe(beforeDisconnect);
+  else await reloadFromPage(page);
   await expect(page.getByTestId('connectivity-status')).toContainText('Offline');
   await expect(page.getByTestId('connectivity-status')).toContainText('Saved snapshot · read-only');
-  await page.getByRole('button',{name:'Add take or release'}).click();
+  if(!isWebKit)await page.getByRole('button',{name:'Add take or release'}).click();
   await expect(page.getByLabel('Document JSON')).toHaveValue(draft);
   await expect(page.getByRole('button',{name:'Save evidence & rerun checks'})).toBeDisabled();
   expect(browserIngests).toBe(0);
@@ -147,5 +157,6 @@ test('LT-OFFLINE reload keeps one scoped draft read-only and reconnect never rep
   await page.getByRole('button',{name:'Save evidence & rerun checks'}).click();
   await expect(page.getByRole('heading',{name:'Add evidence to this shoot day'})).toBeHidden();
   expect(browserIngests).toBe(1);
-  await info.attach('offline-reconnect',{body:JSON.stringify({run_id:body.run_id,browser_ingest_requests:browserIngests}),contentType:'application/json'});
+  await info.attach('offline-reconnect',{body:JSON.stringify({run_id:body.run_id,browser_ingest_requests:browserIngests,
+    engine:browserName,cached_paths:shellPaths,document_reload_exercised:!isWebKit}),contentType:'application/json'});
 });
