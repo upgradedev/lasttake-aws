@@ -102,7 +102,7 @@ This is the four-step journey the automated test follows (see [What the walk is 
 | no response recorded yet, or outcome unknown | nothing is established | do not resend. Refresh saved state, then give the run and receipt identifiers to the operator. |
 | rejected by the event bus | the bus definitely refused it | as 1st AD, press **Retry rejected delivery**, which rechecks the current approval first. Only a retryable delivery offers it (`DeliveryStatus.tsx:25`). |
 
-6. Evidence added after a turnover leaves that turnover in place as a **Historical record**, with the reason it stopped being current, and **Download turnover** still works. The next-step panel then offers **Start a fresh shoot-day run** for a new turnover (`frontend/tests/e2e/hero.spec.ts:60-73`).
+6. Evidence added after a turnover leaves that turnover in place as a **Historical record**, with the reason it stopped being current, and **Download turnover** still works. The next-step panel then offers **Start a fresh shoot-day run** for a new turnover (`frontend/tests/e2e/hero.spec.ts:69-82`).
 
 ### When a fresh checkpoint is required
 
@@ -133,7 +133,7 @@ Two statuses stay open:
 - The final recording is `NOT_CONFIGURED`: the final demo video capture has not been set up, and it waits for the owner to verify it.
 - Human UAT is `NOT_RUN`: no person has completed the 22-case manual UAT testbook (the `cases` list in `frontend/UAT.testbook.json`). It is separate from automated acceptance, and automated journeys never mark it as passed (`tests/test_claim_drift.py:83` pins `human_signoff` at `NOT_RUN`).
 
-Session authority comes from the browser's saved session handle, never from an imported document. LT-FILE posts a valid document with no session, then with another session's handle, and both get HTTP 403 (`hero.spec.ts:104-110`).
+Session authority comes from the browser's saved session handle, never from an imported document. LT-FILE posts a valid document with no session, then with another session's handle, and both get HTTP 403 (`frontend/tests/e2e/hero.spec.ts:113-119`).
 
 ## Pages, links and the testbook
 

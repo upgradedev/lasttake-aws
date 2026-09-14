@@ -40,7 +40,7 @@ The site bucket and CloudFront distribution must already exist. No workflow depl
 **What live acceptance checks.** The `acceptance` job in `aws-uat.yml` tests the exact commit that was just published:
 
 1. Preflight requires a full 40-character commit, reads `/release.json`, `/healthz` and the root HTML, and runs the smoke check against that commit (`aws-uat.yml:42-49`).
-2. The journeys run with `npm run test:e2e -- --forbid-only` against `https://d3kf6hquzlli8g.cloudfront.net/` (`aws-uat.yml:32`, `:57-60`). `--forbid-only` fails the run if a focused `test.only` was committed. The hero, journeys and workspaces specs also fail on any uncaught browser error (`frontend/tests/e2e/hero.spec.ts:33`, `journeys.spec.ts:60`, `workspaces.spec.ts:129`).
+2. The journeys run with `npm run test:e2e -- --forbid-only` against `https://d3kf6hquzlli8g.cloudfront.net/` (`aws-uat.yml:32`, `:57-60`). `--forbid-only` fails the run if a focused `test.only` was committed. The hero, journeys and workspaces specs also fail on any uncaught browser error (`frontend/tests/e2e/hero.spec.ts:42`, `journeys.spec.ts:60`, `workspaces.spec.ts:129`).
 3. Postflight repeats the smoke check and the identity reading (`aws-uat.yml:61-68`), so a release that changed during the journeys fails.
 
 **What each run keeps.** The artifact `aws-acceptance-<run>-<attempt>` holds the HTML and JUnit reports, traces, screenshots, failure videos and the UAT testbook for 90 days (`aws-uat.yml:86-98`; trace, screenshot and video settings in `frontend/playwright.config.ts:7`). The step summary records the commit and the three stage results, and states that human UAT is `NOT_RUN` (`aws-uat.yml:76-85`).
