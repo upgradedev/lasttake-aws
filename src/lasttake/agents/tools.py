@@ -357,7 +357,7 @@ def build_tools(run: WrapRun) -> list[Callable[..., Any]]:
 
     @tool
     def publish_turnover() -> str:
-        """Generate and publish the versioned packet editorial receives."""
+        """Generate and publish the versioned packet available in Handoff."""
         packet_dict = run.load_packet()
         if packet_dict is None or not packet_dict.get("eligible"):
             return "Refusing: no eligible packet. A turnover without one is a claim with nothing behind it."

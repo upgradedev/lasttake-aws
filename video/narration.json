@@ -1,5 +1,5 @@
 {
-  "_comment": "Source script for the complete React workflow shared with source Playwright acceptance. No recording or narration generated. Owner must verify the live frontend/backend pair, narration and measured per-beat timing before READY_OWNER_VERIFIED. Existing kit provenance and NOT_CONFIGURED gate remain.",
+  "_comment": "Source script for the complete React workflow shared with source Playwright acceptance. The owner approved this narration and its measured per-beat timing for capture. No final recording exists; exact frontend/backend proof runs and separate owner review of the rendered MP4 remain required.",
   "schemaVersion": "lasttake.submission-video/v1",
   "provider": "elevenlabs",
   "elevenLabs": {
@@ -7,45 +7,42 @@
     "modelId": "eleven_multilingual_v2",
     "outputFormat": "mp3_44100_128"
   },
-  "languageCode": "en-GB",
-  "voice": "en-GB-Neural2-B",
-  "speakingRate": 0.98,
   "segments": [
     {
       "id": "hook",
-      "captionText": "For a script supervisor and the first assistant director. At wrap, the evidence for whether a scene is ready is scattered across the script, the takes, the reports and the releases, and nobody holds all of it at once. While the set is standing, a missing shot costs fifteen minutes; once it is struck, the same fact costs a pickup day. LastTake brings the supplied records into one review. Start the fictional shoot day. The next step follows saved evidence through a human wrap decision to a handoff for editorial. This is a demonstration on a synthetic scene, not an observed crew trial or a measured time saving.",
-      "speechText": "For a script supervisor and the first assistant director. At wrap, the evidence for whether a scene is ready is scattered across the script, the takes, the reports and the releases, and nobody holds all of it at once. While the set is standing, a missing shot costs fifteen minutes; once it is struck, the same fact costs a pickup day. LastTake brings the supplied records into one review. Start the fictional shoot day. The next step follows saved evidence through a human wrap decision to a handoff for editorial. This is a demonstration on a synthetic scene, not an observed crew trial or a measured time saving."
+      "captionText": "LastTake uses durable Strands interrupts so a script supervisor can pause a wrap workflow on its evidence and a first assistant director can resume it later. This capture starts with supplied records and no checkpoint result. The scene is synthetic; no crew trial or measured benefit is claimed.",
+      "speechText": "LastTake uses durable Strands interrupts so a script supervisor can pause a wrap workflow on its evidence and a first assistant director can resume it later. This capture starts with supplied records and no checkpoint result. The scene is synthetic; no crew trial or measured benefit is claimed."
     },
     {
       "id": "surface",
-      "captionText": "Open a take in the lined script and compare the sidecar with its independent camera report. The linked records show what was supplied. A take without a report stays missing evidence. LastTake does not analyze footage or audio, choose a performance, or determine legal sufficiency.",
-      "speechText": "Open a take in the lined script and compare the sidecar with its independent camera report. The linked records show what was supplied. A take without a report stays missing evidence. LastTake does not analyze footage or audio, choose a performance, or determine legal sufficiency."
+      "captionText": "Open a take in the lined script and compare its sidecar with the camera report. Linked records show what was supplied; missing reports stay missing evidence. LastTake does not analyze footage or audio, choose performances, or determine legal sufficiency.",
+      "speechText": "Open a take in the lined script and compare its sidecar with the camera report. Linked records show what was supplied; missing reports stay missing evidence. LastTake does not analyze footage or audio, choose performances, or determine legal sufficiency."
     },
     {
       "id": "trigger",
-      "captionText": "Run the wrap checkpoint. Four bounded checks read the package, and a deterministic gate combines their findings. The public demo uses a scripted planner and offline lexical interpreter with real API persistence. The pickup tool pauses for the first assistant director. It does not approve the request itself.",
-      "speechText": "Run the wrap checkpoint. Four bounded checks read the package, and a deterministic gate combines their findings. The public demo uses a scripted planner and offline lexical interpreter with real API persistence. The pickup tool pauses for the first assistant director. It does not approve the request itself."
+      "captionText": "Run the wrap checkpoint. The request records scene.wrap-checkpoint.requested, then starts Strands; no EventBridge rule or subscriber triggers it. Four checks and a deterministic gate report 34 required beats: 31 covered with evidence, 2 exceptions, and 1 missing release. The hosted browser uses an offline lexical interpreter. A separate deployment proof exercises Bedrock; Bedrock is not active in this browser.",
+      "speechText": "Run the wrap checkpoint. The request records scene dot wrap checkpoint dot requested, then starts Strands; no Event Bridge rule or subscriber triggers it. Four checks and a deterministic gate report thirty-four required beats: thirty-one covered with evidence, two exceptions, and one missing release. The hosted browser uses an offline lexical interpreter. A separate deployment proof exercises Bedrock; Bedrock is not active in this browser."
     },
     {
       "id": "live",
-      "captionText": "First record the supervisor's continuity decision against the current sources. Then select the first assistant director and reload. The saved Strands interrupt returns. Explicit approval resumes the tool, while wrap remains unapproved. Strands supplies this saved tool loop and replay. S3 stores its session and Aurora DSQL stores the AWS run state.",
-      "speechText": "First record the supervisor's continuity decision against the current sources. Then select the first assistant director and reload. The saved Strands interrupt returns. Explicit approval resumes the tool, while wrap remains unapproved. Strands supplies this saved tool loop and replay. S3 stores its session and Aurora DSQL stores the AWS run state."
+      "captionText": "Record the supervisor's continuity decision, then select the first assistant director and reload. The saved Strands interrupt returns. Approval resumes the tool while wrap stays unapproved. S3 stores the session; Aurora DSQL stores AWS run state. Strands provides the durable tool loop and replay.",
+      "speechText": "Record the supervisor's continuity decision, then select the first assistant director and reload. The saved Strands interrupt returns. Approval resumes the tool while wrap stays unapproved. S three stores the session; Aurora D S Q L stores A W S run state. Strands provides the durable tool loop and replay."
     },
     {
       "id": "sponsor",
-      "captionText": "Now change the evidence. Download the editable fictional take as JSON and load that file into the review form. Nothing is submitted until Save. The new take includes its separate camera report, and saving reruns the affected checks. The earlier continuity decision no longer applies. Supply the release record, review the new continuity evidence as supervisor, and record the DIT's decision on the metadata exception. Each decision names its reviewer and reason.",
-      "speechText": "Now change the evidence. Download the editable fictional take as JSON and load that file into the review form. Nothing is submitted until Save. The new take includes its separate camera report, and saving reruns the affected checks. The earlier continuity decision no longer applies. Supply the release record, review the new continuity evidence as supervisor, and record the DIT's decision on the metadata exception. Each decision names its reviewer and reason."
+      "captionText": "Change the evidence. Load the editable fictional take JSON into the form. Nothing is submitted until Save. Its camera report travels separately; saving reruns affected checks, so the earlier continuity decision expires. Add the missing release, review continuity as supervisor, and record the DIT metadata decision. Each decision names its reviewer and reason.",
+      "speechText": "Change the evidence. Load the editable fictional take J S O N into the form. Nothing is submitted until Save. Its camera report travels separately; saving reruns affected checks, so the earlier continuity decision expires. Add the missing release, review continuity as supervisor, and record the D I T metadata decision. Each decision names its reviewer and reason."
     },
     {
       "id": "evidence",
-      "captionText": "Review wrap readiness as the first assistant director and request wrap approval. Eligibility is separate from human authority. Reload restores the pending request for the changed package. Inspect its fingerprint, then explicitly approve. The saved confirmation appears only when the server reports the human decision. Demo roles do not authenticate real production staff.",
-      "speechText": "Review wrap readiness as the first assistant director and request wrap approval. Eligibility is separate from human authority. Reload restores the pending request for the changed package. Inspect its fingerprint, then explicitly approve. The saved confirmation appears only when the server reports the human decision. Demo roles do not authenticate real production staff."
+      "captionText": "As first assistant director, review readiness and request wrap approval. Eligibility is not authority. Reload restores the request for this changed package. Inspect its SHA-256 fingerprint, then approve explicitly. Confirmation appears only after the server records the decision. Demo roles are not authenticated staff.",
+      "speechText": "As first assistant director, review readiness and request wrap approval. Eligibility is not authority. Reload restores the request for this changed package. Inspect its S H A two fifty-six fingerprint, then approve explicitly. Confirmation appears only after the server records the decision. Demo roles are not authenticated staff."
     },
     {
       "id": "close",
-      "captionText": "In Handoff, publish the approved turnover and reload it. Download the saved manifest and prepare the wrap receipt. They bind the reviewed package and keep accepted exceptions visible. Editorial receives a usable beat-to-take map, technical records and source digests in the download or copyable summary. Storage and bus acceptance do not prove downstream delivery. Hashes identify bytes, not truth; earlier evidence and component disclosures remain available.",
-      "speechText": "In Handoff, publish the approved turnover and reload it. Download the saved manifest and prepare the wrap receipt. They bind the reviewed package and keep accepted exceptions visible. Editorial receives a usable beat-to-take map, technical records and source digests in the download or copyable summary. Storage and bus acceptance do not prove downstream delivery. Hashes identify bytes, not truth; earlier evidence and component disclosures remain available."
+      "captionText": "In Handoff, publish and reload the approved turnover. Download its manifest and prepare the wrap receipt. Handoff exposes the beat-to-take map, technical records, source digests and visible accepted exceptions for editorial review. Storage and event-bus acceptance do not prove delivery. Hashes identify bytes, not truth.",
+      "speechText": "In Handoff, publish and reload the approved turnover. Download its manifest and prepare the wrap receipt. Handoff exposes the beat-to-take map, technical records, source digests and visible accepted exceptions for editorial review. Storage and event bus acceptance do not prove delivery. Hashes identify bytes, not truth."
     }
   ],
-  "recording_status": "NOT_CONFIGURED"
+  "recording_status": "READY_OWNER_VERIFIED"
 }

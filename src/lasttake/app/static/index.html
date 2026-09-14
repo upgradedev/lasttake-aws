@@ -408,16 +408,14 @@ var ROLE_NAME = {
   production_coordinator: 'production'
 };
 
-/* What each kind of exception costs while the set is standing, against what the
-   same fact costs once it is struck. Stated in time and never in money: the
-   asymmetry is the argument and it is defensible, a euro figure would be
-   invented. */
+/* How the review context changes before and after wrap. These are possible
+   next actions, not measured time, cost or avoided-work claims. */
 var KIND = {
   coverage: {
     label: 'Coverage',
     title: 'A required beat has no viable coverage',
-    now: 'One setup, while the lighting is still up.',
-    later: 'A pickup day. Cast, crew and location recalled.'
+    now: 'Review the gap while the current scene records are still in hand.',
+    later: 'Carry the unresolved gap into a later production decision.'
   },
   continuity: {
     label: 'Continuity',
@@ -548,7 +546,7 @@ var WALK = [
           'is highlighted, then press Next again for the other.'
   },
   {
-    id: 's6', label: 'Turnover to editorial', sub: 'sealed and versioned',
+    id: 's6', label: 'Turnover for editorial', sub: 'sealed and available in Handoff',
     role: 'first_ad',
     run: function () {
       if (STATE && STATE.wrap_approved) return call('/api/turnover').then(showTurnover);
@@ -1317,7 +1315,7 @@ function paintInbox() {
       'Put the wrap to the 1st AD', 'iWrap', !eligible || wrapped),
     item('Editorial', 'Turnover',
       wrapped
-        ? 'The wrap is approved. Publish the sealed, versioned manifest editorial receives.'
+        ? 'The wrap is approved. Publish the sealed, versioned manifest for editorial review.'
         : 'Available once the 1st AD has approved the wrap.',
       'Publish the turnover', 'iTurn', !wrapped)
   ].join('');
@@ -1339,8 +1337,8 @@ function bind(id, fn) {
 
 function showTurnover(d) {
   if (!d || !d.turnover) return d;
-  $('turnbox').innerHTML = '<h2 class="sec">Turnover to editorial</h2>' +
-    '<div class="item"><p>Published and sealed. Editorial receives a versioned manifest ' +
+  $('turnbox').innerHTML = '<h2 class="sec">Turnover for editorial</h2>' +
+    '<div class="item"><p>Published and sealed. Handoff exposes a versioned manifest ' +
     'naming every source it was built from, so any claim in it can be traced back to the ' +
     'artifact it came from.</p>' +
     (d.turnover_download

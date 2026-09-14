@@ -130,7 +130,7 @@ Source CI is not deployment evidence. What the live URL serves depends on the fr
 
 Two statuses stay open:
 
-- The final recording is `NOT_CONFIGURED`: the final demo video capture has not been set up, and it waits for the owner to verify it.
+- Narration is `READY_OWNER_VERIFIED`: the owner approved the narration and measured per-beat timing for capture. The final recording still has to bind the exact live frontend/backend pair, and the owner reviews the resulting MP4 separately before upload.
 - Human UAT is `NOT_RUN`: no person has completed the 22-case manual UAT testbook (the `cases` list in `frontend/UAT.testbook.json`). It is separate from automated acceptance, and automated journeys never mark it as passed (`tests/test_claim_drift.py:83` pins `human_signoff` at `NOT_RUN`).
 
 Session authority comes from the browser's saved session handle, never from an imported document. LT-FILE posts a valid document with no session, then with another session's handle, and both get HTTP 403 (`frontend/tests/e2e/hero.spec.ts:113-119`).

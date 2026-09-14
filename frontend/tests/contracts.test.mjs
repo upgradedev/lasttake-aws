@@ -8,8 +8,20 @@ import {assertSceneBudget,heroSceneIds} from '../../web/video/hero-journey.mjs';
 test('capture uses the complete CI-exercised journey and refuses a truncated or unmeasured beat',async()=>{
   const spec=JSON.parse(await readFile('../video/narration.json','utf8'));
   assert.deepEqual(spec.segments.map(segment=>segment.id),heroSceneIds);
-  assert.equal(spec.recording_status,'NOT_CONFIGURED');
-  for(const segment of spec.segments)assert.equal(segment.captionText,segment.speechText);
+  assert.equal(spec.recording_status,'READY_OWNER_VERIFIED');
+  for(const segment of spec.segments){
+    assert.ok(segment.captionText.length>=20);
+    assert.ok(segment.speechText.length>=20);
+  }
+  const trigger=spec.segments.find(segment=>segment.id==='trigger');
+  assert.match(trigger.captionText,/scene\.wrap-checkpoint\.requested/);
+  assert.match(trigger.captionText,/34 required beats: 31 covered with evidence, 2 exceptions.+1 missing release/);
+  assert.match(trigger.speechText,/scene dot wrap checkpoint dot requested/);
+  assert.match(trigger.speechText,/thirty-four required beats: thirty-one covered with evidence/);
+  assert.notEqual(trigger.captionText,trigger.speechText);
+  const sponsor=spec.segments.find(segment=>segment.id==='sponsor');
+  assert.match(sponsor.captionText,/JSON/);
+  assert.match(sponsor.speechText,/J S O N/);
   assert.doesNotThrow(()=>assertSceneBudget('evidence',900,1000));
   for(const hold of [undefined,NaN,Infinity,0,-1,899])assert.throws(()=>assertSceneBudget('evidence',900,hold),/never truncate/);
   assert.throws(()=>assertSceneBudget('evidence',NaN,1000));

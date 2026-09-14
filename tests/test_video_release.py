@@ -1,5 +1,6 @@
 """Synthetic release-pair controls; no recording, provider or live API calls."""
 import copy
+import hashlib
 import importlib.util
 import json
 from pathlib import Path
@@ -149,11 +150,38 @@ def test_composer_binds_receipt_before_any_media_command(evidence, tmp_path, mon
     spec.loader.exec_module(composer)
     (tmp_path / "narration").mkdir()
     (tmp_path / "capture").mkdir()
-    (tmp_path / "narration/timing.json").write_text(json.dumps({"totalSeconds": 100, "scenes": [
-        {"audio": "unused.mp3", "startSeconds": 0, "holdSeconds": 100}]}))
+    scene_ids = ("hook", "surface", "trigger", "live", "sponsor", "evidence", "close")
+    scenes = []
+    for index, scene_id in enumerate(scene_ids, start=1):
+        audio = tmp_path / "narration" / f"{index:02d}-{scene_id}.mp3"
+        audio.write_bytes(f"inert audio fixture {scene_id}".encode())
+        scenes.append({
+            "id": scene_id, "audio": audio.name,
+            "startSeconds": (index - 1) * 14, "durationSeconds": 13.35,
+            "holdSeconds": 14, "audioSha256": hashlib.sha256(audio.read_bytes()).hexdigest(),
+        })
+    (tmp_path / "narration/timing.json").write_text(json.dumps({
+        "schemaVersion": "lasttake.submission-video-timing/v1",
+        "mode": "final", "totalSeconds": 98,
+        "narrationSourceSha256": hashlib.sha256(
+            (ROOT / "video/narration.json").read_bytes()
+        ).hexdigest(),
+        "scenes": scenes,
+    }))
     (tmp_path / "narration/captions.en.srt").write_text("synthetic captions")
+    (tmp_path / "narration/caption-windows.json").write_text(json.dumps({
+        "schemaVersion": "lasttake.submission-video-caption-windows/v1",
+        "scenes": list(scene_ids), "windows": [],
+    }))
+    capture_bytes = b"inert raw capture fixture"
+    (tmp_path / "capture/production.webm").write_bytes(capture_bytes)
     (tmp_path / "capture/capture-receipt.json").write_text(json.dumps({
-        "releaseSha": FE, "appOrigin": proof.ORIGIN, "trimLeadSeconds": 0}))
+        "releaseSha": FE, "appOrigin": proof.ORIGIN, "trimLeadSeconds": 0,
+        "sceneCount": 7,
+        "sceneTimings": [{"id": scene_id} for scene_id in scene_ids],
+        "bytes": len(capture_bytes),
+        "sha256": hashlib.sha256(capture_bytes).hexdigest(),
+    }))
     before = observe(evidence)
     after = {**before, "backendSha": "d" * 40} if drift else before
     for phase, result in (("before", before), ("after", after)):
@@ -165,7 +193,7 @@ def test_composer_binds_receipt_before_any_media_command(evidence, tmp_path, mon
         (tmp_path / "output/lasttake-demo.mp4").write_bytes(b"inert receipt fixture")
 
     monkeypatch.setattr(composer, "run", fake_media_command)
-    monkeypatch.setattr(composer, "probe", lambda _: {"format": {"duration": 100}, "streams": [
+    monkeypatch.setattr(composer, "probe", lambda _: {"format": {"duration": 98}, "streams": [
         {"codec_type": "video", "width": 1920, "height": 1080}, {"codec_type": "audio"}]})
     if drift:
         with pytest.raises(ValueError, match="backendSha"):
@@ -186,9 +214,13 @@ def test_workflow_preserves_exact_release_owner_gate_and_both_observations():
     assert workflow.index("video/release_proof.py before") < workflow.index("Generate measured narration")
     assert workflow.index("node video/capture-production.mjs") < workflow.index("video/release_proof.py after")
     assert workflow.index("video/release_proof.py after") < workflow.index("run: python3 video/build-video.py")
+    assert workflow.index("run: python3 video/build-video.py") < workflow.index("scripts/verify_video_sync.py")
     assert "if: always() && steps.capture.outcome != 'skipped'" in workflow
     assert "Retain release observations even when recording fails" in workflow
     assert ".backendSha == $backend" in workflow
+    assert "captureSha256" in workflow and "captionWindowsSha256" in workflow
+    assert "narrationSourceSha256" in workflow
+    assert "actions/cache/restore@" in workflow and "actions/cache/save@" in workflow
     assert "continue-on-error" not in workflow
     capture = (ROOT / "web/video/capture-production.mjs").read_text()
     assert "release.commit !== releaseSha" in capture and "after.commit !== releaseSha" in capture

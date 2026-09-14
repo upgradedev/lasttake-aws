@@ -36,6 +36,10 @@ describe('landing',()=>{
     render(<Landing session={session} busy={false} page="overview" start={vi.fn()}/>);
     const text=document.body.textContent ?? '';
     for(const banned of ['$','ROI','Scriptation','ScriptE','WORM','DynamoDB','Bedrock (Claude','guarantee','clear to shoot','legally cleared','< 5 Seconds'])expect(text).not.toContain(banned);
+    expect(text).not.toContain('fifteen minutes');
+    expect(text).not.toContain('a pickup day');
+    expect(text).toContain('has not measured time saved, avoided pickups or production cost');
+    expect(text).toContain('Bedrock is not active in this browser');
     expect(text).toContain('absent evidence is a finding, never a pass');
   });
 });

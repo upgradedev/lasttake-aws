@@ -1,4 +1,4 @@
-"""The turnover packet editorial receives.
+"""The turnover packet available for editorial review in Handoff.
 
 Generated deterministically from the sealed record, not written by a model.
 An assistant editor opening this at 08:00 needs to know four things: what was

@@ -1,6 +1,6 @@
 """Read-only release-pair checks for the owner-gated recording workflow.
 
-Frontend and backend ship independently. Optional workflow evidence must match
+Frontend and backend ship independently. Supplied workflow evidence must match
 the observed revision of its own component; neither proof authorizes recording.
 Only allowlisted release metadata is retained, never application session data.
 """
