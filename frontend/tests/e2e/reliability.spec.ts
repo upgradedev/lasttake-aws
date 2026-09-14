@@ -8,18 +8,20 @@ async function start(page:Page){
 }
 
 async function reloadFromPage(page:Page){
-  // WebKit's reload flag bypasses its service-worker navigation path while
-  // offline. A same-tab navigation to the identical route plus a cache-buster
-  // still performs a full document load through the cached shell. Do not use
-  // a Playwright navigation waiter here: WebKit reports an internal protocol
-  // error for an offline service-worker navigation even when the document is
-  // replaced. The DOM sentinel proves this is a new document, not a hash edit.
+  // Keep this as a browser-owned reload. WebKit rejects an offline assign to a
+  // new URL before its service worker can answer, while a reload reaches the
+  // worker's cached navigation response. Replace the URL first so the test
+  // still proves the reloaded document kept its exact route. Do not use a
+  // Playwright navigation waiter here: WebKit reports an internal protocol
+  // error even when the document is replaced. The DOM sentinel proves this is
+  // a new document, not only a history or hash edit.
   const target=new URL(page.url());
   target.searchParams.set('offline-reload',Date.now().toString());
   const marker=`before-${Date.now()}`;
   await page.evaluate(({url,sentinel})=>{
+    window.history.replaceState(window.history.state,'',url);
     document.documentElement.dataset.offlineReloadSentinel=sentinel;
-    window.setTimeout(()=>window.location.assign(url),0);
+    window.setTimeout(()=>window.location.reload(),0);
   },{url:target.toString(),sentinel:marker});
   await expect.poll(()=>page.url()).toBe(target.toString());
   await expect(page.locator('html')).not.toHaveAttribute('data-offline-reload-sentinel',marker);
