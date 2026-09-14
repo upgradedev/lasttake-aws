@@ -104,8 +104,9 @@ def test_narration_refuses_non_owner_verified_status_before_reaching_any_provide
     with pytest.raises(SystemExit, match="NOT_CONFIGURED"):
         namespace["main"]()
     narration = json.loads(text("video/narration.json"))
-    assert narration["recording_status"] == "NOT_CONFIGURED"
-    assert "fresh owner approval" in narration["_comment"]
+    assert narration["recording_status"] == "READY_OWNER_VERIFIED"
+    assert "preview 34906235283" in narration["_comment"]
+    assert "5777be505a14e7c91484d5ba451a302c5601924f" in narration["_comment"]
 
 
 def test_narration_preview_can_measure_not_configured_source_before_owner_activation():
