@@ -199,7 +199,7 @@ def state_for(run, store_kind) -> dict:
         # interface would keep showing an approval the gate has already stopped
         # honouring, which is the exact confusion this rule exists to remove.
         "exceptions": [
-            {**f.to_dict(), "record_sha256": f.record_sha256, "next_action": receipt.next_action(f)}
+            {**f.to_dict(), "record_sha256": f.record_sha256, "next_action": receipt.next_action(f, policy.latest_decision(f, [policy.decision_from_dict(d) for d in decisions]))}
             for f in sorted(findings, key=lambda f: f.finding_id)
             if f.truth_state.is_exception
         ],

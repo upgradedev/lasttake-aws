@@ -35,6 +35,20 @@ AGENT_VERSION = "continuity/1.0.0"
 MIN_CONFLICT_CONFIDENCE = 0.6
 
 
+def _note_in_sentence(note: str | None) -> str:
+    """A take note as quoted inside the observation, which closes it with a period.
+
+    Supervisors end their notes with a full stop, and the observation adds its
+    own after the quote, so a note read ``Good on the sit..`` on every surface
+    that shows the finding. One trailing period is dropped, never more, so an
+    ellipsis the supervisor wrote still reads as one.
+    """
+    text = (note or "").rstrip()
+    if not text:
+        return "no note"
+    return text[:-1] if text.endswith(".") else text
+
+
 def run(
     package: ScenePackage,
     run_id: str,
@@ -176,8 +190,8 @@ def run(
                     f"{ref.subject}: takes {take_a.take_id} and {take_b.take_id} are "
                     f"both flagged preferred and do not describe the same state. "
                     f"Established reference is: {ref.established_state}. "
-                    f"{take_a.take_id} notes: {take_a.note or 'no note'}. "
-                    f"{take_b.take_id} notes: {take_b.note or 'no note'}."
+                    f"{take_a.take_id} notes: {_note_in_sentence(take_a.note)}. "
+                    f"{take_b.take_id} notes: {_note_in_sentence(take_b.note)}."
                 ),
                 inference=opinion.rationale + intentional,
                 confidence=round(opinion.confidence, 3),

@@ -55,7 +55,9 @@ def _record(run: WrapRun, findings: list[Finding]) -> str:
     run.audit("event.delivery.batch", {"outcomes": outcomes})
     exceptions = [f for f in findings if f.truth_state.is_exception]
     lines = [
-        f"{len(findings)} finding(s) recorded, {len(exceptions)} raising exceptions."
+        f"{len(findings)} {'finding' if len(findings) == 1 else 'findings'} recorded, "
+        f"{len(exceptions)} "
+        f"{'raising an exception' if len(exceptions) == 1 else 'raising exceptions'}."
     ]
     for finding in exceptions[:8]:
         lines.append(
