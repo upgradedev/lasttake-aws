@@ -42,7 +42,7 @@ This is the four-step journey the automated test follows (see [What the walk is 
 ### Step 1: Checkpoint
 
 1. Open the [workspace](https://d3kf6hquzlli8g.cloudfront.net/) and press **Start this fictional shoot day**. A browser that already owns a run also sees **Continue my saved shoot day**, with that run's status and date. Starting creates a run (`POST /api/reset`) and opens it in **Scene review** (`frontend/src/useWorkspace.ts:74-79`).
-2. Press **Run wrap checkpoint**. The button posts to `/api/checkpoint`. That route first publishes `scene.wrap-checkpoint.requested` to record the request, then starts the Strands orchestrator itself in the same request (`src/lasttake/app/handler.py:275-286`). The repository declares no EventBridge rule, so nothing routes the event: `infra/stack.yaml:127-142` declares the bus and nothing that listens to it.
+2. Press **Run wrap checkpoint**. The button posts to `/api/checkpoint`. That route first publishes `scene.wrap-checkpoint.requested` to record the request, then starts the Strands orchestrator synchronously in the same request (`src/lasttake/app/handler.py:276-288`). EventBridge separately routes the event to a terminal Lambda that records delivery only; it never starts Strands or performs editorial work (`infra/stack.yaml:205-255`, `src/lasttake/adapters/aws/event_consumer.py`).
 3. Read the wrap board above the script. On the fictional corpus it shows 34 required beats: 31 covered with evidence, 2 raising exceptions and 1 with no release record. `tests/test_corpus_counts.py` asserts those numbers. The gate keeps a separate tally of beats; see [Wrap status](#wrap-status).
 4. **Evidence gate** reads **Blocked**. The gate names four causes, one per check: coverage B-17, continuity CR-01, metadata T-013 and rights BG-07. They go to three roles, because the script supervisor owns both coverage and continuity. The command that reproduces this is in the [README numbers table](../README.md#the-numbers-and-the-commands-that-produce-them).
 5. Open a take. Each take under a beat is a row that starts with **Slate**. Its table, **Take sidecar and camera report**, puts the take's own media identifier, camera roll and lens beside the independent camera report. A row that disagrees is marked, and a report that was never supplied reads **Missing**. Missing evidence stays missing.
@@ -90,7 +90,7 @@ This is the four-step journey the automated test follows (see [What the walk is 
 
 ### Step 4: Editorial handoff
 
-1. Open **Handoff** and press **Publish approved turnover**. It is enabled only when the evidence is currently eligible and the 1st AD has approved wrap. The button posts to `/api/turnover`, which runs the `publish_turnover` tool directly (`handler.py:550-568`). Nothing in the repository subscribes to the `wrap.ready` event published at approval; this request is what builds the turnover.
+1. Open **Handoff** and press **Publish approved turnover**. It is enabled only when the evidence is currently eligible and the 1st AD has approved wrap. The button posts to `/api/turnover`, which runs the `publish_turnover` tool directly (`handler.py:550-568`). The terminal EventBridge recorder observes `wrap.ready`, but does not act on it; this HTTP request is what builds the turnover.
 2. **Turnover for this run** now shows the saved record. **Download turnover** downloads the stored manifest as JSON. The tested journey checks that the download matches the manifest on screen (`web/video/hero-journey.mjs:108-110`).
 3. **Download handoff summary** and **Copy handoff summary** give a text version: the retained exceptions with their next actions, the beat-to-take map and the source digests. The browser builds this text from the manifest, and it is not separately sealed. **Find beat or take in turnover** searches the saved map.
 4. Set **Receipt purpose** to **Wrap review** and press **Prepare receipt**. **Receipt ready for review** appears with the recorded approval and every open item. **Download receipt** saves the sealed JSON. **Copy evidence summary** and **Download evidence summary** give its text.
@@ -101,6 +101,12 @@ This is the four-step journey the automated test follows (see [What the walk is 
 | accepted by the event bus | the bus API took the event. That is not proof anything downstream received it or finished. | nothing |
 | no response recorded yet, or outcome unknown | nothing is established | do not resend. Refresh saved state, then give the run and receipt identifiers to the operator. |
 | rejected by the event bus | the bus definitely refused it | as 1st AD, press **Retry rejected delivery**, which rechecks the current approval first. Only a retryable delivery offers it (`DeliveryStatus.tsx:25`). |
+
+History shows the second half of that distinction. **EventBridge subscriber consumed** means the
+terminal recorder executed for those exact event bytes and stored an immutable receipt. It does not
+mean the event caused an editorial action or that any downstream workflow finished. **Subscriber
+receipt not observed** is deliberately not labelled failed: EventBridge is asynchronous, so absence
+of a matching receipt is not proof of failed delivery (`handler.py:588-592`, `event_history.py`).
 
 6. Evidence added after a turnover leaves that turnover in place as a **Historical record**, with the reason it stopped being current, and **Download turnover** still works. The next-step panel then offers **Start a fresh shoot-day run** for a new turnover (`frontend/tests/e2e/hero.spec.ts:69-82`).
 

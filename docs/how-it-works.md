@@ -27,7 +27,9 @@ flowchart TB
     REV["Role review<br/>exceptions go to<br/>script supervisor, DIT,<br/>production coordinator"]
     AD("1st AD<br/>gets eligibility and<br/>causes, answers<br/>pickup and wrap")
     APR("Approval tool<br/>resumed by the answer,<br/>publishes under an<br/>idempotency key")
-    BUS(["EventBridge bus<br/>every run event,<br/>no rule declared"])
+    BUS(["EventBridge bus<br/>every AWS run event"])
+    REC("Terminal delivery recorder<br/>validates one event,<br/>starts no agent,<br/>publishes nothing")
+    RCP[("Immutable subscriber receipt<br/>S3, content-bound")]
     TURN[("Turnover manifest<br/>POST /api/turnover,<br/>sealed, saved to S3")]
     ED["Editorial"]
     WS --> REQ
@@ -35,6 +37,7 @@ flowchart TB
     PKG --> REQ
     PKG --> LATE
     REQ -.-> EV
+    EV -.-> BUS
     REQ ---> ORCH
     ORCH --> COV
     ORCH --> CON
@@ -52,6 +55,8 @@ flowchart TB
     GATE --> AD
     AD --> APR
     APR --> BUS
+    BUS --> REC
+    REC --> RCP
     AD --> TURN
     TURN --> ED
 
@@ -68,8 +73,8 @@ flowchart TB
     classDef laneBack fill:#7ea4f71f,stroke:#7d88aa,stroke-width:1px
     classDef laneCi fill:#7d88aa1a,stroke:#7d88aa,stroke-width:1px,stroke-dasharray:6 4
     class WS,CLI,REQ,LATE,REV,ED surface
-    class ORCH,COV,CON,MET,RIG,INT,APR agent
-    class PKG,FIND,TURN store
+    class ORCH,COV,CON,MET,RIG,INT,APR,REC agent
+    class PKG,FIND,TURN,RCP store
     class EV,BUS event
     class GATE rule
     class AD human
@@ -78,15 +83,15 @@ flowchart TB
 
 What each part does:
 
-- **Starting a checkpoint.** The "Run wrap checkpoint" button posts to `POST /api/checkpoint`, and the CLI's `lasttake checkpoint` does the same work in its own process. Either one publishes `scene.wrap-checkpoint.requested` and then starts the orchestrator itself (`handler.py:275-286`, `cli.py:144-154`). No EventBridge rule routes that event or any other: `infra/stack.yaml` declares the bus with no rule or target, and nothing in `src/` subscribes to it.
+- **Starting a checkpoint.** The "Run wrap checkpoint" button posts to `POST /api/checkpoint`, and the CLI's `lasttake checkpoint` does the same work in its own process. Either one records `scene.wrap-checkpoint.requested` and then starts the Strands orchestrator synchronously itself (`handler.py:276-288`, `cli.py:135-159`). On AWS, publication to EventBridge also invokes a separate terminal delivery recorder asynchronously. That subscriber validates the event and writes a content-bound S3 receipt; it never starts Strands and has no event-publish path (`infra/stack.yaml:205-255`, `event_consumer.py:1-154`).
 - **What the checks read.** On AWS the base scene package ships inside the Lambda package, because the deploy copies `corpus/*.json` into it. Amendments a person supplies are read from S3 and replayed on top (`handler.py:72-115`, `handler.py:138`). The CLI reads `corpus/` from the checkout. The table below shows which sources each check cites.
 - **Findings.** Each finding is sealed with the SHA-256 of its own record and stored in Aurora DSQL on AWS, or in local files for the CLI. The gate verifies a finding's seal before it reads any field. Eligibility packets are sealed but not verified again when read, and decisions, audit entries and handled events are stored without a seal.
 - **The gate.** It derives the required checks from the package itself, so a check the orchestrator never ran shows up as a missing result. It drops a finding whose seal fails, whose cited source digests have moved, or that was judged under a policy version different from the current one, older or newer (`policy.py:197-248`). A finding from an older package revision whose cited sources did not move is kept. Its answer is an eligibility result with its causes. It is not approval to wrap.
 - **Role review.** Exceptions go to the role that owns them (see the table below). A decision counts only when the deciding role holds authority for that check and the decision is bound to the finding's current seal (`policy.py:388-418`).
-- **The 1st AD.** A pickup or wrap approval is a Strands interrupt inside an approval tool. The run stops and its session is saved, on S3 when hosted. The answer, sent through `POST /api/approve` or `POST /api/wrap`, resumes the tool, which replays from its first line. Only after an approval does the tool publish `pickup.requested` or `wrap.ready`, under an idempotency key, and nothing subscribes to `wrap.ready`. On a session-owned run the workspace refuses an answer whose claimed role is not the 1st AD; that role is a claim in the request, not an authenticated identity. See [Interrupt and resume across process death](strands-interrupt-resume.md).
+- **The 1st AD.** A pickup or wrap approval is a Strands interrupt inside an approval tool. The run stops and its session is saved, on S3 when hosted. The answer, sent through `POST /api/approve` or `POST /api/wrap`, resumes the tool, which replays from its first line. Only after an approval does the tool publish `pickup.requested` or `wrap.ready`, under an idempotency key. The terminal recorder observes those events but performs no editorial action; `POST /api/turnover`, not EventBridge, builds the turnover. On a session-owned run the workspace refuses an answer whose claimed role is not the 1st AD; that role is a claim in the request, not an authenticated identity. See [Interrupt and resume across process death](strands-interrupt-resume.md).
 - **The turnover.** It is built only when the `publish_turnover` tool runs, which the "Publish approved turnover" button in Handoff reaches through `POST /api/turnover` (`handler.py:550-568`). The tool refuses without an eligible packet and a current 1st AD wrap approval, runs the gate again, seals the manifest, saves it under `turnover/` in the artifact store and publishes `turnover.generated`. There is no separate turnover service.
 - **Reruns.** A late take or a release goes through its own API route or CLI command, which runs the checks directly, without the orchestrator. `POST /api/ingest` looks up which checks to rerun in the `AFFECTED_CHECKS` table in `src/lasttake/domain/events.py`. `POST /api/late-take` reruns all four, and `POST /api/resolve-rights` reruns rights only. A new take moves the takes digest, which every check cites, so all four rerun; a release moves only the rights ledger. The gate separately discards any finding whose cited source digests moved, so a table entry that left out an affected check would show up in the eligibility result as a missing current result, not as a pass. The intake contract is in [Bring your own record](bring-your-own-record.md).
-- **The bus.** On AWS every run event reaches EventBridge, including one `finding.recorded` per finding, and a copy of each is written to S3 first. Each publish returns a receipt that reads pending, accepted, rejected or unknown. Bus acceptance is not downstream completion. The CLI writes its events to a local file instead.
+- **The bus.** On AWS every run event reaches EventBridge, including one `finding.recorded` per finding, and a copy of each is written to S3 first. Each publish returns a publisher receipt that reads pending, accepted, rejected or unknown. Separately, the rule sends all 12 event types to the terminal recorder, which conditionally creates one immutable receipt per domain event. `consumed` proves that subscriber executed for those exact event bytes; it does not prove editorial work completed. `not_observed` means only that no matching receipt was read, not that delivery failed. The CLI writes events to a local file and has no external subscriber (`event_consumer.py`, `event_history.py`).
 
 | Check | Sources it cites | Question it asks the interpreter | Exceptions go to |
 |---|---|---|---|
