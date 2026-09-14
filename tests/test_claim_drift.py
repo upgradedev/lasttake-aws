@@ -92,7 +92,7 @@ def test_narration_cache_key_changes_only_the_affected_text_or_voice(tmp_path, m
 
 
 @pytest.mark.parametrize("status", [None, "NOT_CONFIGURED", "READY", ""])
-def test_narration_refuses_unconfigured_status_before_reaching_any_provider(status):
+def test_narration_refuses_non_owner_verified_status_before_reaching_any_provider(status):
     tree = ast.parse(text("video/generate-narration.py"))
     main = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "main")
     class Spec:
@@ -103,7 +103,7 @@ def test_narration_refuses_unconfigured_status_before_reaching_any_provider(stat
     exec(compile(ast.Module(body=[main], type_ignores=[]), "narration-preflight", "exec"), namespace)
     with pytest.raises(SystemExit, match="NOT_CONFIGURED"):
         namespace["main"]()
-    assert json.loads(text("video/narration.json"))["recording_status"] == "NOT_CONFIGURED"
+    assert json.loads(text("video/narration.json"))["recording_status"] == "READY_OWNER_VERIFIED"
 
 
 def test_narration_preview_can_measure_not_configured_source_before_owner_activation():

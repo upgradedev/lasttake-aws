@@ -1,5 +1,5 @@
 {
-  "_comment": "Source script for the complete React workflow shared with source Playwright acceptance. No final recording exists. Owner must verify the live frontend/backend pair and approve the narration, measured per-beat timing and live journey before READY_OWNER_VERIFIED. Existing kit provenance and NOT_CONFIGURED gate remain.",
+  "_comment": "Source script for the complete React workflow shared with source Playwright acceptance. The owner approved this narration and its measured per-beat timing for capture. No final recording exists; exact frontend/backend proof runs and separate owner review of the rendered MP4 remain required.",
   "schemaVersion": "lasttake.submission-video/v1",
   "provider": "elevenlabs",
   "elevenLabs": {
@@ -44,5 +44,5 @@
       "speechText": "In Handoff, publish and reload the approved turnover. Download its manifest and prepare the wrap receipt. Handoff exposes the beat-to-take map, technical records, source digests and visible accepted exceptions for editorial review. Storage and event bus acceptance do not prove delivery. Hashes identify bytes, not truth."
     }
   ],
-  "recording_status": "NOT_CONFIGURED"
+  "recording_status": "READY_OWNER_VERIFIED"
 }
