@@ -281,7 +281,7 @@ Which items are yours is read from the same authority table the deterministic ga
 
 A single summary ordered by where the cost falls exists only in the older static page, [`src/lasttake/app/static/index.html`](../src/lasttake/app/static/index.html): the `paintMine` function at lines 970-1023 (its section begins at line 938), ordered by `COST_ORDER` at line 469. The handler serves that page at `/` and `/index.html` on the HTTP API endpoint; the CloudFront URL serves the React workspace (`handler.py:689`, `infra/frontend_stack.py:15-23`).
 
-The sealed receipt is the packet meant to be read away from the page, so it carries its own context (`src/lasttake/domain/receipt.py:141-226`):
+The sealed receipt is the packet meant to be read away from the page, so it carries its own context (`src/lasttake/domain/receipt.py:206-340`):
 
 - the run, scene, production and script revision
 - the package digest and the policy version

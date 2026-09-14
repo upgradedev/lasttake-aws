@@ -21,7 +21,7 @@ The run can be stopped and resumed from the command line or through the HTTP API
 
 | | Command line | HTTP API on Lambda |
 |---|---|---|
-| Stops the run | `lasttake checkpoint` stops at the pickup approval (`cli.py:135-178`). No CLI command requests wrap approval. | `POST /api/checkpoint` stops at the pickup approval (`handler.py:275-310`). `POST /api/wrap` without an interrupt id stops at the wrap approval (`handler.py:535-536`). |
+| Stops the run | `lasttake checkpoint` stops at the pickup approval (`cli.py:135-178`). No CLI command requests wrap approval. | `POST /api/checkpoint` stops at the pickup approval (`handler.py:275-311`). `POST /api/wrap` without an interrupt id stops at the wrap approval (`handler.py:535-536`). |
 | Where the paused run is saved | `FileSessionManager` in `.lasttake/sessions` (`orchestrator.py:221-226`) | `S3SessionManager` under the `sessions/` prefix of the data bucket (`handler.py:155-169`) |
 | How the interrupt id travels | Read back from the session files (`cli.py:212-227`), or passed with `--interrupt-id` | Returned as `pending_approval.id` (`handler.py:221-226`, `:299-302`) and sent back as `interrupt_id` |
 | Resumes the run | `lasttake approve --yes` (`cli.py:181-209`) | `POST /api/approve` or `POST /api/wrap` with an interrupt id (`handler.py:314-335`, `:510-533`) |
@@ -47,7 +47,7 @@ computes no digest over the session it saves (`handler.py:164-168`). Session obj
 
 ## In CI: two processes and a negative control
 
-The job named `interrupt survives process death` (`ci.yml:254-293`) runs with the rest of
+The job named `interrupt survives process death` (`ci.yml:254-326`) runs with the rest of
 `ci.yml`: on pushes to `main`, `build/**` and `codex/**` (`ci.yml:7-9`), on every pull request
 (`ci.yml:11`), and on manual dispatch (`ci.yml:13`). A push to any other branch does not run it.
 The job has no condition of its own. Each `run:` step starts a new shell, so
@@ -59,21 +59,37 @@ says so).
 | `install` | `python -m pip install -e .` | 262-263 |
 | `process 1  ·  23:10, the checkpoint stops at the 1st AD` | `lasttake checkpoint` | 268-269 |
 | `what survived on disk between the two processes` | `find .lasttake/sessions -type f \| sort` | 271-272 |
-| `process 2  ·  06:40, a new process resumes the same run` | `lasttake approve --yes --hours 7.5` | 274-275 |
-| `the late take arrives, and only the affected checks rerun` | `lasttake late-take --beat B-17` | 277-278 |
-| `production supplies the missing release` | `lasttake resolve rights --subject BG-07` | 280-281 |
-| `the event log, end to end` | `lasttake events` | 283-284 |
-| `negative control  ·  wipe the session, resume must FAIL` | `rm -rf .lasttake/sessions`, then `lasttake approve --yes` must exit non-zero | 286-293 |
+| `negative control  ·  move the session aside, resume must FAIL` | reads the pending interrupt id, moves `.lasttake/sessions` aside, answers that id, then restores the session | 282-314 |
+| `process 2  ·  06:40, a new process resumes the same run` | `lasttake approve --yes --hours 7.5` | 316-317 |
+| `the late take arrives, and only the affected checks rerun` | `lasttake late-take --beat B-17` | 319-320 |
+| `production supplies the missing release` | `lasttake resolve rights --subject BG-07` | 322-323 |
+| `the event log, end to end` | `lasttake events` | 325-326 |
 
-Apart from the commands' own output, the job writes one line. When the control holds it prints
-this (`ci.yml:293`):
+**The negative control** runs between process 1 and process 2, while the pickup approval is still
+pending; the comment at `ci.yml:274-281` gives the reason. It is one `run:` step, because shell
+variables do not survive between steps, and it:
+
+1. reads the pending interrupt id with `_latest_interrupt_id`, the function process 2 uses, and
+   fails unless the id starts with `v1:` (`ci.yml:284-288`);
+2. records the SHA-256 of every file under `.lasttake` (`ci.yml:289`);
+3. moves `.lasttake/sessions` aside and answers that id with `approve --yes --interrupt-id`,
+   printing the attempt's output instead of discarding it (`ci.yml:291-295`);
+4. fails if the attempt succeeds, or if its error output lacks `not in interrupt state` or
+   contains `Nothing is waiting` (`ci.yml:297-304`), so the refusal has to come from Strands
+   finding no paused run rather than from the CLI finding no id;
+5. removes the empty session the refused attempt leaves, puts the saved one back, and fails
+   unless every file under `.lasttake` hashes as it did before (`ci.yml:306-313`).
+
+In CI run [34840875596](https://github.com/upgradedev/lasttake-aws/actions/runs/34840875596), at
+commit 8fca695, the job log shows the refusal and the control holding:
 
 ```text
-NEGATIVE CONTROL HELD: with the session wiped, there is nothing to resume.
+ValueError: Received interrupt responses but agent is not in interrupt state. Ensure the agent instance is preserved between calls, or use session management to persist interrupt state across requests.
+NEGATIVE CONTROL HELD: with the session moved aside, Strands refused to resume (exit 1). The session is back for process 2.
 ```
 
-If `lasttake approve --yes` succeeds instead, the job prints
-`NEGATIVE CONTROL FAILED: resumed with no session on disk.` and exits 1 (`ci.yml:289-291`).
+Each way the control can fail prints a line starting `NEGATIVE CONTROL FAILED:` and exits 1
+(`ci.yml:287`, `:298`, `:302`, `:311`).
 
 **What process 2 has to work with.** Process 2 shares nothing with process 1 except the
 `.lasttake` directory in the checkout. It finds the pending interrupt id in the session files
@@ -95,37 +111,15 @@ message under its `agents/agent_default/`.
   checks, coverage, continuity, metadata and rights, not a narrower set, because each check
   cites the takes (`events.py:129-130`, the comment at `cli.py:283-287`). The four reruns are at
   `cli.py:293-298`.
-- The negative control runs after process 2 has already answered the only interrupt. At that
-  point `lasttake approve --yes` exits 1 with `Nothing is waiting for a decision.` even when the
-  session is left in place. A local run on 2026-09-14 showed this by running the job's commands
-  in its order (`checkpoint`, `approve --yes --hours 7.5`, `late-take --beat B-17`,
-  `resolve rights --subject BG-07`, `events`) and then `approve --yes` without the wipe. So this
-  step shows that the CLI refuses when it finds nothing to resume. On its own, it does not show
-  that the session files are what let process 2 resume. The step also sends stderr to `/dev/null`
-  and checks only for a non-zero exit (`ci.yml:289`), so any failure, a crash included, prints the
-  same `NEGATIVE CONTROL HELD` line.
+- The negative control moves the whole `.lasttake/sessions` directory, so it shows that resume
+  needs the saved session, not which file inside it. It matches Strands' own error text, so a
+  Strands release that rewords `not in interrupt state` turns the step red rather than letting it
+  pass on a guess (`pyproject.toml:13` asks for `strands-agents>=1.53.0`).
 
-**A local run that does isolate the session files.** Run from the repository root:
-
-```sh
-lasttake checkpoint
-mv .lasttake/sessions sessions.saved
-lasttake approve --yes --interrupt-id "$TOKEN"
-rm -rf .lasttake/sessions
-mv sessions.saved .lasttake/sessions
-lasttake approve --yes --interrupt-id "$TOKEN"
-```
-
-`$TOKEN` holds the `correlation token` value the checkpoint prints (`cli.py:124`).
-
-1. With the session files moved away, the first approve exits 1. Strands refuses with
-   `ValueError: Received interrupt responses but agent is not in interrupt state.`
-2. That attempt also leaves a new, empty session behind, which the `rm -rf` clears.
-3. With the saved files back, the same command resumes the run in a new process and prints
-   `Pickup approved for B-17 by the 1st AD.`
-
-This was run on 2026-09-14 on this branch with strands-agents 1.53.0, with `LASTTAKE_WORKDIR`
-pointed at a scratch folder.
+**Running the control locally.** Pull request
+[#40](https://github.com/upgradedev/lasttake-aws/pull/40) records a replay of every `run:` step of
+this job on 2026-09-14 with strands-agents 1.53.0, each step as its own `bash -e` process, and two
+mutations that make the control fail: leaving the session in place, and not passing the id.
 
 ## On Lambda: two requests, two containers, historical
 
@@ -238,11 +232,11 @@ For the full list of tools the orchestrator calls, see
 | Idempotency key and logical-action claim | [src/lasttake/domain/events.py:78-88](../src/lasttake/domain/events.py#L78) and [src/lasttake/agents/runtime.py:116-123](../src/lasttake/agents/runtime.py#L116) |
 | Local session store, `FileSessionManager` | [src/lasttake/agents/orchestrator.py:221-226](../src/lasttake/agents/orchestrator.py#L221), used by `cli.py:150` and `:189` |
 | Deployed session store, `S3SessionManager` | [src/lasttake/app/handler.py:155-169](../src/lasttake/app/handler.py#L155) |
-| `build_s3_session_manager`, a helper with no caller today; its docstring says the handler uses it, but the handler builds its own `S3SessionManager` | [src/lasttake/agents/orchestrator.py:236-246](../src/lasttake/agents/orchestrator.py#L236) |
+| `build_s3_session_manager`, a helper with no caller today; its docstring says so, and the handler builds its own `S3SessionManager` instead | [src/lasttake/agents/orchestrator.py:236-248](../src/lasttake/agents/orchestrator.py#L236) |
 | Resume with `interruptResponse` | [src/lasttake/cli.py:202](../src/lasttake/cli.py#L202), [src/lasttake/app/handler.py:321-330](../src/lasttake/app/handler.py#L321) and `handler.py:519-528` |
 | Container id on every response | [src/lasttake/app/handler.py:69](../src/lasttake/app/handler.py#L69) and `:175-185` |
 | Session files expire at 90 days | [infra/stack.yaml:72-75](../infra/stack.yaml#L72) |
-| CI job `interrupt survives process death` | [.github/workflows/ci.yml:254-293](../.github/workflows/ci.yml#L254) |
+| CI job `interrupt survives process death` | [.github/workflows/ci.yml:254-326](../.github/workflows/ci.yml#L254) |
 | Deploy step, with `assert c1 != c2` at `:314` | [.github/workflows/deploy.yml:233-331](../.github/workflows/deploy.yml#L233) |
 | Test that keeps the deploy assertions | [tests/test_claim_drift.py:86-92](../tests/test_claim_drift.py#L86) |
 | In-process resume tests | [tests/test_end_to_end.py:66-92](../tests/test_end_to_end.py#L66), [tests/test_handler.py:163-171](../tests/test_handler.py#L163) and [tests/test_cli.py:48-58](../tests/test_cli.py#L48) |

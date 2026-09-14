@@ -9,7 +9,7 @@ truth, and no practising script supervisor has run any of it.
 
 | Tool | Command | What it writes | What pins it |
 |---|---|---|---|
-| `tools/measure.py` | `PYTHONPATH=src python tools/measure.py` | rewrites `docs/measurement.json` | nothing: no workflow or test runs it |
+| `tools/measure.py` | `PYTHONPATH=src python tools/measure.py` | rewrites the repository's `docs/measurement.json` from any directory, keeping its `_current_scope` and `history` | nothing: no workflow or test runs it, and `tests/test_claim_drift.py` reads only the `_current_scope` note the tool carries forward |
 | `tools/ablation.py` | `PYTHONPATH=src python tools/ablation.py` | stdout only | `tests/test_claim_drift.py`, `tests/test_corpus_counts.py` |
 | `tools/evaluation_cases.py` | `PYTHONPATH=src python tools/evaluation_cases.py` | rewrites `docs/evaluation_cases.json` | `tests/test_corpus_counts.py` |
 | hero benchmark | manual dispatch of `.github/workflows/frontend-ci.yml` on one branch | a CI artifact | `frontend/tests/hero-measurement.test.mjs` |
@@ -19,7 +19,9 @@ truth, and no practising script supervisor has run any of it.
 [`tools/measure.py`](../tools/measure.py) is the protocol, not a results file. The baseline, the
 fixtures and every expected outcome are literals in the file (`BASELINE`, `DEVELOPMENT` and
 `HELD_OUT`), written from the product's rules before anything ran. A case that disagrees with its
-expectation is reported as a failure. It does not quietly become the new expectation.
+expectation is reported as a failure. It does not quietly become the new expectation. One case
+has since been rewritten after a contract change and one expectation corrected, and both are
+published below rather than absorbed.
 
 ```bash
 PYTHONPATH=src python tools/measure.py
@@ -40,28 +42,40 @@ and the file labels it weaker.
 | development | missing evidence | 7 rights findings; BG-07 is the only subject with no release; 1 beat without a release record |
 | development | changed input | a pickup take moves B-17 from `no_viable_coverage` to `covered_with_evidence`, and the gate discards the findings that cite the old takes digest |
 | development | refusal | a take with no slate is refused and the refusal names `slate`; a wrong field type and a camera report row for another take are also refused |
-| development | retry and recovery | the first publish raises, the retry publishes, a third attempt is recognised as already handled, and the bus is called twice |
+| development | retry and recovery | the bus returns a definite rejection for the first publish, the retry publishes, a third call returns the saved receipt without reaching the bus, and the bus is called twice |
 | held out | no interpreter reachable | 0 beats covered, 0 corroborated by the interpreter, 33 with basis `declared_by_the_production` |
 | held out | a record edited in storage | the scene is not eligible, and the discard reason names the seal |
 | held out | the missing release filed | 0 beats without a release record, 32 covered, 2 still raising exceptions |
 
-**A re-run at this head does not match all eight.** At commit e92348b (2026-09-14) the command
-reports 7 of 8 cases matching and exits with status 1. The case that does not match is retry and
-recovery. Since commit 911fa59 (2026-09-09), `WrapRun.publish` records a publish that raised as
-outcome unknown and refuses a resend until someone reconciles it
-([`src/lasttake/agents/runtime.py`](../src/lasttake/agents/runtime.py), lines 72-77 and 93-97). So
-the case sees no raised error, no retry and one bus call instead of two. The expectation has not
-been corrected, and by the harness's own rule the mismatch is reported, not absorbed. No workflow or
-test runs `tools/measure.py`, so CI does not catch it.
+**Retry and recovery was rewritten, not re-expected.** Run at this head on 2026-09-14, the command
+reports all 8 cases matching and exits with status 0. Since commit 911fa59 (2026-09-09),
+`WrapRun.publish` records a publish that raised as outcome unknown and refuses a resend until
+someone reconciles it ([`src/lasttake/agents/runtime.py`](../src/lasttake/agents/runtime.py), lines
+72-77 and 93-97). Only an accepted or rejected outcome releases the claim on the logical effect
+(lines 110-113). The case used to make the first publish raise, so against that contract it saw no
+raised error, no retry and one bus call instead of two: the unmodified tool at commit ab0a1d3, run
+on 2026-09-14, reported 7 of 8 cases matching and exited with status 1. Setting the four expected
+values to what it observed would have recorded a case named retry and recovery as matching when no
+retry happened, so the scenario was replaced instead. The bus now returns a definite rejection and
+then accepts, and a third call must return the saved receipt without reaching the bus. Those
+expectations were written from the `WrapRun.publish` contract before the rewritten case first ran,
+and `test_a_publish_that_fails_can_be_retried` in
+[`tests/test_rerun_and_events.py`](../tests/test_rerun_and_events.py) pins the same sequence. The
+retired scenario, its expectation and what it observed are kept in `REWRITES` in the tool. The tool
+prints the rewrite, with the correction described below, in a section of its output headed
+"Published rather than absorbed". No workflow or test runs `tools/measure.py`, so CI would not
+catch a case that stops matching.
 
-[`docs/measurement.json`](measurement.json) records an earlier run in which every case matched,
-including two bus calls for retry and recovery. Its own scope line says: "Historical entries below
-are preserved, not exact-current-release acceptance." Commit 911fa59 changed `WrapRun.publish` and,
-in the same commit, touched this file only to add that scope block, so its case rows still show
-retry and recovery matching. The tool writes `docs/measurement.json` under the directory you run it
-from, even when a case fails. From the repository root that replaces the committed file and drops
-the `_current_scope` block `tests/test_claim_drift.py` requires, so restore it afterwards with
-`git checkout -- docs/measurement.json`.
+[`docs/measurement.json`](measurement.json) records a run of the rewritten tool in which all 8 cases
+match, with a `rewrites` entry beside `corrections`. Its own scope line says: "Historical entries
+below are preserved, not exact-current-release acceptance." Its `history` keeps two earlier runs.
+The first is the file as committed at ab0a1d3 without its `_current_scope` block: 8 of 8, with retry
+and recovery matching under the retired scenario. The second is the 7 of 8 run of the unmodified
+tool at ab0a1d3. The tool reads `_current_scope` and `history` back from the committed file and
+writes them again, and it writes the repository's `docs/measurement.json` whichever directory it
+runs from, even when a case fails. Nothing appends to `history`: an entry is added by hand when a
+contract change retires a case. Everything else is regenerated on each run, including each case's
+measured `wall_seconds`.
 
 Three fields are deliberately empty in every row. **Human active time, interruptions and
 corrections are not measured, because no human was observed doing any of this.** The fields
