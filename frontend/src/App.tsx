@@ -30,6 +30,22 @@ import type {Page,Role} from './types';
 
 const NAV:Page[]=['overview','scene','records','history','architecture'];
 
+const GUIDED_DEMO=(
+  <section className="guide panel">
+    <h2>Walk through a fictional shoot day</h2>
+    <ol>
+      <li>Start the shoot day and run the wrap checkpoint, then open Handoff to inspect the independently recorded EventBridge delivery status.</li>
+      <li>Review the script and sources in Scene review, then answer the pickup request as the 1st AD.</li>
+      <li>Add evidence using the labelled synthetic examples.</li>
+      <li>Select changed findings and review them as the script supervisor and DIT.</li>
+      <li>To test a disconnect, keep an evidence draft open and reload in the same tab. The last confirmed view stays read-only; reconnect fetches server truth and requires explicit review if its package fingerprint changed.</li>
+      <li>Request a new wrap approval, answer as the 1st AD, then publish the turnover in Handoff.</li>
+    </ol>
+    <p><strong>What runs:</strong> the API starts one Strands <code>Agent</code> synchronously. Its eight <code>@tool</code> functions are four bounded checks (tools, not agents), a deterministic eligibility gate, two <code>ToolContext.interrupt</code> approval transitions and turnover publication. <code>S3SessionManager</code> preserves the interrupted session across Lambda process death.</p>
+    <p className="fine">Offline continuity is deliberately bounded to the application shell, one read-only last-confirmed snapshot and one same-tab evidence draft. No mutation is queued or replayed. The public path uses a scripted planner and lexical interpreter; only Bedrock mode adds two scoped interpreter <code>Agent</code> instances, and it is not active here. EventBridge independently invokes a terminal delivery-recorder; its receipt proves that subscriber ran, not that editorial acted. Demo roles are unauthenticated. No footage/audio analysis, email or payment occurs.</p>
+  </section>
+);
+
 // Server messages carry event-bus receipt ids. A 36-character UUID breaks the
 // line on a phone and says nothing a person reads, so the banner shows its
 // first eight characters, like a short commit id, with no ellipsis that would
@@ -114,7 +130,7 @@ export function App() {
 
       <main id="main" tabIndex={-1} aria-busy={w.busy}>
         <ConnectivityStatus status={w.connectivity} lastConfirmedAt={w.lastConfirmedAt} cached={w.usingCachedState} unknownOutcome={w.unknownOutcome} shellReady={w.offlineShellReady}/>
-        {guided && <section className="guide panel"><h2>Walk through a fictional shoot day</h2><ol><li>Start the shoot day and run the wrap checkpoint.</li><li>Review the script and sources in Scene review, then answer the pickup request as the 1st AD.</li><li>Add evidence using the labelled synthetic examples.</li><li>Select changed findings and review them as the script supervisor and DIT.</li><li>Request a new wrap approval, answer as the 1st AD, then publish the turnover in Handoff.</li></ol><p>This demo uses a scripted planner and an offline lexical interpreter with real Strands interrupts. No Bedrock inference, footage/audio analysis, email or payment occurs in these demo flows. The UI or API starts the workflow directly and publishes real AWS event-bus events; no EventBridge rule or subscriber triggers it. Bus acceptance does not establish downstream completion.</p></section>}
+        {guided ? GUIDED_DEMO : null}
         {storageNotice() && <p className="warning" role="status">{storageNotice()}</p>}
         {w.busy && !inRun && <div className="loading" role="status"><span className="spinner" aria-hidden="true"/>{w.progress || 'Reading the saved shoot day…'}</div>}
         {w.error && <div className="error" role="alert"><h2>We couldn't complete that request</h2><p>{w.error}</p><p>{w.requiresRefresh?'Refresh saved state before retrying a write. Your form entries are kept. Displayed evidence may be out of date.':'The server refused the invalid request. Correct the supplied fields and submit again; your entries are kept.'}</p><div className="toolbar"><button disabled={w.busy} onClick={()=>void w.refresh()}>Retry loading saved state</button>{!state && <button disabled={w.busy} onClick={()=>void w.recover()}>Start a separate session</button>}{!state && <button type="button" onClick={backToStart}>Back to the start</button>}</div></div>}
