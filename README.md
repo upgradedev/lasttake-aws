@@ -139,8 +139,8 @@ separately; current AWS status remains on `/acceptance.html`.
 
 The optional source hero measurement is preregistered in
 [`docs/hero-measurement-protocol.json`](docs/hero-measurement-protocol.json).
-It runs only on manual opt-in after normal source verification:20 fixed attempts,
-10 desktop and10 mobile, no retries, recordings or discarded warmup. The unchanged
+It runs only on manual opt-in after normal source verification: 20 fixed attempts,
+10 desktop and 10 mobile, no retries, recordings or discarded warmup. The unchanged
 hero helper is timed from checkpoint through changed evidence, fresh wrap approval
 and verified handoff downloads. Raw slots, failures, unrun slots, byte counts and
 independent source/runtime identity are retained with p50/nearest-rank p95 methods.
@@ -149,17 +149,17 @@ captured, so no total-network-byte claim is made. Future failure retention uploa
 only an isolated, once-published snapshot, including captured original bytes and
 derived summary/hashes; per-file observations are not a cross-file transaction.
 This is scripted source-CI completion time, not AWS latency or human time. External
-model cost is0 only with verified offline guards; infrastructure/runner cost is
-unknown. Earlier unmeasured protocol176b58b is explicitly superseded, not rewritten.
+model cost is 0 only with verified offline guards; infrastructure/runner cost is
+unknown. Earlier unmeasured protocol 176b58b is explicitly superseded, not rewritten.
 
-Historical source checkpoint,2026-09-10: the single
-[measured run34481212393](https://github.com/upgradedev/lasttake-aws/actions/runs/34481212393)
-at source `faf7f17128549155cda7144fdd1cd560c0f0a5c5` completed20/20 attempts,
+Historical source checkpoint, 2026-09-10: the single
+[measured run 34481212393](https://github.com/upgradedev/lasttake-aws/actions/runs/34481212393)
+at source `faf7f17128549155cda7144fdd1cd560c0f0a5c5` completed 20/20 attempts,
 10 per viewport, zero failures/incomplete/unrun slots and no retries. Its
-[raw artifact10154044857](https://github.com/upgradedev/lasttake-aws/actions/runs/34481212393/artifacts/10154044857)
-retains26 hashed files: p50=5662.1155775ms, nearest-rank p95=6547.501716ms,
-process=165481.102184ms/exit0. Within the declared boundary,1540 requests had
-179300 observed request-body bytes and0 unknown request-body sizes; response-body
+[raw artifact 10154044857](https://github.com/upgradedev/lasttake-aws/actions/runs/34481212393/artifacts/10154044857)
+retains 26 hashed files: p50=5662.1155775ms, nearest-rank p95=6547.501716ms,
+process=165481.102184ms/exit 0. Within the declared boundary, 1540 requests had
+179300 observed request-body bytes and 0 unknown request-body sizes; response-body
 sizes were not captured. Reproduce from `slot-*.json`, `summary.json`, `process.json`
 and `manifest.json` in that artifact, not from whole Playwright-test timings.
 These observations belong only to `faf7f1`. Subsequent timeout-retention fixes are
@@ -622,7 +622,7 @@ python tools/model_evidence.py --output source-evidence/model-evidence
 ```
 
 The fresh output directory contains the existing lexical interpreter's raw outputs,
-all16 future-model slots marked `UNRUN`, the existing bounded Bedrock prompts and
+all 16 future-model slots marked `UNRUN`, the existing bounded Bedrock prompts and
 schemas captured without constructing a model, source/request/response hashes,
 and fixed capture, false-positive, false-exception and abstention denominators.
 Gold never enters the prompts. Failed/unrun attempts are not dropped or replaced;
@@ -654,28 +654,28 @@ python tools/bounded_model_evidence.py export --output source-evidence/bounded-e
 ```
 
 The artifact contains every exact SDK request, per-case serialized ASCII byte size,
-request/config/protocol/source hashes, input-token reservation, fixed512 output
+request/config/protocol/source hashes, input-token reservation, fixed 512 output
 ceiling, reference worst-cost arithmetic and an invalid `NOT_AUTHORIZED` grant
 template. It is not a measurement or authority to spend. The separate supervisor
 below adds an inactive live-capable job, not app changes, IAM setup or deployment.
 
 The candidate is `eu.anthropic.claude-opus-5`, region `eu-west-1`, with thinking
 disabled, one forced `record_opinion` tool result and at most one plain Converse
-request for each of the16 frozen cases. System/user prompts, schemas, gold,
+request for each of the 16 frozen cases. System/user prompts, schemas, gold,
 thresholds, evaluator bytes and preregistration ancestry stay unchanged. Plain
 Converse does not exercise the production Strands structured-output orchestration;
 this transport/config difference prevents a production-adapter equivalence claim.
 There is no tool execution, repair, retry, fallback, warmup or replacement sample.
-The SDK has `total_max_attempts=1`,5-second connect and30-second read timeouts;
-the driver checks a900-second process bound and grant expiry before each call.
+The SDK has `total_max_attempts=1`, 5-second connect and 30-second read timeouts;
+the driver checks a 900-second process bound and grant expiry before each call.
 
 Input tokens are conservatively reserved as serialized ASCII request bytes plus
-4096 tokens for hidden model/tool framing, with a16384-byte request ceiling. This
+4096 tokens for hidden model/tool framing, with a 16384-byte request ceiling. This
 counts the whole schema and escaped supplied text. It is an explicit reviewed
 assumption, not a provider-certified tokenizer bound or CountTokens measurement.
 The parent must accept this exact allowance or refuse activation. Actual usage
 above the bound, unknown usage, errors or expiry stop further calls. Reference
-rates5.50/27.50 USD per million input/output tokens are illustrative geo pricing,
+rates 5.50/27.50 USD per million input/output tokens are illustrative geo pricing,
 not an active grant. Only exact positive finite Decimal rate strings in the
 parent's digest-bound grant can authorize the plan. The entire worst-case cohort
 must fit that app's allocated share before SDK initialization; the shared USD5
@@ -731,15 +731,15 @@ timeout --signal=TERM --kill-after=5s 960s python tools/bounded_model_evidence.p
 ```
 
 The supervisor stops and reaps the child process group on timeout, SIGTERM or SIGINT;
-SIGKILL and a lost host cannot be caught. Its job is capped at20 minutes.
-Only GitHub manual `workflow_dispatch`, run attempt1 and matching grant/context
+SIGKILL and a lost host cannot be caught. Its job is capped at 20 minutes.
+Only GitHub manual `workflow_dispatch`, run attempt 1 and matching grant/context
 are accepted. Before each call, the create-only journal fsyncs the reservation and
 full request; after it, the full SDK-decoded response is fsynced before semantic
 parsing. Each record also prints as a flushed base64 stdout backup. It preserves
 request IDs and usage, not just a rationale. These are SDK receipts, not original
 HTTP wire bytes or independently authenticated model origin. Request hashes are
 mechanical provenance, not model-authored citations. Unknown outcomes consume
-their entire worst reservation, with no refund or retry. All16 failed/unrun slots
+their entire worst reservation, with no refund or retry. All 16 failed/unrun slots
 remain in the frozen evaluator's denominators. Recorded usage-cost arithmetic is
 not an AWS bill; runner/infra cost and response-body byte count stay `UNKNOWN`.
 
@@ -1055,7 +1055,7 @@ src/lasttake/
   cli.py       the commands a judge runs.
 corpus/        one fictional shoot day, and the generator that produces it.
 tests/         including the gate's own proofs that it can fail.
-web/tests/     nineteen browser tests against the deployed URL. The journey a judge
+web/tests/     twenty-one browser tests against the deployed URL. The journey a judge
                walks, the intake a person supplies, and the handover two roles read.
 tools/         the gates and the harnesses. measure.py holds the declared baseline,
                dast_probe.py throws hostile bodies at the live API, prose_gate.py and
