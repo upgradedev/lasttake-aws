@@ -71,7 +71,8 @@ RUN = "measure"
 #: Read back from the committed file and written again on every run, never
 #: regenerated. The scope note is what tests/test_claim_drift.py checks, and
 #: `history` holds earlier runs, failed ones included, which a new run must not
-#: overwrite.
+#: overwrite. Nothing appends to `history` either: an entry is added by hand
+#: when a contract change retires a case, never by a run.
 CARRIED = ("_current_scope", "history")
 
 BASELINE = {
