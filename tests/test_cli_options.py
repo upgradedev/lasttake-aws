@@ -89,10 +89,16 @@ def test_every_lasttake_command_in_the_readme_actually_parses():
     Any ``lasttake ...`` line in a fenced block of the README has to be a
     command this program accepts. Otherwise the quickstart is fiction and the
     first thing a judge does is hit an error.
+
+    The docs pages are held to the same rule. Detail that moved out of the
+    README into docs/*.md took its commands with it, and a command that leaves
+    the README must not leave the gate.
     """
     text = README.read_text(encoding="utf-8")
     commands = re.findall(r"^lasttake (.+)$", text, re.MULTILINE)
     assert commands, "expected the README to document some commands"
+    for page in sorted((README.parent / "docs").glob("*.md")):
+        commands += re.findall(r"^lasttake (.+)$", page.read_text(encoding="utf-8"), re.MULTILINE)
 
     failures = []
     for command in commands:
@@ -102,4 +108,4 @@ def test_every_lasttake_command_in_the_readme_actually_parses():
         argv = [a for a in argv if not a.startswith("<")]
         if not _parser_accepts(argv):
             failures.append(command)
-    assert not failures, f"the README documents commands this program rejects: {failures}"
+    assert not failures, f"the README or a docs page documents commands this program rejects: {failures}"

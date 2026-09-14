@@ -7,6 +7,7 @@ import {Intake} from './Intake';
 import {Landing} from './Landing';
 import {Records} from './Records';
 import {SceneView} from './SceneView';
+import {revisionLabel} from './Turnover';
 import {WorkflowNext} from './WorkflowNext';
 import {WrapBoard} from './WrapBoard';
 import {link,pages,pageTasks,roles} from './model';
@@ -28,6 +29,18 @@ import type {Page,Role} from './types';
 // so saved links, the testbook and the video capture keep working.
 
 const NAV:Page[]=['overview','scene','records','history','architecture'];
+
+// Server messages carry event-bus receipt ids. A 36-character UUID breaks the
+// line on a phone and says nothing a person reads, so the banner shows its
+// first eight characters, like a short commit id, with no ellipsis that would
+// run into the sentence's own full stop, and keeps the full value in the title. Every other
+// character of the message is printed exactly as the server wrote it. A run
+// waiting at an approval interrupt is not finished, so it is not shown in the
+// saved (success) style.
+const RECEIPT_ID=/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i;
+export function ServerMessage({text,waiting}:{text:string;waiting:boolean}) {
+  return <p className={waiting?'message-waiting':'saved'} role="status">{text.split(RECEIPT_ID).map((part,i)=>i%2?<code key={i} title={part}>{part.slice(0,8)}</code>:part)}</p>;
+}
 
 export function App() {
   const w=useWorkspace();
@@ -59,6 +72,7 @@ export function App() {
   const backToStart=()=>{history.pushState(null,'',window.location.pathname);window.dispatchEvent(new PopStateEvent('popstate'));};
 
   const writesBlocked=w.busy || w.requiresRefresh;
+  const startRun=()=>{setIntake(false);void w.create();};
   const inRun=Boolean(state && scene);
   const isDoc=route.page==='architecture';
   const showLanding=!route.run && !isDoc && !w.busy && !w.error;
@@ -79,7 +93,7 @@ export function App() {
 
     <div className="workspace">
       <header className="topbar">
-        <div className="topbar-title"><span className="production-dot" aria-hidden="true"/>The Last Ferry <span className="muted">/ {scene?.scene_id ?? 'Fictional scene'}{scene?.revision?` · ${scene.revision}`:''}</span></div>
+        <div className="topbar-title"><span className="production-dot" aria-hidden="true"/>The Last Ferry <span className="muted" title={scene?.revision?revisionLabel(scene.revision):undefined}>/ {scene?.scene_id ?? 'Fictional scene'}{scene?.revision?` · ${scene.revision.split('+')[0]}`:''}</span></div>
         <div className="execution-mode" data-testid="execution-mode">Synthetic demo · No footage/audio analysis or legal clearance. Demo roles are not staff authentication. <details><summary>How this demo checks evidence</summary>Scripted planner · {state?.interpreter ?? 'Offline lexical interpreter'} · Real Strands approvals. The workflow reconciles supplied records and keeps material decisions with people.</details></div>
         <div className="topbar-controls">
           <label>Demo role<select value={role} onChange={e=>{setRole(e.target.value as Role);writePreference('lasttake.role',e.target.value);}}>{Object.entries(roles).map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></label>
@@ -98,13 +112,13 @@ export function App() {
 
         {inRun && !isDoc && state && scene && <>
           <div className="page-heading">
-            <div><p className="eyebrow">Shoot day · {scene.revision}</p><h1 id="page-title" tabIndex={-1}>{pages[route.page]}</h1><p>{pageTasks[route.page]}</p></div>
-            <div className="toolbar"><button disabled={w.busy} onClick={()=>void w.refresh()}>Refresh saved state</button><button disabled={w.busy} onClick={()=>{setIntake(false);void w.create();}}>New shoot-day run</button></div>
+            <div><p className="eyebrow">Shoot day · {scene.scene_id}</p><h1 id="page-title" tabIndex={-1}>{pages[route.page]}</h1><p>{pageTasks[route.page]}</p></div>
+            <div className="toolbar"><button disabled={w.busy} onClick={()=>void w.refresh()}>Refresh saved state</button><button disabled={w.busy} onClick={startRun}>New shoot-day run</button></div>
           </div>
           {w.busy && <div className="loading" role="status"><span className="spinner" aria-hidden="true"/>{w.progress || 'Reading the saved shoot day…'}</div>}
           {state.needs_checkpoint && <section className="warning" role="status"><h2>Fresh checkpoint required</h2><p>{state.recovery_reason}</p>{state.pending_approval?<p>Open the pending approval in Scene review and decline it before checking again.</p>:<button disabled={writesBlocked} onClick={()=>void w.act('checkpoint')}>Run fresh checkpoint</button>}</section>}
-          {w.message && <p className="saved" role="status">{w.message}</p>}
-          <WorkflowNext state={state} scene={scene} requiresRefresh={w.requiresRefresh} detailed={route.page==='overview'}/>
+          {w.message && <ServerMessage text={w.message} waiting={!!state.pending_approval}/>}
+          <WorkflowNext state={state} scene={scene} requiresRefresh={w.requiresRefresh} detailed={route.page==='overview'} currentPage={route.page} onNewRun={startRun} newRunDisabled={writesBlocked}/>
           {route.page==='overview' && <Dashboard scene={scene} state={state} session={w.session} events={w.events} busy={writesBlocked} checkpoint={()=>void w.act('checkpoint')}/>}
           {(route.page==='scene'||route.page==='records') && <>
             <WrapBoard state={state} scene={scene}/>

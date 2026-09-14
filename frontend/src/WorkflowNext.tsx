@@ -1,29 +1,58 @@
 import {link,roles} from './model';
 import {uniqueBy} from './projection';
-import {turnoverIsCurrent} from './Turnover';
-import type {RunState,Scene} from './types';
+import {turnoverEvidenceChanged,turnoverIsCurrent} from './Turnover';
+import type {Page,RunState,Scene} from './types';
+
+// A saved turnover that no longer matches the evidence or the approval is a
+// historical record. Nothing on the status card may then read as if it can
+// still be handed to editorial, or as if the old eligibility still stands.
+export function turnoverIsHistorical(state:RunState) {
+  return !!state.turnover && !turnoverIsCurrent(state);
+}
 
 export function wrapHeadline(state:RunState,requiresRefresh=false) {
   if(requiresRefresh)return 'Refresh before deciding';
   if(state.needs_checkpoint)return 'Evidence needs a fresh checkpoint';
   if(!state.counts)return 'Wrap has not been assessed';
   if(state.pending_approval?.reason.kind==='wrap' && state.pending_approval.evidence_changed)return 'Evidence changed: wrap request is out of date';
+  // Below the checkpoint lines, so a historical turnover never hides a required
+  // checkpoint; above the eligibility lines, so it never reads as eligible.
+  if(turnoverIsHistorical(state))return turnoverEvidenceChanged(state)?'Evidence changed after this turnover':'This turnover is out of date';
   if(!state.eligible)return 'Wrap blocked by the supplied evidence';
   if(!state.wrap_approved)return 'Eligible for a human wrap decision';
   return 'Human wrap approval recorded';
 }
 
+// One shared object, so the card can tell the historical step from every other
+// step and offer the fresh run only when that is the next step.
+const HISTORICAL_STEP={title:'This turnover is historical: start a fresh run',detail:'Keep this historical handoff for reference. Start a new shoot-day run for a new turnover; the old record cannot approve changed evidence.',page:'history' as const};
+
 export function nextStep(state:RunState) {
-  if(state.turnover)return {title:'Read the turnover before handing it to editorial',detail:'Download the saved manifest and copy its handoff summary. Check whether this record still matches the current evidence and approval.',page:'history' as const};
+  // A saved turnover stays in state for the rest of the run, so a waiting human
+  // request and a required checkpoint are named before it.
   if(state.pending_approval)return {title:`Review the saved ${state.pending_approval.reason.kind} request`,detail:state.pending_approval.evidence_changed?'The evidence changed. Review the current sources; a changed wrap request must be declined before a fresh request.':`Select ${roles[state.pending_approval.reason.required_role]} in Demo role, inspect the sources, then explicitly approve or decline. A pickup decision is separate from wrap.`,page:'scene' as const};
   if(state.needs_checkpoint || !state.counts)return {title:'Start with the wrap checkpoint',detail:'Use Run wrap checkpoint below. It compares the supplied script, takes, camera reports and releases and saves the exceptions for review.',page:'scene' as const};
-  if(state.wrap_approved && state.eligible)return {title:'Prepare the editorial handoff',detail:'The server has saved the human wrap decision. Publish the approved turnover in History, then inspect and download the record.',page:'history' as const};
+  if(turnoverIsHistorical(state))return HISTORICAL_STEP;
+  if(state.turnover)return {title:'Read the turnover before handing it to editorial',detail:'Download the saved manifest and copy its handoff summary. Check whether this record still matches the current evidence and approval.',page:'history' as const};
+  if(state.wrap_approved && state.eligible)return {title:'Prepare the editorial handoff',detail:'The server has saved the human wrap decision. Publish the approved turnover in Handoff, then inspect and download the record.',page:'history' as const};
   if(state.eligible)return {title:'Ask the 1st AD for a separate wrap decision',detail:'Select 1st AD in Demo role, request wrap approval, review the saved request and choose whether to approve. Eligibility alone does not approve wrap.',page:'scene' as const};
-  return {title:'Resolve the evidence gaps and review the exceptions',detail:'Use Add take or release for missing records. Select each remaining finding and record a reasoned decision in its named role. Then review wrap readiness.',page:'scene' as const};
+  return {title:'Resolve the evidence gaps and review the exceptions',detail:'Select each remaining finding in the decision pane and record a reasoned decision in its named role. Missing records go in through Add take or release. Then review wrap readiness.',page:'scene' as const};
 }
 
-export function WorkflowNext({state,scene,requiresRefresh=false,detailed=false}:{state:RunState;scene?:Scene;requiresRefresh?:boolean;detailed?:boolean}) {
+export function WorkflowNext({state,scene,requiresRefresh=false,detailed=false,currentPage,onNewRun,newRunDisabled=false}:{state:RunState;scene?:Scene;requiresRefresh?:boolean;detailed?:boolean;currentPage?:Page;onNewRun?:()=>void;newRunDisabled?:boolean}) {
   const next=nextStep(state);
+  const historical=turnoverIsHistorical(state);
+  // A card that says "Open review workspace" while you are on the workspace is
+  // a second, competing call to action. When the next step lives on this page,
+  // the control points at the pane that holds it, or steps aside for the
+  // primary button already on screen.
+  const samePage=currentPage!==undefined && (next.page===currentPage || (next.page==='scene' && currentPage==='actions'));
+  const paneJump=(id:string)=>(e:React.MouseEvent)=>{e.preventDefault();const pane=document.getElementById(id);pane?.focus({preventScroll:true});pane?.scrollIntoView({block:'start'});};
+  // On Handoff the saved downloads sit below the retained exceptions and the
+  // take map, so a current turnover gets a same-page jump to them.
+  const sameControl=next.page==='scene' && state.counts
+    ? <a className="button" href="#decision-pane" onClick={paneJump('decision-pane')}>Go to the decision</a>
+    : next.page==='history' && state.turnover && !historical ? <a className="button" href="#turnover-downloads" onClick={paneJump('turnover-downloads')}>Jump to the downloads</a> : null;
   const causes=uniqueBy(state.causes,c=>`${c.finding_id}:${c.requirement_id}:${c.reason}`);
   return <section className={'workflow-next'+(detailed?' decision-brief':' compact')} aria-label="Next step" data-testid="workflow-next">
     {detailed && <div className="decision-context"><p className="eyebrow">Before the set comes down</p><h2 data-testid="decision-headline">{wrapHeadline(state,requiresRefresh)}</h2>
@@ -36,8 +65,10 @@ export function WorkflowNext({state,scene,requiresRefresh=false,detailed=false}:
       })}</ul>:<p>No blocking explanation was returned. Refresh saved state; do not infer eligibility from an empty list.</p>}{causes.length>3 && <a href={link('scene',state.run_id,undefined,{filter:'approval'})}>Review all {causes.length} blocking causes</a>}</div>}
     </div>}{!detailed && <ol className="stage-rail" aria-label="Stages">
       <li data-state={requiresRefresh?'unknown':state.counts?'done':'open'}><span>1</span>Evidence<small>{requiresRefresh?'refresh first':state.needs_checkpoint?'checkpoint required':state.counts?'assessed':'not assessed'}</small></li>
-      <li data-state={requiresRefresh?'unknown':state.wrap_approved?'done':state.pending_approval?.reason.kind==='wrap'?'waiting':'open'}><span>2</span>Human decision<small>{requiresRefresh?'recheck':state.wrap_approved?'1st AD approved':state.pending_approval?.reason.kind==='wrap'?'waiting for the 1st AD':'not approved'}</small></li>
+      <li data-state={requiresRefresh?'unknown':state.wrap_approved?'done':state.pending_approval?.reason.kind==='wrap'?'waiting':'open'}><span>2</span>Wrap decision<small>{requiresRefresh?'recheck':state.wrap_approved?'1st AD approved':state.pending_approval?.reason.kind==='wrap'?'waiting for the 1st AD':'not approved'}</small></li>
       <li data-state={state.turnover?(turnoverIsCurrent(state)?'done':'historical'):'open'}><span>3</span>Turnover<small>{state.turnover?(requiresRefresh?'currency unknown':turnoverIsCurrent(state)?'saved':'historical'):'not published'}</small></li>
-    </ol>}<div className="decision-next">{detailed?<p className="eyebrow">Next step</p>:<p className="eyebrow" data-testid="decision-headline">{wrapHeadline(state,requiresRefresh)}</p>}<h2>{next.title}</h2><p>{requiresRefresh?'Refresh saved state above. Existing sources and downloads remain available for inspection.':state.turnover && !turnoverIsCurrent(state)?'Keep this historical handoff for reference. Start a new shoot-day run for a new turnover; the old record cannot approve changed evidence.':next.detail}</p></div><a className="button" href={link(next.page,state.run_id,undefined,next.page==='scene' && (state.pending_approval || state.eligible)?{filter:'approval'}:undefined)}>{next.page==='history'?'Open turnover & receipts':'Open review workspace'}</a>
+    </ol>}<div className="decision-next">{detailed?<p className="eyebrow">Next step</p>:<p className="eyebrow" data-testid="decision-headline">{wrapHeadline(state,requiresRefresh)}</p>}<h2>{next.title}</h2><p>{requiresRefresh?'Refresh saved state above. Existing sources and downloads remain available for inspection.':next.detail}</p></div>{next===HISTORICAL_STEP && onNewRun && <button className="primary" disabled={newRunDisabled} onClick={onNewRun}>Start a fresh shoot-day run</button>}{samePage
+      ? sameControl
+      : <a className="button" href={link(next.page,state.run_id,undefined,next.page==='scene' && (state.pending_approval || state.eligible)?{filter:'approval'}:undefined)}>{next.page==='history'?'Open turnover & receipts':'Open review workspace'}</a>}
   </section>;
 }

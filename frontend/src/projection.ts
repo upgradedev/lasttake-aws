@@ -47,10 +47,24 @@ export function metrics(scene:Scene,state:RunState) {
     {id:'releases',label:'Beats missing release records',value:value(c?.without_release_record),detail:'Required beats; not a count of people or legal clearance',href:link('scene',state.run_id,undefined,{filter:'missing-releases'})},
     {id:'takes',label:'Supplied takes',value:count(scene.take_count)===null?'Unavailable':String(scene.take_count),detail:'Capture records, not assessed audio or footage',href:link('records',state.run_id,undefined,{filter:'takes'})},
     {id:'eligibility',label:'Wrap eligibility',value:assessed?(state.eligible?'Eligible':'Blocked'):'Not assessed',detail:'Deterministic evidence gate',href:link('scene',state.run_id,undefined,{filter:'approval'})},
-    {id:'approval',label:'Human wrap approval',value:state.wrap_approved?'Recorded':state.pending_approval?.reason.kind==='wrap'?(state.pending_approval.evidence_changed?'Needs new review':'Pending 1st AD'):'Not approved',detail:'A separate decision on the reviewed package',href:link('scene',state.run_id,undefined,{filter:'approval'})},
+    {id:'approval',label:'Human wrap approval',value:state.wrap_approved?'Approved':state.pending_approval?.reason.kind==='wrap'?(state.pending_approval.evidence_changed?'Needs new review':'Pending 1st AD'):'Not approved',detail:'A separate decision on the reviewed package',href:link('scene',state.run_id,undefined,{filter:'approval'})},
   ];
 }
 export function reviewLabel(finding:Finding,state:RunState) {
   const current=decisionFor(finding,state.decisions);
-  return current.stale?'Review changed evidence':current.decision?'Decision recorded · exception retained':'Needs review';
+  if(current.stale)return 'Review changed evidence';
+  if(current.decision)return 'Decision recorded · exception retained';
+  // The gate in policy.py skips a finding with no requirement id, so it can
+  // never block wrap. Say so instead of leaving it open as "Needs review".
+  return finding.requirement_id===null || finding.requirement_id===undefined?'Advisory, not a wrap blocker':'Needs review';
+}
+function field(value:unknown,key:string):unknown {
+  return typeof value==='object' && value!==null ? (value as Record<string,unknown>)[key] : undefined;
+}
+// An approved pickup is saved as a pickup.requested delivery whose payload names
+// the beat. Only a bus-accepted row counts: a pending, unknown or rejected
+// outcome is not established, and the server does not call it approved either.
+export function hasApprovedPickup(finding:Finding,state:RunState) {
+  if(finding.check_type!=='coverage' || typeof finding.requirement_id!=='string' || !finding.requirement_id)return false;
+  return (state.delivery_outcomes ?? []).some(row=>row.event_type==='pickup.requested' && row.status==='accepted' && row.accepted===true && field(field(row,'payload'),'beat_id')===finding.requirement_id);
 }

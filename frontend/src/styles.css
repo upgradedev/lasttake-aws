@@ -23,6 +23,8 @@
   textarea {min-height:85px;resize:vertical}
   input::placeholder,textarea::placeholder {color:#aab2c8}
   summary {cursor:pointer;font-size:.875rem;font-weight:600;min-height:44px;padding:.7rem 0}
+  /* A panel that folds behind its title keeps a panel heading's weight. */
+  .delivery-status>summary {font-size:1.2rem;font-weight:650;letter-spacing:-.02em}
   code {display:block;overflow-wrap:anywhere;font-size:.8125rem;margin:.3rem 0;color:#b6c1dc}
   pre {font-size:.875rem;white-space:pre-wrap;overflow-wrap:anywhere;max-height:440px;overflow:auto;padding:1rem;background:#0b1124;border-radius:10px;margin:1rem 0}
   fieldset {min-width:0}
@@ -268,7 +270,10 @@
   nav a small {display:block;font-size:.75rem;line-height:1.35;color:var(--secondary);font-weight:400}
   .nav-bottom p {margin:0 0 2px;font-size:.75rem;text-transform:uppercase;letter-spacing:.08em}
   .nav-bottom a {display:block;font-size:.8125rem;margin-top:4px}
-  .topbar-title {min-width:0;overflow-wrap:anywhere}
+  /* The breadcrumb keeps its natural width and never shrinks for its
+     neighbours. Below desktop it has a row with the controls only, so it wraps
+     only when it is wider than the whole bar, and nothing in it is hidden. */
+  .topbar-title {flex:0 0 auto;max-width:100%;min-width:0;overflow-wrap:anywhere}
   .topbar-controls {display:flex;align-items:center;gap:10px;flex-wrap:wrap}
   .topbar-controls select {width:auto;min-width:200px;max-width:none}
   .topbar .execution-mode {font-size:.8125rem;font-weight:400;padding:4px 12px;margin:0;line-height:1.4;min-width:0}
@@ -290,8 +295,16 @@
   .landing-facts dt {font-size:.75rem;text-transform:uppercase;letter-spacing:.08em;color:var(--secondary)}
   .landing-facts div {min-width:0}
   .landing-facts dd {margin:4px 0 0;font-size:1.5rem;font-weight:650;font-variant-numeric:tabular-nums;letter-spacing:-.02em;overflow-wrap:anywhere}
+  /* An identifier such as a script revision is never split: smaller than the
+     counts beside it, on one line, in the same line box so the three tiles
+     keep one height. */
+  .landing-facts dd.fact-id {font-size:clamp(.8125rem,1.1vw,1rem);line-height:2.325rem;white-space:nowrap;overflow-wrap:normal;overflow:hidden;text-overflow:ellipsis}
   .landing-script {list-style:none;padding:0;margin:0 0 10px;border:1px solid var(--line);border-radius:10px;background:#0e1429;overflow:hidden}
   .landing-script li {display:flex;gap:12px;align-items:center;padding:9px 12px;border-bottom:1px solid var(--line);font:.9375rem/1.5 ui-monospace,monospace;min-width:0}
+  /* Five monospace characters (NN:NN) plus padding and border, so every beat's
+     text starts at the same x, on the landing and in the Scene review list,
+     and a long beat title never squeezes the id out of its badge. */
+  .landing-script .page-line,.beat-link .page-line {flex-shrink:0;min-width:calc(5ch + 12px)}
   .landing-script li>span:last-child {min-width:0;overflow-wrap:anywhere}
   .landing-script li:last-child {border-bottom:0}
   .landing-script .landing-more {color:var(--secondary);font-family:inherit;font-size:.875rem}
@@ -305,11 +318,26 @@
   .tile-ok {border-left-color:#3aa97f}
   .tile-warn {border-left-color:#e8b365}
   .tile-legal {border-left-color:#9c8ad8}
+  /* A count tile with no number yet ("Not assessed") uses the verdict tiles'
+     small bold type, so the row keeps one type scale and one height. */
+  .tile.tile-pending strong,.tile strong.tile-pending {font-size:.9rem;font-weight:600;letter-spacing:normal;font-variant-numeric:normal;overflow-wrap:normal}
   .wrap-verdicts {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:0}
   .wrap-verdicts div {border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:#10172c;min-width:0}
   .wrap-verdicts dt {font-size:.75rem;text-transform:uppercase;letter-spacing:.08em;color:var(--secondary)}
   .wrap-verdicts dd {margin:2px 0 0;font-weight:600;font-size:.9rem}
   .blocked-text {color:#f3cf91}
+  /* The decision pane's status strip speaks the same colours as the board:
+     the gate tile's green when a state is met, its amber when it is not. */
+  .wrap-status .state-good {color:#ade7d0}
+  .wrap-status .state-warn {color:#f3cf91}
+  /* A server message while an approval is still waiting. Same box as .saved,
+     but neutral: nothing has finished, so it must not read as success. */
+  .message-waiting {padding:14px 16px;border-radius:10px;font-size:1rem;margin:15px 0;background:var(--raised);border:1px solid #455074;box-shadow:inset 3px 0 #b68b46;color:#e8ebf5}
+  /* A shortened receipt id inside a server message stays in the sentence. */
+  .saved code,.message-waiting code {display:inline;margin:0;overflow-wrap:normal;color:inherit}
+  /* A turnover that is kept but no longer current is stated in muted text,
+     never in the green of a current record. */
+  .panel>p.sealed-historical,.sealed-historical {color:var(--secondary)}
 
   .stage-rail {list-style:none;display:flex;gap:8px;padding:0;margin:0 0 10px;flex-basis:100%}
   .workflow-next.compact {padding:12px 16px;margin-bottom:14px;gap:10px 16px}
@@ -352,10 +380,22 @@
   .intake-group legend {padding:0 6px;font-weight:650;font-size:.9375rem}
   .intake-group>.fine {margin:2px 0 8px}
   .intake-advanced {border-top:1px dashed var(--line);margin-top:18px;padding-top:14px}
+
+  /* Receipt controls sit on one baseline: the button lines up with the select,
+     a wrapped copy button keeps a gap, and the prepared receipt starts below. */
+  .toolbar.receipt-toolbar {align-items:flex-end;row-gap:12px;margin-bottom:16px}
+  .receipt {margin-top:16px}
+  /* The exceptions section already closes with its own rule; the last item
+     does not draw a second one above it. */
+  .editorial-exceptions .action-list {margin-bottom:0}
+  .editorial-exceptions .action-list li:last-child {border-bottom:0;padding-bottom:0}
 }
 @media (max-width:1199px) {
   .landing-grid,.wrap-board {grid-template-columns:minmax(0,1fr)}
   .topbar {flex-wrap:wrap}
+  /* When the breadcrumb is wider than the bar, the scene and revision move to
+     the next line together, so a revision id is not split at its hyphens. */
+  .topbar-title .muted {display:inline-block}
   .topbar .execution-mode {order:3;flex-basis:100%}
 }
 @media (max-width:760px) {
@@ -372,7 +412,24 @@
   .landing-facts {gap:6px;grid-template-columns:repeat(2,minmax(0,1fr))}
   .landing-facts div:last-child {grid-column:1/-1}
   .landing-facts dd {font-size:1.2rem}
+  .landing-facts dd.fact-id {font-size:1rem;line-height:1.55}
   .wrap-tiles,.wrap-verdicts {grid-template-columns:repeat(2,minmax(0,1fr))}
   .stage-rail {flex-direction:column;gap:6px}
   .matrix-grid {grid-template-columns:repeat(2,minmax(0,1fr))}
+  .toolbar.receipt-toolbar label {flex:1 0 100%}
+  /* The fixed beat-id width costs a phone row about 10px; the row's gap and
+     side padding give it back, so short beat titles keep one line. */
+  .landing-script li {gap:8px;padding-inline:8px}
+}
+/* Desktop, where the execution notice shares the top bar's row: a long run
+   title (a revision with added records) gives way before the notice does. */
+@media (min-width:1200px) {
+  .topbar-title {max-width:40%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  /* Three-pane cockpit: the decision column is its narrowest here, so the
+     decision select uses the pane controls' type size and the pane's inner
+     padding is trimmed to show the whole option. Single-column layouts keep
+     1rem, which phones need to avoid zoom on focus. */
+  .decision-console .pane-scroll {padding-inline:12px}
+  .decision-console .decision-card {padding-inline:10px}
+  .decision-console .form-grid select {font-size:.875rem;font-weight:400;padding-inline:.5rem}
 }

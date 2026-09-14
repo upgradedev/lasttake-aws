@@ -302,8 +302,9 @@ def route_checkpoint(body: dict, request_id: str) -> dict:
     state["pending_approval"] = pending
     workspace.remember_pending(run, pending)
     state["message"] = (
-        "The run has stopped and is waiting for the 1st AD. This process is now "
-        "finished. Approve whenever you like, even tomorrow."
+        "The run is saved and waiting for the 1st AD to answer the pickup request. "
+        "The checkpoint process has exited, so the answer can come later, even "
+        "tomorrow."
         if pending
         else "Checkpoint complete."
     )
@@ -477,8 +478,9 @@ def route_decide(body: dict, request_id: str) -> dict:
     run.record_decision(decision.to_dict())
     state = _state(run)
     state["message"] = (
-        f"Recorded: {decision.actor} ({role.value}) {action.value}. The original "
-        "finding is unchanged and stays visible on the turnover."
+        f"Decision saved: {receipt.action_words(action)} by {decision.actor} "
+        f"({receipt.role_label(role)}). The original finding is unchanged and stays "
+        "visible on the turnover."
     )
     return _json(200, state, request_id)
 

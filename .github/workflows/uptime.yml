@@ -25,6 +25,7 @@ permissions:
 
 env:
   LIVE_URL: https://1p6s28nyf0.execute-api.eu-west-1.amazonaws.com/
+  JUDGE_URL: https://d3kf6hquzlli8g.cloudfront.net/
 
 jobs:
   reachable:
@@ -41,6 +42,15 @@ jobs:
           set -euo pipefail
           python tools/uptime_check.py "$LIVE_URL" | tee "$GITHUB_STEP_SUMMARY"
 
+      # The URL a judge actually opens. Fails if the served release was not
+      # accepted by the pipeline, if the bundle says something the product
+      # cannot back, or if the HTML does not carry the release commit.
+      - name: the judge URL serves an accepted release that says nothing false
+        if: always()
+        run: |
+          set -euo pipefail
+          python tools/judge_url_check.py "$JUDGE_URL" | tee -a "$GITHUB_STEP_SUMMARY"
+
       - name: open an issue if it is down
         if: failure()
         uses: actions/github-script@v7
@@ -52,6 +62,7 @@ jobs:
               '',
               `Run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
               `URL: ${process.env.LIVE_URL}`,
+              `Judge URL: ${process.env.JUDGE_URL}`,
               '',
               'The rules require the project to be reachable until the judging period ends',
               'on 2026-10-08 17:00 PT. Redeploy with the deploy workflow, then re-run this',

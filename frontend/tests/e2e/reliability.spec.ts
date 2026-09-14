@@ -71,7 +71,11 @@ test('LT-RELIABLE-WRAP both API routes refuse stale review, decline recovers, ne
   await page.reload();
   await page.getByRole('navigation').getByRole('link',{name:'Handoff',exact:true}).click();
   await expect(page.getByRole('button',{name:'Publish approved turnover'})).toBeDisabled();
-  await expect(page.getByText('wrap.ready: Bus accepted')).toBeVisible();
+  // Every attempt here was accepted, so the panel waits closed behind its title.
+  // Open it only if it is closed: a bare click would shut a panel already open.
+  const deliveryTitle=page.getByText('Delivery status',{exact:true});
+  if(!await deliveryTitle.evaluate(el=>el.closest('details')?.open ?? false))await deliveryTitle.click();
+  await expect(page.getByText('Wrap ready: accepted by the event bus')).toBeVisible();
   await info.attach('wrap-review-outcome',{body:JSON.stringify(await call('state')),contentType:'application/json'});
   await page.screenshot({path:info.outputPath('reliability-wrap.png'),fullPage:true});
 });

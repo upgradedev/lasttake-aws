@@ -320,11 +320,23 @@ def headline(outcomes: list[BeatOutcome]) -> dict:
 
 
 def sentence(outcomes: list[BeatOutcome]) -> str:
-    """The count as the 1st AD hears it, built from the same numbers."""
+    """The count as the 1st AD hears it, built from the same numbers.
+
+    The grammar follows the numbers. One exception reads in the singular, and a
+    scene with no missing release routes nothing to production, so the sentence
+    does not say it did. The corpus count, 31 / 2 / 1, takes the plural path
+    and reads exactly as the README and the submission quote it.
+    """
     h = headline(outcomes)
+    required = h["required_beats"]
+    exceptions = h["raising_exceptions"]
+    unreleased = h["without_release_record"]
+    beats = "beat" if required == 1 else "beats"
+    raising = "raising an exception" if exceptions == 1 else "raising exceptions"
+    routed = " and routed to production" if unreleased else ""
     return (
-        f"Of {h['required_beats']} required beats, "
+        f"Of {required} required {beats}, "
         f"{h['covered_with_evidence']} covered with evidence, "
-        f"{h['raising_exceptions']} raising exceptions with named sources, "
-        f"{h['without_release_record']} with no release record and routed to production."
+        f"{exceptions} {raising} with named sources, "
+        f"{unreleased} with no release record{routed}."
     )

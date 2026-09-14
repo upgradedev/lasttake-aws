@@ -147,6 +147,9 @@ jobs:
       - name: judge-facing prose does not read as generated
         run: python tools/prose_gate.py
 
+      - name: README and docs pages render without structural faults
+        run: python tools/docs_gate.py
+
   lambda-package:
     name: arm64 Lambda package (source only)
     # This branch artifact is not a release. No AWS credentials or deploy steps.
@@ -268,6 +271,48 @@ jobs:
       - name: what survived on disk between the two processes
         run: find .lasttake/sessions -type f | sort
 
+      # The control runs while the interrupt is still pending. Run after
+      # process 2 it could not fail: the only interrupt was already answered,
+      # so the CLI said "Nothing is waiting for a decision." with or without a
+      # session on disk. Here the token is read first, the way process 2 reads
+      # it, and passed explicitly, so the session is the only thing missing and
+      # the refusal has to come from Strands finding no paused run. Then the
+      # session goes back, and the workdir must be byte for byte what process 1
+      # left before process 2 resumes it.
+      - name: 'negative control  ·  move the session aside, resume must FAIL'
+        run: |
+          token=$(python -c 'from pathlib import Path; from lasttake.cli import _latest_interrupt_id; print(_latest_interrupt_id(Path(".lasttake/sessions")) or "")')
+          case "$token" in
+            v1:*) echo "pending interrupt: $token" ;;
+            *) echo "NEGATIVE CONTROL FAILED: process 1 left no pending interrupt to withhold."; exit 1 ;;
+          esac
+          find .lasttake -type f -exec sha256sum {} + | sort > "$RUNNER_TEMP/workdir.before"
+
+          mv .lasttake/sessions "$RUNNER_TEMP/sessions.aside"
+          status=0
+          lasttake approve --yes --interrupt-id "$token" > "$RUNNER_TEMP/control.out" 2> "$RUNNER_TEMP/control.err" || status=$?
+          cat "$RUNNER_TEMP/control.out"
+          cat "$RUNNER_TEMP/control.err" >&2
+
+          if [ "$status" -eq 0 ]; then
+            echo "NEGATIVE CONTROL FAILED: resumed with the session moved aside."
+            exit 1
+          fi
+          if grep -q "Nothing is waiting" "$RUNNER_TEMP/control.err" || ! grep -q "not in interrupt state" "$RUNNER_TEMP/control.err"; then
+            echo "NEGATIVE CONTROL FAILED: exit $status, but not because the session was missing."
+            exit 1
+          fi
+
+          # The refused attempt starts an empty session of its own. Clear it,
+          # or the real one would be moved inside it rather than over it.
+          rm -rf .lasttake/sessions
+          mv "$RUNNER_TEMP/sessions.aside" .lasttake/sessions
+          if ! find .lasttake -type f -exec sha256sum {} + | sort | diff "$RUNNER_TEMP/workdir.before" -; then
+            echo "NEGATIVE CONTROL FAILED: after the restore, the workdir is not the one process 1 left."
+            exit 1
+          fi
+          echo "NEGATIVE CONTROL HELD: with the session moved aside, Strands refused to resume (exit $status). The session is back for process 2."
+
       - name: 'process 2  ·  06:40, a new process resumes the same run'
         run: lasttake approve --yes --hours 7.5
 
@@ -279,12 +324,3 @@ jobs:
 
       - name: the event log, end to end
         run: lasttake events
-
-      - name: 'negative control  ·  wipe the session, resume must FAIL'
-        run: |
-          rm -rf .lasttake/sessions
-          if lasttake approve --yes 2>/dev/null; then
-            echo "NEGATIVE CONTROL FAILED: resumed with no session on disk."
-            exit 1
-          fi
-          echo "NEGATIVE CONTROL HELD: with the session wiped, there is nothing to resume."

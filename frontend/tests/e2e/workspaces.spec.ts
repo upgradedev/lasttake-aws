@@ -113,7 +113,7 @@ test('LT-DASH scoped metrics drill into matching evidence, and desktop/mobile co
     return beat.top>=list.top && beat.top<list.bottom;
   })).toBe(true);
   if(info.project.name==='desktop')await expect(page.locator('.beat.selected').first()).toBeInViewport();
-  await page.getByRole('link',{name:'02 Evidence'}).click();
+  await page.getByRole('link',{name:'Evidence',exact:true}).click();
   await expect(page.getByRole('region',{name:'Evidence and exceptions'})).toBeFocused();
   await page.getByText('Source records & digests',{exact:true}).click();
   for(const source of continuity.sources)await expect(page.getByRole('region',{name:'Evidence and exceptions'})).toContainText(source.artifact_id);
@@ -122,8 +122,9 @@ test('LT-DASH scoped metrics drill into matching evidence, and desktop/mobile co
   await page.evaluate(()=>window.scrollTo(0,0));
   await page.screenshot({path:info.outputPath('workspace-success.png'),fullPage:true});
   await expect(page.getByTestId('wrap-status')).toContainText('Not approved');
+  await expect(page.getByTestId('wrap-status').getByText('Blocked',{exact:true})).toHaveClass(/\bstate-warn\b/);
   if(info.project.name==='desktop')await expect(page.getByTestId('wrap-status')).toBeInViewport();
-  else {await page.getByRole('link',{name:'03 Decision'}).click();await expect(page.getByTestId('wrap-status')).toBeInViewport();}
+  else {await page.getByRole('link',{name:'Decision',exact:true}).click();await expect(page.getByTestId('wrap-status')).toBeInViewport();}
   await info.attach('current-scene-evidence',{body:JSON.stringify({run:body.run_id,scene:scene.scene_id,counts:current.counts,selected_finding:continuity.finding_id}),contentType:'application/json'});
   expect(errors).toEqual([]);
 });

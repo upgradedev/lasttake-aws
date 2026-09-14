@@ -1,14 +1,24 @@
-import {roles,words} from './model';
+import {decisionFor,roles,words} from './model';
 import {uniqueBy} from './projection';
-import type {Finding,Scene,Take} from './types';
+import type {Decision,Finding,Scene,Take} from './types';
 
-export function Evidence({finding,scene}:{finding:Finding;scene:Scene}) {
+export function Evidence({finding,scene,decisions}:{finding:Finding;scene:Scene;decisions?:Decision[]}) {
+  // A decision by the named role about this exact reading is shown in words.
+  // It replaces the check's next action ("reconcile before it is cleared") only
+  // when policy.py _resolution treats it as closing the finding: a rejected
+  // false positive, or an exception accepted by a role allowed to accept one.
+  // A confirmation leaves the finding blocking wrap, so its next action stays.
+  // A decision about changed evidence is not shown and leaves the action open.
+  const current=decisionFor(finding,decisions ?? []);
+  const outcome=current.decision && !current.stale?current.decision:undefined;
+  const resolved=Boolean(outcome && (outcome.action==='reject_false_positive' || (outcome.action==='accept_exception' && scene.authority[finding.check_type]?.may_accept.includes(outcome.role))));
   return <div className="evidence" data-check={finding.check_type}>
     <p className="eyebrow">{words(finding.check_type)} · {words(finding.truth_state)}</p>
     <h3>{finding.requirement_id ? scene.locations[finding.requirement_id] ?? finding.requirement_id : 'Shot plan advisory'}</h3>
     <p>{finding.observation}</p>
     {finding.inference && <div className="inference"><span className="eyebrow">Bounded interpretation</span><p>{finding.inference}</p></div>}
-    <p><strong>Next action:</strong> {finding.next_action}</p><p className="fine">Responsible: {roles[finding.required_role]}</p>
+    {outcome && <p><strong>Decision on record:</strong> {words(outcome.action)} by {outcome.actor} ({roles[outcome.role]}). The finding stays on the turnover.</p>}
+    {!resolved && <p><strong>Next action:</strong> {finding.next_action}</p>}<p className="fine">Responsible: {roles[finding.required_role]}</p>
     <details><summary>Source records & digests</summary>
       {finding.sources.length?uniqueBy(finding.sources,s=>s.artifact_id+':'+s.sha256).map(s=><p key={s.artifact_id+':'+s.sha256}><strong>{s.artifact_id}</strong><code>{s.sha256}</code></p>):<p>No source artifact supplied for this finding.</p>}
       <h4>Source locations</h4>{finding.locators.length?<dl className="metadata">{finding.locators.map((l,i)=><div key={i}><dt>{words(l.kind)}</dt><dd>{l.value}</dd></div>)}</dl>:<p>No source locator supplied. Do not infer a page or take.</p>}

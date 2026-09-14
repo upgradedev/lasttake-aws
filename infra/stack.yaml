@@ -287,8 +287,8 @@ Resources:
       TimeoutInMillis: 30000
 
   # One catch-all route. The handler owns its own routing table, so splitting
-  # it across eleven CloudFormation resources would put the same decision in
-  # two places and let them drift.
+  # it into one CloudFormation route resource per path would put the same
+  # decision in two places and let them drift.
   DefaultRoute:
     Type: AWS::ApiGatewayV2::Route
     Properties:

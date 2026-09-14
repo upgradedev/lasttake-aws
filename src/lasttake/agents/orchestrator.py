@@ -238,8 +238,10 @@ def build_s3_session_manager(session_id: str, bucket: str, prefix: str = "sessio
 
     Lambda's ``/tmp`` does not survive the gap between a 23:10 interrupt and an
     06:40 approval, so the deployed build needs shared durable storage or the
-    hero does not port. ``lasttake.app.handler`` builds one of these per request
-    and hands it to :func:`build_orchestrator`.
+    hero does not port. ``lasttake.app.handler`` does not call this helper: its
+    ``build_agent`` constructs an ``S3SessionManager`` directly and hands that
+    to :func:`build_orchestrator`. Nothing else in the repository calls it
+    either.
     """
     from strands.session import S3SessionManager
 

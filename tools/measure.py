@@ -9,6 +9,11 @@ product's stated rules, not read off a run and pasted back, and a case that
 disagrees with its expectation is reported as a failure rather than quietly
 becoming the new expectation.
 
+When the product contract changes on purpose, a case can stop describing
+anything the product is meant to do. That case is rewritten, not re-expected:
+the retired expectation and the run it failed are kept in `REWRITES` and under
+`history` in docs/measurement.json.
+
 ## What is measured, and what is not
 
 `wall_seconds` is measured. `interpreter_calls` is measured by counting them at
@@ -60,7 +65,15 @@ from lasttake.domain.package import (  # noqa: E402
 )
 
 CORPUS = pathlib.Path(__file__).resolve().parents[1] / "corpus"
+OUTPUT = pathlib.Path(__file__).resolve().parents[1] / "docs" / "measurement.json"
 RUN = "measure"
+
+#: Read back from the committed file and written again on every run, never
+#: regenerated. The scope note is what tests/test_claim_drift.py checks, and
+#: `history` holds earlier runs, failed ones included, which a new run must not
+#: overwrite. Nothing appends to `history` either: an entry is added by hand
+#: when a contract change retires a case, never by a run.
+CARRIED = ("_current_scope", "history")
 
 BASELINE = {
     "what": (
@@ -104,6 +117,76 @@ CORRECTIONS = [
     },
 ]
 
+#: Cases whose scenario was replaced, which is not the same as a correction. A
+#: correction says an expectation was wrong about behaviour that had not
+#: changed. A rewrite says the product contract changed on purpose, so the old
+#: scenario stopped describing anything the product is meant to do. The retired
+#: expectation stays here with what it observed against the new contract, and
+#: that failing run stays under `history` in docs/measurement.json.
+REWRITES = [
+    {
+        "case": "retry and recovery",
+        "rewritten_on": "2026-09-14",
+        "which_changed": "the product contract, on purpose, not the expectation",
+        "contract_change": {
+            "commit": "911fa59",
+            "committed_on": "2026-09-09",
+            "where": "WrapRun.publish in src/lasttake/agents/runtime.py",
+            "before": (
+                "A publish that raised released its idempotency claim and re-raised, "
+                "so a later idempotent publish of the same event retried it."
+            ),
+            "after": (
+                "A publish that raises returns a receipt with status unknown and "
+                "keeps its claims. A later idempotent publish of the same logical "
+                "effect answers that an earlier attempt remains unresolved and does "
+                "not call the bus. Only an accepted or rejected outcome releases the "
+                "effect claim, so a definite rejection is the retry the contract allows."
+            ),
+        },
+        "retired_scenario": (
+            "The bus raises on the first attempt, then accepts. The retry must "
+            "publish and a third call must not reach the bus."
+        ),
+        "retired_expected": {
+            "first_attempt_failed": True,
+            "retry_published": True,
+            "third_was_not_republished": True,
+            "bus_calls": 2,
+        },
+        "retired_observed_against_the_new_contract": {
+            "run": "origin/main at ab0a1d3, 2026-09-14, tools/measure.py unmodified",
+            "cases_matched": "7 of 8",
+            "observed": {
+                "first_attempt_failed": False,
+                "retry_published": False,
+                "third_was_not_republished": False,
+                "bus_calls": 1,
+            },
+        },
+        "why_not_edited_to_match": (
+            "Setting those four literals to the observed values would have recorded "
+            "'a raised publish is never retried' as a pass for a case named retry "
+            "and recovery. A disagreement is a failure here, so the retired "
+            "expectation and its failing run are kept and the scenario is replaced."
+        ),
+        "new_scenario": (
+            "The bus returns a definite rejection, then accepts. The retry must "
+            "publish, and a third call must return the saved receipt without "
+            "reaching the bus."
+        ),
+        "new_expectations_written_from": (
+            "the WrapRun.publish contract, before the rewritten case first ran. "
+            "tests/test_rerun_and_events.py::test_a_publish_that_fails_can_be_retried "
+            "pins the same sequence."
+        ),
+        "raised_publish_now_pinned_by": (
+            "tests/test_reliable_workflows.py::"
+            "test_ambiguous_publish_exception_does_not_blindly_resend"
+        ),
+    },
+]
+
 A_PICKUP = {
     "take_id": "T-900", "shot_id": "S-42-PICKUP", "beat_ids": ["B-17"],
     "slate": "42L/1", "camera_roll": "A007", "sound_roll": "SR07",
@@ -143,6 +226,14 @@ def fixture_hash() -> dict:
         json.dumps(digests, sort_keys=True).encode("utf-8")
     ).hexdigest()
     return {"files": digests, "corpus_sha256": combined}
+
+
+def carried_forward() -> dict:
+    """The parts of the committed file a run keeps rather than regenerates."""
+    if not OUTPUT.exists():
+        return {}
+    previous = json.loads(OUTPUT.read_text(encoding="utf-8"))
+    return {k: previous[k] for k in CARRIED if k in previous}
 
 
 def analyse(package, interpreter):
@@ -248,7 +339,13 @@ def case_refusal(interpreter):
 
 
 def case_retry_recovery(interpreter):
-    """A publish that fails, then succeeds. One event, and a retry is possible."""
+    """A publish the bus rejects, then accepts. One event, and the retry is allowed.
+
+    Rewritten on 2026-09-14, see REWRITES. Since 911fa59 a publish that raises
+    has an unknown outcome and is never resent, so the retry the contract
+    allows is the one after a definite rejection. The expectations below were
+    written from the `WrapRun.publish` contract before this version ran.
+    """
     import tempfile
 
     from lasttake.adapters.local.infrastructure import (
@@ -259,19 +356,22 @@ def case_retry_recovery(interpreter):
     from lasttake.domain.events import EventType
     from lasttake.ports.infrastructure import Receipt
 
-    class FlakyBus:
+    class RejectingBus:
         def __init__(self):
             self.attempts = 0
-            self.working = False
+            self.accepting = False
 
         def publish(self, event):
             self.attempts += 1
-            if not self.working:
-                raise RuntimeError("the bus is down")
+            if not self.accepting:
+                return Receipt(
+                    accepted=False, reference=event.event_id,
+                    detail="entry explicitly rejected",
+                )
             return Receipt(accepted=True, reference=event.event_id, detail="published")
 
     tmp = pathlib.Path(tempfile.mkdtemp())
-    bus = FlakyBus()
+    bus = RejectingBus()
     run = WrapRun(
         run_id="measure-retry",
         correlation_id="measure-retry",
@@ -281,26 +381,25 @@ def case_retry_recovery(interpreter):
         runs=LocalRunStore(tmp / "r"),
         interpreter=interpreter,
     )
-    failed = False
-    try:
-        run.publish(EventType.PICKUP_REQUESTED, {"beat_id": "B-17"}, idempotent=True)
-    except RuntimeError:
-        failed = True
+    first = run.publish(EventType.PICKUP_REQUESTED, {"beat_id": "B-17"}, idempotent=True)
 
-    bus.working = True
+    bus.accepting = True
     second = run.publish(EventType.PICKUP_REQUESTED, {"beat_id": "B-17"}, idempotent=True)
     third = run.publish(EventType.PICKUP_REQUESTED, {"beat_id": "B-17"}, idempotent=True)
     return (
         {
-            "first_attempt_failed": failed,
-            "retry_published": second.accepted and "already handled" not in second.detail,
-            "third_was_not_republished": "already handled" in third.detail,
+            "first_attempt_rejected": first.outcome == "rejected" and not first.accepted,
+            "retry_published": second.accepted and second.outcome == "accepted",
+            # A fresh publish would carry a new event id as its reference, so an
+            # identical receipt is the saved one, not a second send. Compared as
+            # dicts: the saved copy spells out the status the live one derives.
+            "third_replayed_the_saved_receipt": third.to_dict() == second.to_dict(),
             "bus_calls": bus.attempts,
         },
         {
-            "first_attempt_failed": True,
+            "first_attempt_rejected": True,
             "retry_published": True,
-            "third_was_not_republished": True,
+            "third_replayed_the_saved_receipt": True,
             "bus_calls": 2,
         },
     )
@@ -445,14 +544,20 @@ def run_case(name, fn):
 
 def main() -> int:
     fixtures = fixture_hash()
+    carried = carried_forward()
     dev = [run_case(name, fn) for name, fn in DEVELOPMENT]
     held = [run_case(name, fn) for name, fn in HELD_OUT]
+    scope = {"_current_scope": carried["_current_scope"]} if "_current_scope" in carried else {}
     report = {
+        **scope,
         "schema": "lasttake/measurement/v1",
         "baseline": BASELINE,
         # Kept, because the rule was to keep the failures. Without this the file
         # reads 8 of 8 and hides that one expectation was declared wrong.
         "corrections": CORRECTIONS,
+        # Kept for the same reason. Without this the file reads 8 of 8 and hides
+        # that one case failed after the contract changed and was replaced.
+        "rewrites": REWRITES,
         "fixtures": fixtures,
         "command": "PYTHONPATH=src python tools/measure.py",
         "development_cases": dev,
@@ -469,6 +574,7 @@ def main() -> int:
             "is weaker than a set somebody else wrote, and it is not user "
             "validation: no practising script supervisor has run any of this."
         ),
+        "history": carried.get("history", []),
     }
 
     print("# Measurement, against a baseline declared before the run")
@@ -496,12 +602,30 @@ def main() -> int:
             print(f"- `{field}`: expected `{want}`, observed `{got}`")
         print()
 
+    print("## Published rather than absorbed")
+    print()
+    for c in CORRECTIONS:
+        print(
+            f"- Correction, {c['case']}: `{c['field']}` was declared as "
+            f"{c['declared_first']} and observed as {c['observed']}; "
+            f"{c['which_was_wrong']} was wrong."
+        )
+    for r in REWRITES:
+        change = r["contract_change"]
+        retired = r["retired_observed_against_the_new_contract"]
+        print(
+            f"- Rewrite, {r['case']}: rewritten on {r['rewritten_on']} after "
+            f"{change['commit']} changed {change['where']}. Run against that "
+            f"contract, the retired case did not match and {retired['cases_matched']} "
+            f"cases did ({retired['run']}). The retired expectation and that run "
+            "are kept in REWRITES and under history in docs/measurement.json."
+        )
+    print()
+
     print("Human time is not measured in any row. No human was observed, and timing")
     print("a model and calling the result human time would be a fabricated benchmark.")
     print()
-    pathlib.Path("docs/measurement.json").write_text(
-        json.dumps(report, indent=2), encoding="utf-8"
-    )
+    OUTPUT.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     if failed:
         print(f"{len(failed)} of {len(dev) + len(held)} cases did not match. Kept, not hidden.")
         return 1

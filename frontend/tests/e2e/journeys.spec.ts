@@ -137,7 +137,7 @@ test('LT03 saved Strands approval resumes, retry acts once, then approved turnov
   expect(receipt.receipt.package_revision_digest).toBe(reviewedFingerprint);
   expect(receipt.receipt.still_open_count).toBeGreaterThan(0);
   const timeline=page.getByRole('region',{name:'Recorded events'});
-  await expect(timeline.getByRole('listitem')).toHaveCount(20);
+  await expect(timeline.locator('[data-event-id]')).toHaveCount(20);
   await expect(timeline.getByRole('status')).toContainText('Events 1–20 of');
   await timeline.getByRole('button',{name:'Older events'}).click();
   await expect(timeline.getByRole('status')).toContainText('Events 21–40 of');
