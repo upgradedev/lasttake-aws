@@ -1,148 +1,140 @@
 # LastTake
 
+![LastTake turns scattered shoot-day records into an evidence-backed wrap decision and a versioned editorial handoff](docs/banner.svg)
+
 **LastTake reconciles script, take, continuity, media and rights records so a script supervisor catches missing evidence before the set is struck.**
 
 [![Backend CI](https://github.com/upgradedev/lasttake-aws/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/upgradedev/lasttake-aws/actions/workflows/ci.yml)
+[![Frontend CI](https://github.com/upgradedev/lasttake-aws/actions/workflows/frontend-ci.yml/badge.svg?branch=main)](https://github.com/upgradedev/lasttake-aws/actions/workflows/frontend-ci.yml)
+[![AWS release](https://github.com/upgradedev/lasttake-aws/actions/workflows/frontend-deploy.yml/badge.svg?branch=main)](https://github.com/upgradedev/lasttake-aws/actions/workflows/frontend-deploy.yml)
 [![Licence: MIT](https://img.shields.io/badge/licence-MIT-365F91)](LICENSE)
 ![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python&logoColor=white)
 ![React 19](https://img.shields.io/badge/React-19-149ECA?logo=react&logoColor=white)
 [![Strands Agents SDK](https://img.shields.io/badge/Strands_Agents-SDK-7C3AED)](docs/strands-interrupt-resume.md)
 [![AWS](https://img.shields.io/badge/AWS-CloudFormation-FF9900?logo=amazonwebservices&logoColor=white)](docs/infrastructure.md)
 
-The deterministic gate will not turn absent evidence into a pass. A 1st AD keeps the authority to approve a pickup and, separately, the wrap.
-
-**[Open the AWS workspace](https://d3kf6hquzlli8g.cloudfront.net/)** · [Current automated acceptance](https://d3kf6hquzlli8g.cloudfront.net/acceptance.html) · [Architecture](#architecture) · [Judge path](#try-the-live-demo)
+**[Open the live AWS workspace](https://d3kf6hquzlli8g.cloudfront.net/)** · [Judge walkthrough](#try-it-in-five-steps) · [Current automated acceptance](https://d3kf6hquzlli8g.cloudfront.net/acceptance.html) · [Architecture](#architecture) · [Submission status](#submission-status)
 
 Built for the AWS Agents for Humans hackathon, Professional Agents track.
 
-> **Fictional demo data only.** The public browser runs real HTTP requests, Strands tool calls, S3-backed session resume and role-gated decisions. Its two language judgements use an offline lexical interpreter, not Amazon Bedrock. It analyses no footage or audio and gives no legal clearance.
+> **Evidence boundary.** The public scene and every person in it are fictional. The browser runs real HTTP requests, Strands tools, human interrupts, AWS storage and EventBridge delivery receipts. It uses a scripted planner and an offline lexical interpreter, not Bedrock. It analyses no footage or audio and gives no legal clearance.
 
-![Scene review for fictional scene SC-042, showing 34 required beats, cited exceptions and the human decision panel](docs/scene-review.png)
-
-*Scene review from the `ui-screenshots` artifact of [frontend CI run 34788421972](https://github.com/upgradedev/lasttake-aws/actions/runs/34788421972), captured at commit `8475164`. The data is synthetic.*
+![LastTake scene review with the lined script, supplied takes, cited findings and human decision controls](docs/scene-review.png)
 
 ## Contents
 
-[Try the live demo](#try-the-live-demo) · [How it works](#how-it-works) · [Architecture](#architecture) · [What is real](#what-is-real) · [Why Strands is load-bearing](#why-strands-is-load-bearing) · [Evidence](#evidence-and-numbers) · [Quickstart](#quickstart) · [Bring your own record](#bring-your-own-record) · [Bedrock](#amazon-bedrock) · [Limits](#limits-and-assurance) · [Documentation](#documentation) · [Disclosures](#pre-existing-components)
+[What this release proves](#what-this-release-proves) · [Try it](#try-it-in-five-steps) · [How it works](#how-it-works) · [Architecture](#architecture) · [Why Strands matters](#why-strands-is-load-bearing) · [What is live](#what-is-live) · [Evidence](#evidence-and-numbers) · [Quickstart](#quickstart) · [Limits](#limits) · [Documentation](#documentation) · [Disclosures](#pre-existing-components)
+
+## What this release proves
+
+| Public capability | Proof path |
+|---|---|
+| A real EventBridge target consumed a domain event | Run a checkpoint, open **History**, and read **EventBridge subscriber consumed** beside the event. The separate Lambda writes an immutable S3 receipt. It does not start Strands or prove editorial delivery. |
+| Strands pauses for people and resumes after process death | The orchestrator uses eight `@tool` functions, two `ToolContext.interrupt` transitions and `S3SessionManager`. The [cross-process proof](docs/strands-interrupt-resume.md) fails if the same process resumes or the saved session is removed. |
+| The gate cannot turn missing evidence into a pass | Every finding cites source digests and a sealed serialized record. Plain Python checks the required result set, seals, revisions, policy version and role-bound decisions. |
+| A disconnect cannot replay a decision or delivery | The service worker caches only the app shell. One last-confirmed run snapshot is read-only, one evidence draft stays in the current tab, and reconnect performs authoritative reads before any new write. |
+| Editorial receives the reviewed revision | A separate 1st AD wrap interrupt precedes a versioned turnover. Handoff reads the saved manifest back with its source map, accepted exceptions and SHA-256 byte digest. |
 
 <a id="try-it-without-installing-anything"></a>
 
-## Try the live demo
+## Try it in five steps
 
-No account or install is required. One browser session owns its saved runs.
+No account or install is required. One browser session owns its synthetic runs.
 
-1. Choose **Start this fictional shoot day**, then **Run wrap checkpoint**. Scene review shows the lined script, takes and evidence-backed exceptions.
-2. Set **Demo role** to **1st AD**, reload, and answer the saved pickup request. The Strands run resumes from its S3 session after the original process has ended. A pickup does not approve wrap.
-3. Open **Guided demo**. Add the valid take and the missing release, then record the continuity decision as **Script supervisor** and the media decision as **DIT / data manager**. Changed evidence makes any older decision visibly stale.
-4. Return as **1st AD**, review wrap readiness and answer the separate wrap request. In **Handoff**, publish the sealed turnover and prepare its event receipt.
+1. Open the [live workspace](https://d3kf6hquzlli8g.cloudfront.net/) and choose **Start this fictional shoot day**. Open a take in **Scene review** to compare the slate, note and camera report.
+2. Choose **Run wrap checkpoint**. Review the four cited causes, then open **History** and find the independent EventBridge subscriber receipt.
+3. Select **1st AD**, reload, and answer the saved pickup request. The Strands tool resumes from S3 after the original Lambda process has ended. A pickup does not approve wrap.
+4. Open **Guided demo**. Add the take and release, record the continuity and media reviews, then disconnect the browser. The last confirmed view remains read-only and one unsent draft survives a same-tab reload. Reconnect to fetch server truth; a changed package fingerprint requires explicit review and nothing is replayed.
+5. As **1st AD**, request and answer the separate wrap approval. In **Handoff**, publish, reload and download the versioned turnover and its readable receipt.
 
-The receipt says only whether the event bus accepted the event. `pending` or `unknown` requires reconciliation, never a blind resend. The [workspace guide](docs/workspace-guide.md) lists every click and refusal case.
+The [workspace guide](docs/workspace-guide.md) gives the full path and refusal cases.
 
 <a id="the-rule-the-whole-product-turns-on"></a>
 
 ## How it works
 
-Seven source groups describe one scene: script revision, shot plan, captured takes, script notes, camera report, continuity references and rights ledger. Four bounded checks read them:
+Seven source groups describe one scene: script revision, shot plan, captured takes, script notes, camera report, continuity references and rights ledger. Four bounded check tools answer narrow questions.
 
-| Check | Question | Human owner |
+| Check tool | Question | Human owner |
 |---|---|---|
 | Coverage | Does each required beat have at least one viable take? | Script supervisor |
 | Continuity | Do preferred takes conflict with the recorded physical state? | Script supervisor |
 | Media identity | Does each take reconcile with the camera report? | DIT / data manager |
-| Rights | Does every visible person and asset trace to a record? | Production coordinator |
+| Rights | Does every visible person and asset trace to a supplied record? | Production coordinator |
 
-Every finding names the source digests it read and seals its own record. The deterministic gate rejects stale sources, broken seals, missing check results, contradictory results, old policy versions and decisions from the wrong role.
+Every finding names the source digests it read. The deterministic gate rejects missing results, broken seals, moved sources, contradictory results, old policy versions and decisions from the wrong role. Hashes identify bytes, not truth.
 
-**Absent evidence is a finding, never a pass.** The four truth states are `verified`, `missing`, `conflicting` and `unknown`. Hashes identify bytes, not truth.
+![LastTake agent and decision flow from checkpoint through Strands tools, deterministic policy, human interrupts, targeted rerun and turnover](docs/agent-flow.svg)
 
-### Agent and decision flow
+The checkpoint API records `scene.wrap-checkpoint.requested` and starts the orchestrator synchronously. EventBridge is a second path: a rule invokes a terminal delivery-recorder Lambda, which can only write immutable consumption receipts. It never starts the workflow and cannot publish another event.
 
-```mermaid
-flowchart LR
-    A["Checkpoint route<br/>records event and starts Strands"] --> B["Four checks<br/>seal cited findings"]
-    B --> C{"Deterministic gate<br/>no model"}
-    C --> D["1st AD pickup interrupt<br/>resume from S3"]
-    D --> E["Idempotent<br/>pickup event"]
-    E --> F["New take or release<br/>targeted rerun"]
-    F --> B
-    C --> G["Separate 1st AD<br/>wrap interrupt"]
-    G --> H["Sealed turnover<br/>read back in Handoff"]
-```
-
-Role-specific continuity and media decisions are bound to the exact finding digest and feed the gate without rewriting the finding. The checkpoint API and CLI record `scene.wrap-checkpoint.requested`, then invoke the orchestrator directly. EventBridge receives run events, but no rule or subscriber starts work today.
+<a id="what-is-deployed-and-what-it-costs"></a>
 
 ## Architecture
 
-```mermaid
-flowchart LR
-    U["Browser"] --> CF["CloudFront"]
-    CF --> SITE["Private S3<br/>React workspace"]
-    CF --> API["API Gateway<br/>/api and /healthz"]
-    API --> L["Lambda<br/>Strands orchestrator"]
-    L --> DB[("Aurora DSQL<br/>run state")]
-    L --> DATA[("S3<br/>sessions and turnovers")]
-    L -. "publish only" .-> EB["EventBridge<br/>no rule or subscriber"]
-    L -. "offline interpreter<br/>in hosted path" .-> CHECKS["Four bounded checks"]
-    CHECKS -. "separate deploy proof" .-> BR["Amazon Bedrock"]
-```
+![LastTake deployed AWS architecture with CloudFront, private S3 hosting, API Gateway, Lambda, Strands, Aurora DSQL, S3 sessions and turnovers, and an EventBridge delivery-recorder subscriber](docs/architecture.svg)
 
-The diagram separates the hosted public path from the credentialed Bedrock proof. The [detailed architecture map](docs/architecture.svg), [system guide](docs/how-it-works.md) and [infrastructure guide](docs/infrastructure.md) map the agents, eight tools and AWS resources to code.
+The public path is React on private S3 through CloudFront, then API Gateway and Lambda. Aurora DSQL stores run state, findings and decisions. S3 stores supplied artifacts, Strands sessions, events, subscriber receipts and turnovers. The EventBridge consumer has no `events:PutEvents` permission. [Infrastructure](docs/infrastructure.md) maps each resource and permission to the CloudFormation template.
 
-## What is real
-
-| Capability | Current status |
-|---|---|
-| Public React workspace through CloudFront and API Gateway | Live, login-free, synthetic sessions |
-| Strands orchestration and tool calls on Lambda | Live |
-| Findings and decisions in Aurora DSQL | Live |
-| Paused Strands sessions, amendments and turnovers in S3 | Live |
-| Pickup and wrap decisions | Live; demo role selection is not staff authentication |
-| EventBridge publication | Live; acceptance is recorded, with no rule or subscriber |
-| Language interpretation in the public browser | Offline lexical matcher; no Bedrock request |
-| Amazon Bedrock interpretation | Backend deploy proof and operator CLI only |
-| Footage or audio analysis | Not implemented |
-| Email, payment or scheduling action | Not connected |
-| Human UAT | NOT_RUN; automated browser acceptance is separate |
-
-[Frontend release metadata](https://d3kf6hquzlli8g.cloudfront.net/release.json), [backend health and runtime modes](https://d3kf6hquzlli8g.cloudfront.net/healthz) and [automated acceptance](https://d3kf6hquzlli8g.cloudfront.net/acceptance.html) expose the served revisions. A green branch run is not proof that those revisions are deployed.
+The browser can keep the application shell and a bounded tab-scoped review snapshot through a disconnect. Agent execution, approvals, publishing and authoritative state remain online-only. API, health, acceptance and mutation responses are never cached.
 
 <a id="how-strands-is-load-bearing"></a>
 
 ## Why Strands is load-bearing
 
-Remove the Strands Agents SDK and the orchestration loop, tool calls, two human interrupts and process-death resume disappear. What remains cannot stop for a decision and continue later from the same run.
+Remove the Strands Agents SDK and LastTake loses the orchestration loop, eight tool calls, two human interrupts and the durable resume that continues the same run later.
 
-- `ToolContext.interrupt(name, reason=...)` stops a terminal tool and returns an interrupt result.
-- `S3SessionManager` persists the hosted run after the Lambda process is gone; `FileSessionManager` does the same offline.
-- A later process supplies the `interruptResponse`. The tool body re-enters from its first line, so every external action sits after the interrupt and behind an idempotency key.
+- One Strands `Agent` orchestrates eight `@tool` functions. The four checks are tools, not four agents.
+- `request_pickup_approval` and `request_wrap_approval` call `ToolContext.interrupt` for the named 1st AD decision.
+- `S3SessionManager` persists the hosted conversation after a Lambda process is gone. `FileSessionManager` provides the local equivalent.
+- On resume the tool body re-enters from its first line. Every external action is therefore after the interrupt and behind an idempotency key.
+- Bedrock mode adds two scoped interpreter `Agent` instances for coverage and continuity questions. The public browser uses the lexical interpreter and says so.
 
-CI starts the checkpoint and approval in separate operating-system processes and includes a missing-session negative control. A dispatched backend deployment additionally retires the warm Lambda container and requires the approving request to resume in a different container. The exact proofs and their limits are in [Interrupt and resume across process death](docs/strands-interrupt-resume.md).
+CI starts the checkpoint and approval in separate operating-system processes and includes a missing-session negative control. A backend deployment proof retires the warm Lambda container and requires a different container to approve. See [Interrupt and resume](docs/strands-interrupt-resume.md).
+
+<a id="running-against-amazon-bedrock"></a>
+
+## What is live
+
+| Capability | Public release status |
+|---|---|
+| React workspace through CloudFront and API Gateway | Live, login-free, synthetic sessions |
+| Strands orchestrator, eight tools and two human interrupts | Live on Lambda |
+| Aurora DSQL run state and S3 session resume | Live |
+| EventBridge publication and terminal subscriber | Live; History distinguishes bus acceptance, consumed receipt and not observed |
+| Bounded offline review and one evidence draft | Live; read-only snapshot, no queued writes, authoritative reconnect |
+| Pickup, role reviews and wrap approval | Live with demo role selection; this is not staff authentication |
+| Language interpretation in the public browser | Offline lexical matcher; no Bedrock request |
+| Amazon Bedrock interpretation | Backend deploy proof and credentialed operator CLI only |
+| Amazon Bedrock AgentCore | Not deployed |
+| Footage/audio analysis, messaging, scheduling or legal clearance | Not implemented or connected |
+| Practising script-supervisor UAT | NOT_RUN; automated browser acceptance is separate |
+
+[Frontend release](https://d3kf6hquzlli8g.cloudfront.net/release.json), [backend health](https://d3kf6hquzlli8g.cloudfront.net/healthz) and [current acceptance](https://d3kf6hquzlli8g.cloudfront.net/acceptance.html) expose the served revisions and test receipt. A green branch run is not deployment evidence.
 
 <a id="the-numbers-and-the-commands-that-produce-them"></a>
 
 ## Evidence and numbers
 
-These are deterministic outputs from the synthetic corpus, not a productivity benchmark or a claim about a real production.
+These are deterministic outputs from the synthetic corpus, not productivity or accuracy claims.
 
-| Measured claim | Result | Reproduce |
+| Measured output | Result | Reproduce |
 |---|---:|---|
 | Required beats | 34 | `python -m pytest tests/test_corpus_counts.py -q` |
 | Covered with evidence | 31 | same command |
-| Raising exceptions with named sources | 2 | same command |
-| Missing a release record and routed to production | 1 | same command |
+| Exceptions with named sources | 2 | same command |
+| Missing release record routed to production | 1 | same command |
 | Takes in the fictional shoot day | 40 | `python corpus/build_corpus.py` |
-| Blocking causes at the first checkpoint | 4, one per check | `lasttake checkpoint`, then inspect `.lasttake/runs/run-sc042-wrap-checkpoint/packet.json` |
+| Blocking causes at the first checkpoint | 4, one per check | `lasttake checkpoint` |
 | Covered when the interpreter is unreachable | 0 of 34, all `unknown` | `PYTHONPATH=src python tools/ablation.py` |
 
-The exact generated sentence is:
+The public acceptance receipt covers the full browser-to-API-to-state-to-response path on desktop and mobile. It does not substitute for a practising user, model-quality evidence or a production restore drill. [Evaluation evidence](docs/model-evidence.md) keeps those gaps separate.
 
-> Of 34 required beats, 31 covered with evidence, 2 raising exceptions with named sources, 1 with no release record and routed to production.
-
-A historical deploy observation produced 31 covered beats with `offline-lexical/1.0.0` and 19 with `bedrock:global.anthropic.claude-sonnet-5` in [run 34195514875](https://github.com/upgradedev/lasttake-aws/actions/runs/34195514875). Neither count establishes correctness without labelled ground truth. No practising script supervisor has run the testbook, no human benefit has been measured, and the prepared real-model evaluation remains NOT_RUN. See [Evaluation harness](docs/evaluation-harness.md) and [Model evidence](docs/model-evidence.md).
+<a id="bring-your-own-record"></a>
 
 ## Quickstart
 
-Prerequisites: Python 3.11 or newer and git. This offline path needs no AWS account or credentials.
+Prerequisites: Python 3.11 or newer and git. This local path needs no AWS account.
 
 ```bash
 git clone https://github.com/upgradedev/lasttake-aws.git
@@ -151,125 +143,60 @@ python -m pip install -e ".[dev]"
 lasttake checkpoint
 ```
 
-Expected: four checks run, the count above prints, and the process exits with a pickup request waiting for the 1st AD.
+Expected: the four checks run, the `34 / 31 / 2 / 1` result prints, and the process exits with a pickup request waiting for the 1st AD.
 
-In a new process, answer that saved interrupt:
+Resume it in a new process:
 
 ```bash
 lasttake approve --yes
 ```
 
-Expected: the run resumes and publishes one idempotent pickup event. Bus acceptance does not establish a downstream action. This CLI quickstart proves checkpoint, pause and resume only; it does not request wrap or publish a turnover. Use the browser journey for the complete handoff.
-
-Run the source checks:
-
-```bash
-python -m pytest --cov --cov-report=term-missing
-python tools/prose_gate.py
-python tools/docs_gate.py
-```
-
-## Bring your own record
-
-The live API accepts a take or release record you write. Set `URL=https://d3kf6hquzlli8g.cloudfront.net`, create a private session with `POST /api/session`, then create its run with `POST /api/reset`. Keep the returned `session_id` private because it grants access to the saved run.
-
-```bash
-curl -s -X POST "$URL/api/ingest" -H 'content-type: application/json' -d '{
-  "run_id": "REPLACE_WITH_YOUR_RUN_ID",
-  "session_id": "REPLACE_WITH_YOUR_PRIVATE_SESSION_ID",
-  "kind": "take",
-  "document": {
-    "take_id": "T-900", "shot_id": "S-42-PICKUP", "beat_ids": ["B-17"],
-    "slate": "42L/1", "camera_roll": "A007", "sound_roll": "SR07",
-    "timecode_in": "23:04:00:00", "timecode_out": "23:04:41:00",
-    "lens_mm": 50, "media_id": "A007R2G01",
-    "preferred": true, "usable": true,
-    "note": "Pickup on the reaction. Clean single.",
-    "visible_people": ["DELPHINE"]
-  }
-}'
-```
-
-An owned run refuses a missing handle or another session's handle with HTTP 403. Shape errors are refused before a write. A take changes the takes digest and reruns all four checks; a release reruns rights only. The gate separately drops any stale finding, and an older human decision stops applying when its evidence digest changes. See [Bring your own record](docs/bring-your-own-record.md).
-
-<a id="running-against-amazon-bedrock"></a>
-
-## Amazon Bedrock
-
-The public HTTP demo always uses the offline interpreter. Bedrock is available only to a credentialed operator and in the dispatched backend deployment proof.
-
-First ask the current AWS account what it can invoke:
-
-```bash
-lasttake doctor --bedrock
-```
-
-Then use an identifier that command returned:
-
-```bash
-export LASTTAKE_BEDROCK_MODEL_ID=<an-id-that-doctor-printed>
-lasttake checkpoint --bedrock
-```
-
-The default model identifier was invoked successfully in one account on 2026-08-22; that does not prove access in another account. New findings take `model_id` only from their serialized records. The deploy job runs `BedrockModel` with `agent.structured_output`, but the public Lambda path has no Bedrock switch.
-
-Scene text is delimited and instructed as evidence, never as executable instructions. Offline prompt-injection cases are tested. A real model's resistance to those cases is unexercised; [Model evidence](docs/model-evidence.md) keeps that gap visible.
-
-<a id="what-is-deployed-and-what-it-costs"></a>
-
-## AWS deployment
-
-Two stacks run in `eu-west-1`:
-
-- `lasttake-app`, declared in [`infra/stack.yaml`](infra/stack.yaml): API Gateway, Lambda, Aurora DSQL, an S3 data bucket and an EventBridge bus. An owner dispatches `.github/workflows/deploy.yml` to deploy or tear it down.
-- `lasttake-frontend`, declared in [`infra/frontend_stack.py`](infra/frontend_stack.py): private S3 hosting behind CloudFront, with uncached API routes. Pushes to `main` publish and run browser acceptance.
-
-The frontend stack and CI identities are provisioned once by the owner outside GitHub Actions. AWS invoice cost, model cost, human time and savings are unmeasured. The data bucket and DSQL cluster are retained on teardown because they hold the audit trail. [Infrastructure](docs/infrastructure.md) gives the resource map, permissions and teardown details.
+Expected: Strands restores the run and publishes one idempotent pickup event. The CLI proves checkpoint, pause and resume. Use the browser for the complete wrap and handoff.
 
 <a id="what-it-will-not-do"></a>
 <a id="assurance-and-residual-gaps"></a>
 
-## Limits and assurance
+## Limits
 
-LastTake is a second set of eyes and an integrity layer. It does not judge performance or creative quality, declare a scene legally cleared, approve a schedule or spend, or edit original media. A `verified` rights row means the expected structured record was found under the configured policy. Counsel determines legal sufficiency.
+LastTake is a second set of eyes and an integrity layer. It does not judge a performance, choose a take, approve a schedule or spend, decide legal sufficiency, or edit original media. A `verified` rights row means the expected structured record was supplied under the configured policy.
 
-Current residual gaps include:
+Known gaps remain visible:
 
-- human UAT and practising script-supervisor evaluation are NOT_RUN
-- the public demo has no staff authentication
-- no EventBridge rule or subscriber starts the orchestrator
-- real-model evaluation, AWS latency p95, a restore drill and current cost are unmeasured
-- backend deployment uses long-lived access keys; frontend publication uses GitHub OIDC
+- demo roles are not authenticated staff identities
+- agent execution and authority actions require a connection
+- public interpretation is lexical; the prepared real-model evaluation is NOT_RUN
+- practising-user UAT, current AWS cost, latency p95 and a restore drill are unmeasured
+- the backend deploy uses long-lived GitHub secrets; frontend publication uses OIDC
 
-[Assurance](docs/assurance.md) records the six AWS Well-Architected pillars, the Agentic AI Lens, relevant EU AI Act articles and the data map, each with its residual gap. No regulatory status is claimed.
+[Assurance](docs/assurance.md) records the AWS Well-Architected and Agentic AI Lens controls, relevant EU AI Act articles, data handling and residual gaps. No regulatory status is claimed.
 
 ## Documentation
 
 | Page | What it answers |
 |---|---|
-| [How LastTake works](docs/how-it-works.md) | System view, eight tools, interpreter boundary and repository layout |
-| [Interrupt and resume](docs/strands-interrupt-resume.md) | Cross-process CI proof, Lambda proof and replay-safe action pattern |
-| [Workspace guide](docs/workspace-guide.md) | Live journey, roles, refusals and saved sessions |
-| [Bring your own record](docs/bring-your-own-record.md) | Input shapes, limits, reruns and stale decisions |
-| [Evaluation harness](docs/evaluation-harness.md) | Frozen cases, measurements, rewrites and limits |
-| [Model evidence](docs/model-evidence.md) | Offline versus Bedrock results and work not yet run |
-| [Infrastructure](docs/infrastructure.md) | AWS resources, least privilege, deployment and teardown |
-| [Release and acceptance](docs/release-and-acceptance.md) | Frontend/backend revisions and public acceptance receipt |
-| [Assurance](docs/assurance.md) | Control mapping, data handling and residual gaps |
+| [How LastTake works](docs/how-it-works.md) | Orchestrator, eight tools, deterministic gate and interpreter boundary |
+| [Interrupt and resume](docs/strands-interrupt-resume.md) | Cross-process and Lambda proofs, plus replay-safe action ordering |
+| [Workspace guide](docs/workspace-guide.md) | Live journey, disconnect behavior, roles, refusals and saved sessions |
+| [Bring your own record](docs/bring-your-own-record.md) | Input shapes, reruns and stale decisions |
+| [Infrastructure](docs/infrastructure.md) | AWS resources, permissions, deployment and teardown |
+| [Release and acceptance](docs/release-and-acceptance.md) | Served revisions and public acceptance receipt |
+| [Assurance](docs/assurance.md) | Controls, data handling and residual gaps |
 | [AgentCore design note](docs/BEDROCK_AGENTCORE_ARCHITECTURE.md) | Optional future design; AgentCore is not deployed |
+
+## Submission status
+
+The repository, MIT licence, live application, architecture and written Devpost copy are prepared. The new exact-release video must be rendered after this release is merged and deployed. Public YouTube publication and pressing **Submit** in the existing Devpost project require the owner.
 
 ## Pre-existing components
 
-Required disclosure:
-
 | Component | Source | What was carried |
 |---|---|---|
-| `src/lasttake/domain/sealing.py` | ClaimScene, MIT, same author | `sha256_bytes`, `canonical_json` and the sealed-record pattern, about thirty lines of primitives |
-| Product thesis | Private research package by the same author, written 2026-07-28 | Problem definition, roles, four truth states, finding contract and event list; used as specification, not shipped code |
-| CI, README structure and video scaffold | Private submission toolkit by the same author | Workflow layout, documentation framing and optional per-beat media tooling, adapted for LastTake |
-| Workspace visual direction | Kerdon interface and the owner's approved reference | Deep navy, amber accents and connected context, evidence and decision panes; no customer data, tenant configuration, identifiers, assets or dependency code |
+| Sealing primitives | ClaimScene, MIT, same author | `sha256_bytes`, `canonical_json` and the sealed-record pattern |
+| Product thesis | Private research package by the same author, written 2026-07-28 | Problem, roles, four truth states, finding contract and event list; specification only |
+| Submission tooling | Private toolkit by the same author | CI, README and per-beat video patterns adapted for LastTake |
+| Visual direction | Kerdon interface and the owner's approved reference | Navy, amber and connected context/evidence/decision panes; no customer data, assets or code |
 
-The AWS adapters, Strands agent definitions, deterministic gate, checks and synthetic corpus are new for LastTake.
+The AWS adapters, EventBridge subscriber, Strands definitions, deterministic gate, offline safety boundary, checks and synthetic corpus are new for LastTake.
 
 ## Licence
 
