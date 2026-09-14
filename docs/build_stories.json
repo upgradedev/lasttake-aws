@@ -2,10 +2,10 @@
   "_current_scope": {
     "persona": "Script supervisor and 1st AD",
     "live_url": "https://d3kf6hquzlli8g.cloudfront.net/",
-    "try_flow": "Create a run; checkpoint; inspect sources; answer the saved request; export History evidence. Guided intake offers editable success, refusal and correction examples.",
+    "try_flow": "Start the fictional shoot day; run the checkpoint; inspect cited findings and the terminal EventBridge consumption receipt in History; reload and answer the saved pickup interrupt; keep a draft through an offline reload; reconnect, review the authoritative revision and save once; approve wrap separately; publish and download the turnover.",
     "real_vs_demo": "The public browser runs the real Strands SDK, tools and session path with a scripted planner and offline lexical interpreter. Aurora DSQL holds run state. Strands S3SessionManager holds the suspended agent session. The records are synthetic, and no footage or audio is analysed.",
     "evidence_limits": "Historical entries elsewhere in the repository are preserved, not exact-current-release acceptance. Hashes identify bytes, not truth; model identity only comes from serialized finding records. Human benefit, active time, quality improvement and production suitability are unmeasured.",
-    "disclosures": "Demo-role selection is not staff authentication. Amazon Bedrock is exercised by a separate deployment check and is not active in the public browser path. Amazon Bedrock AgentCore is not deployed. Revised narration is NOT_CONFIGURED pending a measured preview and fresh owner approval, and no final video exists yet."
+    "disclosures": "Demo-role selection is not staff authentication. Amazon Bedrock is exercised by a separate deployment check and is not active in the public browser path. Amazon Bedrock AgentCore is not deployed. Narration preview run 34906235283 measured the revised seven scenes; fresh owner approval and the final video remain pending."
   },
   "schema": "lasttake/build-stories/v1",
   "status": "DRAFT",
@@ -84,7 +84,7 @@
     },
     {
       "id": "BS-02",
-      "working_title": "Agents for Humans: Proving EventBridge delivery without claiming editorial action",
+      "working_title": "Agents for Humans: Proving EventBridge consumption without claiming editorial action",
       "published_url": null,
       "deck": "An accepted PutEvents call proves that EventBridge accepted an entry. LastTake adds a separate terminal Lambda and a content-bound S3 receipt to prove that a subscriber consumed it, while refusing to call that editorial work.",
       "sections": [
