@@ -8,26 +8,51 @@ import {assertSceneBudget,heroSceneIds} from '../../web/video/hero-journey.mjs';
 test('capture uses the complete CI-exercised journey and refuses a truncated or unmeasured beat',async()=>{
   const spec=JSON.parse(await readFile('../video/narration.json','utf8'));
   assert.deepEqual(spec.segments.map(segment=>segment.id),heroSceneIds);
-  assert.equal(spec.recording_status,'READY_OWNER_VERIFIED');
+  assert.equal(spec.recording_status,'NOT_CONFIGURED');
+  assert.match(spec._comment,/fresh owner approval/);
   for(const segment of spec.segments){
     assert.ok(segment.captionText.length>=20);
     assert.ok(segment.speechText.length>=20);
   }
+  const hook=spec.segments.find(segment=>segment.id==='hook');
+  assert.match(hook.captionText,/script supervisor/);
+  assert.match(hook.captionText,/before the set comes down/);
+  const surface=spec.segments.find(segment=>segment.id==='surface');
+  assert.match(surface.captionText,/One Strands orchestrator Agent calls eight tools/);
+  assert.match(surface.captionText,/four evidence checks/);
+  assert.match(surface.captionText,/two ToolContext interrupt transitions/);
+  assert.match(surface.captionText,/two scoped interpreter Agents/);
+  assert.match(surface.captionText,/AgentCore is not deployed/);
   const trigger=spec.segments.find(segment=>segment.id==='trigger');
   assert.match(trigger.captionText,/scene\.wrap-checkpoint\.requested/);
+  assert.match(trigger.captionText,/starts Strands synchronously/);
+  assert.match(trigger.captionText,/terminal delivery recorder/);
+  assert.match(trigger.captionText,/not that editorial acted/);
   assert.match(trigger.captionText,/34 required beats: 31 covered with evidence, 2 exceptions.+1 missing release/);
   assert.match(trigger.speechText,/scene dot wrap checkpoint dot requested/);
   assert.match(trigger.speechText,/thirty-four required beats: thirty-one covered with evidence/);
   assert.notEqual(trigger.captionText,trigger.speechText);
   const sponsor=spec.segments.find(segment=>segment.id==='sponsor');
-  assert.match(sponsor.captionText,/JSON/);
-  assert.match(sponsor.speechText,/J S O N/);
+  assert.match(sponsor.captionText,/tab-scoped, read-only confirmed snapshot/);
+  assert.match(sponsor.captionText,/never queues a mutation/);
+  assert.match(sponsor.captionText,/authoritative revision/);
+  assert.match(sponsor.captionText,/explicit review/);
+  const evidence=spec.segments.find(segment=>segment.id==='evidence');
+  assert.match(evidence.captionText,/not authenticated staff/);
+  const close=spec.segments.find(segment=>segment.id==='close');
+  assert.match(close.captionText,/read it back in Handoff/);
+  assert.match(close.captionText,/public acceptance receipt/);
   assert.doesNotThrow(()=>assertSceneBudget('evidence',900,1000));
   for(const hold of [undefined,NaN,Infinity,0,-1,899])assert.throws(()=>assertSceneBudget('evidence',900,hold),/never truncate/);
   assert.throws(()=>assertSceneBudget('evidence',NaN,1000));
   const capture=await readFile('../web/video/capture-production.mjs','utf8');
   assert.match(capture,/heroScenes\(page,/);
+  assert.match(capture,/requireEventBridgeReceipt:true/);
+  assert.match(capture,/Know what still blocks wrap/);
+  assert.match(capture,/spec\.recording_status !== "READY_OWNER_VERIFIED"/);
   assert.match(capture,/assertSceneBudget\(id,elapsed,holds\[id\]\)/);
+  const journey=await readFile('../web/video/hero-journey.mjs','utf8');
+  for(const proof of ['Architecture','EventBridge subscriber consumed','setOffline(true)','Saved evidence changed since your last confirmed view','I reviewed the current saved revision','Download turnover','Read editorial handoff summary'])assert.ok(journey.includes(proof),proof);
 });
 
 test('public proof refuses malformed, missing, stale, mismatched and broadened results', async () => {
@@ -85,6 +110,24 @@ test('product wave retains exact-release freshness and independent human gates i
   assert.equal(assess(release,health,fixture,structuredClone(fixture),observed+23*3600000,release.commit).status,'CURRENT_AUTOMATED_PASS');
   assert.equal(assess(release,health,fixture,structuredClone(fixture),observed+24*3600000+1,release.commit).status,'HISTORICAL');
   assert.equal(assess({...release,commit:'e'.repeat(40)},health,fixture,fixture,observed,'e'.repeat(40)).status,'HISTORICAL');
+});
+
+test('testbooks carry bounded offline and terminal EventBridge subscriber acceptance',async()=>{
+  const book=JSON.parse(await readFile('UAT.testbook.json','utf8'));
+  const html=await readFile('UAT.testbook.html','utf8');
+  for(const id of ['LT-OFFLINE','LT-EVENT-SUBSCRIBER']){
+    const rows=book.cases.filter(row=>row.id===id);
+    assert.equal(rows.length,1,id);
+    assert.equal(rows[0].human_signoff,'NOT_RUN');
+    assert.ok(html.includes(`id="${id}"`),id);
+  }
+  const offline=book.cases.find(row=>row.id==='LT-OFFLINE');
+  assert.match(offline.requirement,/one tab-scoped/i);
+  assert.match(offline.expected_outcome,/never queues or replays a mutation/);
+  const subscriber=book.cases.find(row=>row.id==='LT-EVENT-SUBSCRIBER');
+  assert.match(subscriber.requirement,/terminal delivery-recorder Lambda/);
+  assert.match(subscriber.expected_outcome,/not editorial action/);
+  assert.match(subscriber.expected_outcome,/does not trigger or resume Strands/);
 });
 
 function assertWorkspaceEvidence(book) {

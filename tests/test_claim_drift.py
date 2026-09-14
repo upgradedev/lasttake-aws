@@ -103,7 +103,9 @@ def test_narration_refuses_non_owner_verified_status_before_reaching_any_provide
     exec(compile(ast.Module(body=[main], type_ignores=[]), "narration-preflight", "exec"), namespace)
     with pytest.raises(SystemExit, match="NOT_CONFIGURED"):
         namespace["main"]()
-    assert json.loads(text("video/narration.json"))["recording_status"] == "READY_OWNER_VERIFIED"
+    narration = json.loads(text("video/narration.json"))
+    assert narration["recording_status"] == "NOT_CONFIGURED"
+    assert "fresh owner approval" in narration["_comment"]
 
 
 def test_narration_preview_can_measure_not_configured_source_before_owner_activation():
@@ -131,7 +133,7 @@ def test_current_docs_distinguish_live_demo_history_and_unknown_benefits():
     assert "---|---|---|" not in assurance.splitlines() and "under $0.01" not in assurance
     assert "Every component scales to zero" not in assurance
     assert "not truth" in text("README.md")
-    assert "serialized records" in text("README.md")
+    assert "serialized record" in text("README.md")
     for name in ("measurement", "build_stories"):
         assert "Historical entries" in json.loads(text(f"docs/{name}.json"))["_current_scope"]["evidence_limits"]
     uat = json.loads(text("frontend/UAT.testbook.json"))["current_reliability_revision"]
@@ -141,7 +143,7 @@ def test_current_docs_distinguish_live_demo_history_and_unknown_benefits():
     assert uat["human_signoff"] == uat["live_aws_acceptance"] == "NOT_RUN"
 
 
-def test_submission_surfaces_do_not_claim_unmeasured_time_or_automatic_trigger():
+def test_submission_surfaces_match_bounded_offline_and_terminal_subscriber_truth():
     paths = (
         "frontend/src/Landing.tsx",
         "src/lasttake/app/static/index.html",
@@ -154,16 +156,61 @@ def test_submission_surfaces_do_not_claim_unmeasured_time_or_automatic_trigger()
         assert "a pickup day" not in source, path
 
     narration = json.loads(text("video/narration.json"))
+    topology = next(segment for segment in narration["segments"] if segment["id"] == "surface")
+    assert "One Strands orchestrator Agent calls eight tools" in topology["captionText"]
+    assert "four evidence checks" in topology["captionText"]
+    assert "two ToolContext interrupt transitions" in topology["captionText"]
+    assert "two scoped interpreter Agents" in topology["captionText"]
+    assert "this public browser uses the lexical interpreter" in topology["captionText"]
+    assert "AgentCore is not deployed" in topology["captionText"]
+
     trigger = next(segment for segment in narration["segments"] if segment["id"] == "trigger")
-    assert "no EventBridge rule or subscriber triggers it" in trigger["captionText"]
-    assert "offline lexical interpreter" in trigger["captionText"]
-    assert "Bedrock is not active in this browser" in trigger["captionText"]
+    assert "starts Strands synchronously" in trigger["captionText"]
+    assert "EventBridge never starts or resumes it" in trigger["captionText"]
+    assert "terminal delivery recorder" in trigger["captionText"]
+    assert "not that editorial acted" in trigger["captionText"]
+
+    offline = next(segment for segment in narration["segments"] if segment["id"] == "sponsor")
+    assert "one tab-scoped, read-only confirmed snapshot" in offline["captionText"]
+    assert "never queues a mutation" in offline["captionText"]
+    assert "Reconnect reads the authoritative revision" in offline["captionText"]
+    assert "explicit review" in offline["captionText"]
+    assert "save the draft exactly once" in offline["captionText"]
+
+    authority = next(segment for segment in narration["segments"] if segment["id"] == "evidence")
+    assert "Demo roles are not authenticated staff" in authority["captionText"]
 
     description = json.loads(text("docs/submission_description.json"))
-    assert "no EventBridge rule or subscriber triggers" in description["what_it_does"]
-    assert "offline lexical interpreter" in description["how_we_built_it"]
-    assert "Bedrock is not active in the hosted browser path" in description["how_we_built_it"]
-    assert "A frontend release does not repeat the Lambda proof" in description["accomplishments"]
+    assert "one Strands orchestrator Agent" in description["what_it_does"]
+    assert "eight @tool functions" in description["what_it_does"]
+    assert "two separate ToolContext.interrupt" in description["what_it_does"]
+    assert "S3 persists each interrupted Strands session" in description["what_it_does"]
+    assert "terminal delivery-recorder Lambda" in description["what_it_does"]
+    assert "never starts or resumes the workflow" in description["what_it_does"]
+    assert "two scoped interpreter Agents" in description["how_we_built_it"]
+    assert "Bedrock is not active in the public browser" in description["how_we_built_it"]
+    assert "AgentCore is not deployed" in description["how_we_built_it"]
+    assert "Demo-role selection is not staff authentication" in description["how_we_built_it"]
+    assert "no API response, approval or mutation is queued or replayed" in description["how_we_built_it"]
+
+    tools = text("src/lasttake/agents/tools.py")
+    assert len(re.findall(r"^\s*@tool(?:\(context=True\))?\s*$", tools, re.MULTILINE)) == 8
+    assert tools.count("tool_context.interrupt(") == 1  # Shared helper reached by two approval tools.
+    assert len(re.findall(r"^\s*@tool\(context=True\)\s*$", tools, re.MULTILINE)) == 2
+    bedrock = text("src/lasttake/adapters/aws/bedrock_interpreter.py")
+    assert len(re.findall(r"self\._(?:coverage|continuity) = Agent\(", bedrock)) == 2
+    subscriber = text("src/lasttake/adapters/aws/event_consumer.py")
+    assert "deliberately a terminal consumer" in subscriber
+    assert "it never publishes an event or starts the" in subscriber
+
+    uat = json.loads(text("frontend/UAT.testbook.json"))
+    offline_case = next(row for row in uat["cases"] if row["id"] == "LT-OFFLINE")
+    subscriber_case = next(row for row in uat["cases"] if row["id"] == "LT-EVENT-SUBSCRIBER")
+    assert "one tab-scoped" in offline_case["requirement"].lower()
+    assert "never queues or replays" in offline_case["expected_outcome"]
+    assert offline_case["human_signoff"] == subscriber_case["human_signoff"] == "NOT_RUN"
+    assert "terminal delivery-recorder" in subscriber_case["requirement"]
+    assert "not editorial action" in subscriber_case["expected_outcome"]
 
 
 def test_backend_release_preserves_real_model_and_process_boundary_proofs():

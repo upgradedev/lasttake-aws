@@ -43,8 +43,8 @@ test('fixed full source hero',async({page},info)=>{
   }
   try{
     slot.preflight=await provenance();slot.browser=page.context().browser()!.version();save();
-    await page.goto('/');await page.getByRole('button',{name:'Start this fictional shoot day'}).click();
-    await expect(page.getByRole('button',{name:'Run wrap checkpoint'})).toBeEnabled();
+    await page.goto('/');
+    await expect(page.getByRole('heading',{name:'Know what still blocks wrap.'})).toBeVisible();
     const scenes=helper.heroScenes(page,expect);
     await scenes.hook();await scenes.surface();
     slot.guard_before=measurement.readJSON(join(root,'guards.json'));

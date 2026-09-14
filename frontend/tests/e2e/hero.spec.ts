@@ -31,8 +31,6 @@ test('LT-HERO complete capture source: changed evidence, human wrap decision and
   for(let i=0;i<24 && !await start.evaluate(el=>el===document.activeElement);i++)await page.keyboard.press('Tab');
   await expect(start).toBeFocused();
   await page.screenshot({path:info.outputPath('product-wave-cold-keyboard.png'),fullPage:true});
-  await page.keyboard.press('Enter');
-  await expect(page.getByRole('button',{name:'Run wrap checkpoint'})).toBeEnabled();
   const scenes=source.heroScenes(page,expect);
   let result:Record<string,string>={};
   for(const id of source.heroSceneIds){

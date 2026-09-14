@@ -1,5 +1,5 @@
 {
-  "_comment": "Source script for the complete React workflow shared with source Playwright acceptance. The owner approved this narration and its measured per-beat timing for capture. No final recording exists; exact frontend/backend proof runs and separate owner review of the rendered MP4 remain required.",
+  "_comment": "Narration changed after the previous approval and is NOT_CONFIGURED. Run the timing-only preview, bind the exact deployed frontend/backend release, and obtain fresh owner approval before changing recording_status to READY_OWNER_VERIFIED. No final recording exists.",
   "schemaVersion": "lasttake.submission-video/v1",
   "provider": "elevenlabs",
   "elevenLabs": {
@@ -10,39 +10,39 @@
   "segments": [
     {
       "id": "hook",
-      "captionText": "LastTake uses durable Strands interrupts so a script supervisor can pause a wrap workflow on its evidence and a first assistant director can resume it later. This capture starts with supplied records and no checkpoint result. The scene is synthetic; no crew trial or measured benefit is claimed.",
-      "speechText": "LastTake uses durable Strands interrupts so a script supervisor can pause a wrap workflow on its evidence and a first assistant director can resume it later. This capture starts with supplied records and no checkpoint result. The scene is synthetic; no crew trial or measured benefit is claimed."
+      "captionText": "At wrap, a script supervisor reconciles the script, takes, reports and releases before the set comes down. A missing record discovered later can leave editorial without needed evidence. LastTake keeps evidence and the human decision together. This fictional demo claims no measured savings or crew trial.",
+      "speechText": "At wrap, a script supervisor reconciles the script, takes, reports and releases before the set comes down. A missing record discovered later can leave editorial without needed evidence. LastTake keeps evidence and the human decision together. This fictional demo claims no measured savings or crew trial."
     },
     {
       "id": "surface",
-      "captionText": "Open a take in the lined script and compare its sidecar with the camera report. Linked records show what was supplied; missing reports stay missing evidence. LastTake does not analyze footage or audio, choose performances, or determine legal sufficiency.",
-      "speechText": "Open a take in the lined script and compare its sidecar with the camera report. Linked records show what was supplied; missing reports stay missing evidence. LastTake does not analyze footage or audio, choose performances, or determine legal sufficiency."
+      "captionText": "Here is the deployed shape. One Strands orchestrator Agent calls eight tools: four evidence checks, a deterministic gate, two ToolContext interrupt transitions, and turnover publication. S3 persists each suspended session for later-process resume. Only Bedrock mode creates two scoped interpreter Agents; this public browser uses the lexical interpreter. AgentCore is not deployed.",
+      "speechText": "Here is the deployed shape. One Strands orchestrator Agent calls eight tools: four evidence checks, a deterministic gate, two Tool Context interrupt transitions, and turnover publication. S three persists each suspended session for later-process resume. Only Bedrock mode creates two scoped interpreter Agents; this public browser uses the lexical interpreter. Agent Core is not deployed."
     },
     {
       "id": "trigger",
-      "captionText": "Run the wrap checkpoint. The request records scene.wrap-checkpoint.requested, then starts Strands; no EventBridge rule or subscriber triggers it. Four checks and a deterministic gate report 34 required beats: 31 covered with evidence, 2 exceptions, and 1 missing release. The hosted browser uses an offline lexical interpreter. A separate deployment proof exercises Bedrock; Bedrock is not active in this browser.",
-      "speechText": "Run the wrap checkpoint. The request records scene dot wrap checkpoint dot requested, then starts Strands; no Event Bridge rule or subscriber triggers it. Four checks and a deterministic gate report thirty-four required beats: thirty-one covered with evidence, two exceptions, and one missing release. The hosted browser uses an offline lexical interpreter. A separate deployment proof exercises Bedrock; Bedrock is not active in this browser."
+      "captionText": "Run the wrap checkpoint. The API records scene.wrap-checkpoint.requested and starts Strands synchronously; EventBridge never starts or resumes it. Four check tools report 34 required beats: 31 covered with evidence, 2 exceptions, and 1 missing release. Handoff's consumed receipt proves EventBridge invoked the terminal delivery recorder, not that editorial acted.",
+      "speechText": "Run the wrap checkpoint. The A P I records scene dot wrap checkpoint dot requested and starts Strands synchronously; Event Bridge never starts or resumes it. Four check tools report thirty-four required beats: thirty-one covered with evidence, two exceptions, and one missing release. Handoff's consumed receipt proves Event Bridge invoked the terminal delivery recorder, not that editorial acted."
     },
     {
       "id": "live",
-      "captionText": "Record the supervisor's continuity decision, then select the first assistant director and reload. The saved Strands interrupt returns. Approval resumes the tool while wrap stays unapproved. S3 stores the session; Aurora DSQL stores AWS run state. Strands provides the durable tool loop and replay.",
-      "speechText": "Record the supervisor's continuity decision, then select the first assistant director and reload. The saved Strands interrupt returns. Approval resumes the tool while wrap stays unapproved. S three stores the session; Aurora D S Q L stores A W S run state. Strands provides the durable tool loop and replay."
+      "captionText": "The checkpoint waits at the pickup ToolContext interrupt. Record the supervisor's continuity review, switch to the 1st AD, and reload. The request returns from its S3-backed Strands session. Approval resumes the tool once behind idempotency; wrap remains separately unapproved.",
+      "speechText": "The checkpoint waits at the pickup Tool Context interrupt. Record the supervisor's continuity review, switch to the first A D, and reload. The request returns from its S three backed Strands session. Approval resumes the tool once behind idempotency; wrap remains separately unapproved."
     },
     {
       "id": "sponsor",
-      "captionText": "Change the evidence. Load the editable fictional take JSON into the form. Nothing is submitted until Save. Its camera report travels separately; saving reruns affected checks, so the earlier continuity decision expires. Add the missing release, review continuity as supervisor, and record the DIT metadata decision. Each decision names its reviewer and reason.",
-      "speechText": "Change the evidence. Load the editable fictional take J S O N into the form. Nothing is submitted until Save. Its camera report travels separately; saving reruns affected checks, so the earlier continuity decision expires. Add the missing release, review continuity as supervisor, and record the D I T metadata decision. Each decision names its reviewer and reason."
+      "captionText": "Start a take draft, disconnect, and reload. The cached shell restores one tab-scoped, read-only confirmed snapshot and the unsent draft; it never queues a mutation. While this tab is offline, another client changes the server evidence. Reconnect reads the authoritative revision and blocks writes for explicit review. Then save the draft exactly once and record fresh supervisor and DIT decisions.",
+      "speechText": "Start a take draft, disconnect, and reload. The cached shell restores one tab scoped, read only confirmed snapshot and the unsent draft; it never queues a mutation. While this tab is offline, another client changes the server evidence. Reconnect reads the authoritative revision and blocks writes for explicit review. Then save the draft exactly once and record fresh supervisor and D I T decisions."
     },
     {
       "id": "evidence",
-      "captionText": "As first assistant director, review readiness and request wrap approval. Eligibility is not authority. Reload restores the request for this changed package. Inspect its SHA-256 fingerprint, then approve explicitly. Confirmation appears only after the server records the decision. Demo roles are not authenticated staff.",
-      "speechText": "As first assistant director, review readiness and request wrap approval. Eligibility is not authority. Reload restores the request for this changed package. Inspect its S H A two fifty-six fingerprint, then approve explicitly. Confirmation appears only after the server records the decision. Demo roles are not authenticated staff."
+      "captionText": "Eligibility is not authority. As 1st AD, request a separate wrap approval, reload its interrupt and inspect the changed package SHA-256. Demo roles are not authenticated staff. Approve explicitly. Confirmation appears only after the server records this decision for this revision.",
+      "speechText": "Eligibility is not authority. As first A D, request a separate wrap approval, reload its interrupt and inspect the changed package S H A two fifty-six. Demo roles are not authenticated staff. Approve explicitly. Confirmation appears only after the server records this decision for this revision."
     },
     {
       "id": "close",
-      "captionText": "In Handoff, publish and reload the approved turnover. Download its manifest and prepare the wrap receipt. Handoff exposes the beat-to-take map, technical records, source digests and visible accepted exceptions for editorial review. Storage and event-bus acceptance do not prove delivery. Hashes identify bytes, not truth.",
-      "speechText": "In Handoff, publish and reload the approved turnover. Download its manifest and prepare the wrap receipt. Handoff exposes the beat-to-take map, technical records, source digests and visible accepted exceptions for editorial review. Storage and event bus acceptance do not prove delivery. Hashes identify bytes, not truth."
+      "captionText": "Publish the turnover, reload it, and read it back in Handoff. Its manifest and receipt carry the evidence revision, human decision, source digests, take map and open exceptions. Hashes identify bytes, not truth, and nothing declares creative or legal clearance. Open the live demo and its public acceptance receipt.",
+      "speechText": "Publish the turnover, reload it, and read it back in Handoff. Its manifest and receipt carry the evidence revision, human decision, source digests, take map and open exceptions. Hashes identify bytes, not truth, and nothing declares creative or legal clearance. Open the live demo and its public acceptance receipt."
     }
   ],
-  "recording_status": "READY_OWNER_VERIFIED"
+  "recording_status": "NOT_CONFIGURED"
 }

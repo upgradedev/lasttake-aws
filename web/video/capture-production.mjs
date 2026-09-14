@@ -65,8 +65,7 @@ const appUrl = `${appOrigin}/?release=${releaseSha}`;
 const release = await (await context.request.get(appOrigin + "/release.json")).json();
 if (release.commit !== releaseSha) throw new Error("Frontend release mismatch before recording");
 await page.goto(appUrl, { waitUntil: "networkidle", timeout: 60_000 });
-await page.getByRole("button", { name: "Start this fictional shoot day" }).click();
-await page.getByRole("button", { name: "Run wrap checkpoint" }).waitFor();
+await page.getByRole("heading", { name: "Know what still blocks wrap." }).waitFor();
 const timelineStarted = Date.now();
 
 const sceneTimings=[];
@@ -87,7 +86,7 @@ async function holdScene(id, action) {
   return result;
 }
 
-const journey=heroScenes(page,expect.configure({timeout:20000}));
+const journey=heroScenes(page,expect.configure({timeout:20000}),{requireEventBridgeReceipt:true});
 let workflowResult;
 for(const id of expectedScenes)workflowResult=await holdScene(id,journey[id]);
 const after = await (await context.request.get(appOrigin + "/release.json")).json();
