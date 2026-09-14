@@ -29,10 +29,17 @@ self.addEventListener('fetch',event=>{
   if(url.pathname.startsWith('/api/') || url.pathname==='/api' || url.pathname==='/healthz' ||
       url.pathname.startsWith('/acceptance') || url.pathname.startsWith('/UAT.'))return;
   if(request.mode==='navigate'){
-    event.respondWith(fetch(request).then(async response=>{
-      if(response.ok)(await caches.open(CACHE)).put('/',response.clone());
+    // Resolve a saved shell before touching the unavailable network. WebKit's
+    // offline navigation can otherwise fail before a network-first promise
+    // reaches its cache fallback. Revalidation never delays the navigation.
+    const cache=caches.open(CACHE);
+    const refresh=cache.then(store=>fetch(request).then(async response=>{
+      if(response.ok)await store.put('/',response.clone());
       return response;
-    }).catch(async()=>await caches.match('/') ?? Response.error()));
+    }));
+    event.waitUntil(refresh.then(()=>undefined).catch(()=>undefined));
+    event.respondWith(cache.then(async store=>await store.match('/') ?? await refresh)
+      .catch(()=>Response.error()));
     return;
   }
   if(ASSET.test(url.pathname)){
