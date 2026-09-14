@@ -21,7 +21,7 @@ describe('disconnect and authoritative reconnect',()=>{
     localStorage.setItem('lasttake.session',session.session_id);location.hash=`#scene?run=${state.run_id}&finding=${state.exceptions[0].finding_id}`;
     const user=userEvent.setup();render(<App/>);
     expect(await screen.findByTestId('connectivity-status')).toHaveTextContent('Connected');
-    expect(screen.getByTestId('connectivity-status').querySelector('time')).toHaveAttribute('dateTime',expect.stringMatching(/^\d{4}-\d\d-\d\dT/));
+    await waitFor(()=>expect(screen.getByTestId('connectivity-status').querySelector('time')).toHaveAttribute('dateTime',expect.stringMatching(/^\d{4}-\d\d-\d\dT/)));
     const decision=await screen.findByRole('button',{name:'Record decision'});
 
     act(()=>window.dispatchEvent(new Event('offline')));

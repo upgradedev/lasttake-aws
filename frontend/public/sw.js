@@ -36,7 +36,9 @@ self.addEventListener('fetch',event=>{
     return;
   }
   if(ASSET.test(url.pathname)){
-    event.respondWith(caches.match(request).then(cached=>cached ?? fetch(request).then(async response=>{
+    // Vite varies asset responses on Origin. This validated same-origin path
+    // is the cache identity, so an offline module request cannot miss on Vary.
+    event.respondWith(caches.match(url.pathname,{ignoreVary:true}).then(cached=>cached ?? fetch(request).then(async response=>{
       if(response.ok)(await caches.open(CACHE)).put(request,response.clone());
       return response;
     })));

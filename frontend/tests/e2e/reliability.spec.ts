@@ -7,6 +7,14 @@ async function start(page:Page){
   return page.evaluate(()=>({session_id:localStorage.getItem('lasttake.session'),run_id:new URLSearchParams(location.hash.split('?')[1]).get('run')}));
 }
 
+async function reloadFromPage(page:Page){
+  // WebKit's protocol reload errors under offline emulation. Scheduling the
+  // browser's own reload still exercises a real navigation through the worker.
+  const loaded=page.waitForEvent('domcontentloaded');
+  await page.evaluate(()=>window.setTimeout(()=>window.location.reload(),0));
+  await loaded;
+}
+
 test('LT-RELIABLE-INTAKE editable refusal, correction, and missing-report recovery use real HTTP',async({page},info)=>{
   const body=await start(page);
   const initial=await (await page.request.post('/api/state',{data:body})).json();
@@ -83,8 +91,10 @@ test('LT-RELIABLE-WRAP both API routes refuse stale review, decline recovers, ne
 test('LT-OFFLINE reload keeps one scoped draft read-only and reconnect never replays it',async({page,context,request},info)=>{
   const body=await start(page);
   await page.getByRole('button',{name:'Add take or release'}).click();
+  await page.getByLabel('Record type').selectOption('rights_record');
   await page.getByLabel('Advanced JSON entry').check();
-  const draft='{"take_id":"T-OFFLINE-DRAFT"}';
+  const draft=JSON.stringify({record_id:'REL-OFFLINE-DRAFT',subject_id:'BG-07',subject_kind:'person',
+    document_type:'background release',scope:'all media',territory:'worldwide',status:'executed'});
   await page.getByLabel('Document JSON').fill(draft);
   await expect(page.getByText(/Unsent draft kept in this tab/)).toBeVisible();
 
@@ -99,7 +109,7 @@ test('LT-OFFLINE reload keeps one scoped draft read-only and reconnect never rep
   let browserIngests=0;
   page.on('request',pending=>{if(new URL(pending.url()).pathname==='/api/ingest')browserIngests++;});
   await context.setOffline(true);
-  await page.reload({waitUntil:'domcontentloaded'});
+  await reloadFromPage(page);
   await expect(page.getByTestId('connectivity-status')).toContainText('Offline');
   await expect(page.getByTestId('connectivity-status')).toContainText('Saved snapshot · read-only');
   await page.getByRole('button',{name:'Add take or release'}).click();

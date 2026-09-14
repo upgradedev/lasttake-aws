@@ -10,6 +10,7 @@ const sample:Record<string,string>={beat_id:'B-17',take_id:'T-900',slate:'42L/1'
 export function Intake({scene,busy,writeBlocked=false,sessionId='component-session',runId='component-run',revisionDigest='component-revision',revisionReviewRequired=false,onSubmit,onClose,guided}:{scene:Scene;busy:boolean;writeBlocked?:boolean;sessionId?:string;runId?:string;revisionDigest?:string;revisionReviewRequired?:boolean;onSubmit:(kind:string,document:Document)=>Promise<boolean>;onClose:()=>void;guided:boolean}) {
   const restored=useRef(readEvidenceDraft(sessionId,runId)).current;
   const formRef=useRef<HTMLFormElement>(null);
+  const jsonRef=useRef<HTMLTextAreaElement>(null);
   const [kind,setKind]=useState<EvidenceKind>(restored?.kind ?? 'take');
   const [example,setExample]=useState(false);
   const [advanced,setAdvanced]=useState(restored?.advanced ?? false);
@@ -35,7 +36,7 @@ export function Intake({scene,busy,writeBlocked=false,sessionId='component-sessi
       if(control instanceof HTMLInputElement && control.type==='checkbox')checks[control.name]=control.checked;
       else fields[control.name]=control.value;
     }
-    const value=draftValue({kind,advanced,json:(formRef.current?.querySelector<HTMLTextAreaElement>('[aria-label="Document JSON"]')?.value ?? json),fields,checks,...overrides});
+    const value=draftValue({kind,advanced,json:(jsonRef.current?.value ?? json),fields,checks,...overrides});
     setDraftFields(value.fields);setDraftChecks(value.checks);
     if(writeEvidenceDraft(value)){setDraftSaved(true);setDraftWarning('');}
     else setDraftWarning('This draft is too large or tab storage is unavailable. Download the input before leaving this page.');
@@ -90,7 +91,7 @@ export function Intake({scene,busy,writeBlocked=false,sessionId='component-sessi
     <div className="toolbar"><label>Record type<select value={kind} onChange={e=>{const next=e.target.value as EvidenceKind;setKind(next);setExample(false);setError('');persistDraft({kind:next});}}><option value="take">Captured take</option><option value="rights_record">Release / licence record</option></select></label>{guided && <button onClick={fillExample}>Fill synthetic example</button>}<label className="check"><input type="checkbox" checked={advanced} onChange={e=>{setAdvanced(e.target.checked);persistDraft({advanced:e.target.checked});}}/>Advanced JSON entry</label></div>
     <form ref={formRef} onSubmit={submit} onChange={()=>persistDraft()} key={`${kind}-${example}`}>
       <fieldset disabled={busy || reading}><legend className="sr-only">{kind==='take'?'Take details':'Release details'}</legend>
-      {advanced ? <label>Document JSON<textarea required rows={10} value={json} onChange={e=>{setJson(e.target.value);persistDraft({json:e.target.value});}}/></label> : kind==='take' ? <>
+      {advanced ? <label>Document JSON<textarea ref={jsonRef} required rows={10} value={json} onChange={e=>{setJson(e.target.value);persistDraft({json:e.target.value});}}/></label> : kind==='take' ? <>
         <fieldset className="intake-group"><legend>The take, as slated</legend><div className="form-grid"><label>Script beat<select name="beat_id" defaultValue={initial('beat_id',scene.beats[0].beat_id)}>{scene.beats.filter(b=>b.required).map(b=><option key={b.beat_id} value={b.beat_id}>{b.beat_id} · {b.slug}</option>)}</select></label>
         {takeFields.filter(([name])=>!name.startsWith('report_')).map(([name,label])=><label key={name}>{label}<input name={name} required type={name.includes('lens')?'number':'text'} min={name.includes('lens')?1:undefined} maxLength={128} defaultValue={initial(name)}/></label>)}</div></fieldset>
         <fieldset className="intake-group"><legend>The camera report, an independent record</legend><p className="fine">Enter the values exactly as the report states them. If they disagree with the take, that disagreement is evidence and stays visible.</p><div className="form-grid">
