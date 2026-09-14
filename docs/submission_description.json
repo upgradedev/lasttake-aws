@@ -27,7 +27,7 @@
     "Human active time, interruptions and corrections are unmeasured; timing a model and calling it human time saved would be a fabricated benchmark."
   ],
   "aws_services": ["AWS Lambda", "Amazon API Gateway", "Amazon Aurora DSQL", "Amazon S3", "Amazon EventBridge", "Amazon CloudFront", "Strands Agents SDK", "Amazon Bedrock (supported through the interpreter port; not active on the public deployment)"],
-  "pre_existing_components_disclosed": "src/lasttake/domain/sealing.py carries about thirty lines of sealing primitives from ClaimScene (MIT, same author); the product thesis was written earlier by the same author as specification; CI shape and README structure follow a private submission toolkit by the same author. All AWS adapters, Strands agent definitions, the gate, the checks, the corpus and the interface are new. Details in README, Pre-existing components.",
+  "pre_existing_components_disclosed": "src/lasttake/domain/sealing.py carries about thirty lines of sealing primitives from ClaimScene (MIT, same author); the product thesis was written earlier by the same author as specification; the CI shape follows a private submission toolkit by the same author, and an earlier version of the README followed its section order. All AWS adapters, Strands agent definitions, the gate, the checks, the corpus and the interface are new. Details in README, Pre-existing components.",
   "links_to_fill_by_owner": {
     "public_repository": "https://github.com/upgradedev/lasttake-aws (private until the owner flips it)",
     "working_project": "https://d3kf6hquzlli8g.cloudfront.net/",
@@ -39,6 +39,6 @@
     "34 required beats, 31 covered, 2 exceptions, 1 no release": "python -m pytest tests/test_corpus_counts.py -q",
     "40 takes": "python corpus/build_corpus.py",
     "26 live browser journeys per release": "gh run view <Deploy AWS frontend run> --json jobs; the aggregate is /acceptance.json on the judge URL",
-    "31 to 32 when the model is removed": "PYTHONPATH=src python tools/ablation.py"
+    "31 of 34 beats covered, 0 of 34 when the interpreter cannot be reached": "PYTHONPATH=src python tools/ablation.py"
   }
 }

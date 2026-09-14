@@ -4,244 +4,145 @@
 [![licence: MIT](https://img.shields.io/badge/licence-MIT-blue.svg)](LICENSE)
 [![python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/)
 
-For a script supervisor and the 1st AD reviewing a fictional shoot day. LastTake reconciles supplied records before a human wrap decision.
+Before the set is struck, LastTake shows a script supervisor which evidence is missing or in conflict, and the 1st AD decides pickup and wrap.
+
+The pickup and the wrap stop the run with a real Strands Agents SDK interrupt, and a later request can resume it in a different process from the session saved on S3.
 
 [Open the AWS workspace](https://d3kf6hquzlli8g.cloudfront.net/) and choose **Start this fictional shoot day**. The next-step panel follows the saved evidence through the human wrap decision to a turnover for the assistant editor.
 
-[Current automated acceptance](https://d3kf6hquzlli8g.cloudfront.net/acceptance.html) compares the observed frontend and backend revisions with the latest public aggregate receipt. Missing, malformed, mismatched or older-than-24-hour proof cannot establish a current pass. Human UAT remains NOT_RUN. The page becomes available with the frontend release containing it; source CI alone does not publish acceptance.
+[Current automated acceptance](https://d3kf6hquzlli8g.cloudfront.net/acceptance.html) compares the observed frontend and backend revisions with the latest public receipt, and missing, malformed, mismatched or older-than-24-hour proof cannot establish a current pass. Human UAT remains NOT_RUN, which means no person has completed the testbook yet.
 
-The live browser uses an offline planner and lexical interpreter with real Strands tool calls, S3 session resume and role-gated decisions. It does not analyze footage/audio, send emails, make payments or establish legal sufficiency. Demo role selection is not authenticated staff identity. Handoff exports sources, current decisions, revisions, recorded model identifiers, failure/recovery status and limits. Hashes identify bytes, not truth.
-
-## Walk the complete shoot day
-
-1. **Checkpoint:** create the fictional run and choose Run wrap checkpoint. Open a take and compare its sidecar with the independent camera report. Missing evidence stays missing.
-2. **Evidence change:** answer the saved pickup request as the 1st AD. Open guided demo, then Add take or release in Scene review. Save the valid take and a release example. A prior continuity decision becomes stale when the take changes its sources. You can also download an editable input JSON and load that ordinary file; loading only previews it until you press Save.
-3. **Human wrap decision:** review continuity as the script supervisor and metadata T-013 as DIT. Record the reason for each accepted fictional exception. Select 1st AD, Review wrap readiness, Request wrap approval, inspect the fingerprint and explicitly approve or decline. Reload restores the saved request; eligibility never signs for the human.
-4. **Editorial handoff:** in Handoff, Publish approved turnover. Download turnover preserves the saved manifest. Download or copy the handoff summary for the beat-to-take map, source digests and retained exceptions. Choose the Wrap review receipt purpose and press Prepare receipt for the recorded approval and open work. Historical records remain downloadable with their status shown.
-
-The steps above are the new source capture contract, exercised by `frontend/tests/e2e/hero.spec.ts` against the real HTTP handler. Availability on the live URL depends on a reviewed frontend release; source CI is not deployment evidence. Final recording stays `NOT_CONFIGURED` pending owner verification. File intake accepts one JSON record up to 64 KiB, with independent camera report fields inside a take; it does not parse media, PDFs or CSV. Session authority comes from the browser's saved handle, never from the imported document.
-
----
-
-## Workspace reference
-
-<details>
-<summary>Detailed workspace behavior, release verification and recovery</summary>
-
-### React workspace usage
-
-Live AWS application: [LastTake React workspace](https://d3kf6hquzlli8g.cloudfront.net/).
-Historical release evidence only: [Live AWS acceptance](https://github.com/upgradedev/lasttake-aws/actions/runs/34327806494)
-passed all 8 desktop/mobile journeys on 2026-09-09 against CloudFront, Lambda, S3 and Aurora DSQL.
-This is automated synthetic acceptance, not a practising supervisor's signoff.
-The tested frontend was `1f10d39c8b2b22474f64b1c057851eb2057665e7`; current release identity is
-at `/release.json`, and backend identity at `/healthz`. That earlier run does not validate
-the new dashboard and cockpit. The reliability scope and its new UAT cases start as NOT_RUN. Current acceptance comes from the exact-commit CI artifacts
-and, after parent-approved release, the exact-SHA live acceptance workflow.
-
-The React, TypeScript and Tailwind application is in `frontend/`. It builds to
-`frontend/dist/` with hashed `/assets/` files and uses same-origin `/api/*` JSON
-requests. Navigation is named after the task: Wrap status, Scene review, Records, Handoff, and an Architecture page that names only deployed tiers. Existing
-`#overview`, `#scene`, `#actions` and `#history` links remain supported;
-`#dashboard` and `#workspace` are also accepted. Run, beat, finding, record and
-search context travel in the hash, and browser back/reload restore the selection.
-The static UAT testbook is included as `UAT.testbook.html` and
-`UAT.testbook.json`; human signoff remains `NOT_RUN` until a person completes it.
-
-Every push to `main`, including a merged pull request, now starts
-[`frontend-deploy.yml`](https://github.com/upgradedev/lasttake-aws/actions/workflows/frontend-deploy.yml):
-offline checks -> AWS frontend deployment -> live desktop/mobile Playwright testbook journeys.
-The release lock stays held through acceptance; queued releases do not interrupt a running test.
-The reusable `aws-uat.yml` checks the exact frontend SHA before and after the journeys and fails
-on browser errors or a changed release. Focused `test.only` tests are refused. Each run retains
-HTML/JUnit reports, traces, screenshots, failure video and the testbook for 90 days, with a
-result summary in GitHub Actions. Failure makes the pipeline red; it does not undo a merge
-or automatically roll back the deployed frontend. Backend deployment remains a separate process.
-The previous accepted run 34359050749/artifact 10107569851 was preserved as inert source bytes in archive artifact 10113819181 by [CI run 34375838628](https://github.com/upgradedev/lasttake-aws/actions/runs/34375838628). Its SHA-256 manifest records the original IDs and bytes; the immutable archive expires 2026-12-08. Archival is now manual opt-in and skips an existing archive. Ordinary verification does not repeat it.
-
-Manual reruns remain available. Automated results never set human UAT signoff to PASS.
-
-The public receipt requires at least the existing 20 product cases. JUnit supplies the totals; the same run's Playwright JSON report additionally refuses retries, repeated cases, skipped cases, expected failures and report disagreement. That raw report remains in the private CI artifact and is never published to the frontend bucket.
-
-The served root HTML commit marker must match `release.json` as well as the receipt before publication or a current pass. A partial release or rollback cannot use a manifest alone to establish identity. Publisher-only retries use the producing acceptance job's artifact name and attempt output, preserving the run/attempt that actually executed the journeys.
-
-Backend release is explicitly controlled: `deploy.yml` runs its deployment job only for `workflow_dispatch` with action `deploy`. Source pushes cannot activate that job. This separates code integration from its broader stack updates and real-model validation, not an extra approval gate on ordinary work. Frontend main CI/CD stays automatic; manual teardown/lifecycle behavior is unchanged. The package copies `src/lasttake`, corpus JSON and runtime dependencies. Credential-free branch CI retains a code package for a reviewed code-only rollout; it does not invoke the deployment workflow or establish AWS acceptance.
-
-The browser acceptance job has only `contents: read` and no cloud credentials. After all three stages succeed, it parses the current run's product-journey JUnit into sanitized totals. A separate main-only publisher uses the existing frontend release OIDC role and bucket. `/acceptance/runs/<run-id>-<attempt>.json` is create-only or verified byte-identical; `/acceptance.json` is the latest pointer and aggregate, updated conditionally after rechecking public and origin release identity. Frontend publishes preserve retained proof. A changed backend during acceptance or stale dispatch refuses publication; frontend and backend commits may legitimately differ and the exact observed pair is recorded.
-
-Receipts contain no scenario text, credentials or personal information. They record successful preflight/journeys/postflight, not overall workflow success. A final credential-free browser job reads the actual published page and receipt. Source-only proof-renderer fault fixtures have a separate configuration and JUnit report and never enter the public product-journey counts. Earlier testbook observations and failed-run artifacts remain dated history. In CI, `python infra/test_frontend_acceptance.py` exercises malformed JUnit, stale dispatch, release changes, immutable collisions and conditional publication; `npx playwright test --config playwright.proof.config.ts` checks the anonymous page's refusal states.
-
-Create a fictional shoot-day run, start a checkpoint, inspect the script and
-source records, then select the demo role responsible for each decision. Take
-and release forms save records through the Python backend. The optional guided
-demo supplies labelled fictional examples. The API reports the offline lexical
-interpreter; real Strands interrupts govern pickup and wrap approvals.
-
-Wrap status metrics describe only the selected run of the single fictional scene.
-Coverage and missing-release counts come from the API assessment; absent or nullable
-assessment is labelled Not assessed. Retained exceptions counts distinct findings,
-including reviewed and accepted exceptions, and is separate from the eligibility
-causes in Priority work. Supplied takes is a record count, not an audio or footage
-quality assessment. No portfolio trends, savings or reshoot costs are inferred.
-
-Workspace connects the lined script and take inspector, source-backed discrepancies,
-and role decision controls in three purposeful panes. The wrap-status strip remains
-visible above the scrolling decision form. Selecting a finding links back to its
-actual beat, continuity reference, take or visible subject. Absent requirement IDs
-never match absent continuity IDs; unmatched advisories keep their source evidence.
-Source locators and artifact digests are displayed as reported. The package SHA-256
-is a fingerprint, not a Merkle proof or independent verification.
-
-Records exposes the scene projection: linked takes, script beats, retained findings
-and visible release subjects. Unlinked takes and full release documents are not
-returned by this endpoint, and the inspector states that limitation. An executed
-ledger flag alone does not establish expiry, scope or legal sufficiency. Sound checks
-use metadata only. Handoff preserves saved turnovers even after evidence changes;
-eligibility and an exact, unchanged pending interrupt remain separate from human
-wrap approval.
-
-The browser stores only a session handle and role preference. Saved runs belong
-to that session; role selection is a synthetic demonstration, not staff login.
-With browser storage blocked the tab remains usable, but a reload may start a
-separate session. Requests time out after 35 seconds and never automatically
-retry writes. Refresh saved state before retrying a write with an uncertain result.
-Known HTTP 400 validation refusals preserve editable input and allow immediate correction
-and resubmission. Stale/conflicting, network, unreadable and server-failure results require
-a saved-state refresh before another write. Closing an intake form remains available.
-
-Take intake accepts at most 64 unique identifiers in each of `beat_ids`,
-`visible_people` and `visible_assets`. Repeated or oversized lists are refused
-before writing; unknown beat identifiers are not silently removed. HTTP requests
-are limited to 128,000 decoded UTF-8 bytes, including base64 gateway bodies.
-Historical repeated links are deduplicated only in the scene projection; original
-artifacts and their digests remain unchanged. Uncertain storage reads return a
-generic unavailable response, never an unowned run or an empty saved state.
-
-Saved run history loads 10 registrations per page (API maximum 20), before rebuilding
-any run. DSQL filters the owning session in a parameterized keyset query and fetches
-at most page size plus one row. Local/S3 fallback reads at most 64 KiB of the existing
-audit array per page, without rewriting it. A changed fallback file asks for a list
-refresh; an unreadable or oversized historical record is refused, not skipped.
-Load older runs replaces the displayed page; Refresh newest runs restarts it.
-Counts describe the loaded page, not total history. Saved handles, direct owned-run
-links and earlier records remain valid. No registration quota is imposed. Database
-physical scan/sort cost is not measured or claimed bounded by the result-row limit.
-
-The security and pagination branches' `ci.yml` also produces a credential-free, source-only
-Python 3.12 arm64 Lambda ZIP after the Python checks pass. It contains current
-`src/lasttake`, corpus JSON, resolved runtime dependencies including the AWS SDK,
-and `_lasttake_build.json`. The accompanying build receipt records the source
-and component trees, input hashes, dependency report, ZIP hash and Lambda code
-checksum. Native ELF architecture is checked, but target code is not executed on
-arm64 or AWS. This artifact does not deploy, update `LASTTAKE_COMMIT_SHA`, or prove
-live acceptance. The release owner must verify code and environment identity
-separately; current AWS status remains on `/acceptance.html`.
-
-The optional source hero measurement is preregistered in
-[`docs/hero-measurement-protocol.json`](docs/hero-measurement-protocol.json).
-It runs only on manual opt-in after normal source verification: 20 fixed attempts,
-10 desktop and 10 mobile, no retries, recordings or discarded warmup. The unchanged
-hero helper is timed from checkpoint through changed evidence, fresh wrap approval
-and verified handoff downloads. Raw slots, failures, unrun slots, byte counts and
-independent source/runtime identity are retained with p50/nearest-rank p95 methods.
-Byte observations cover request bodies only; response-body bytes are UNKNOWN, not
-captured, so no total-network-byte claim is made. Future failure retention uploads
-only an isolated, once-published snapshot, including captured original bytes and
-derived summary/hashes; per-file observations are not a cross-file transaction.
-This is scripted source-CI completion time, not AWS latency or human time. External
-model cost is 0 only with verified offline guards; infrastructure/runner cost is
-unknown. Earlier unmeasured protocol 176b58b is explicitly superseded, not rewritten.
-
-Historical source checkpoint, 2026-09-10: the single
-[measured run 34481212393](https://github.com/upgradedev/lasttake-aws/actions/runs/34481212393)
-at source `faf7f17128549155cda7144fdd1cd560c0f0a5c5` completed 20/20 attempts,
-10 per viewport, zero failures/incomplete/unrun slots and no retries. Its
-[raw artifact 10154044857](https://github.com/upgradedev/lasttake-aws/actions/runs/34481212393/artifacts/10154044857)
-retains 26 hashed files: p50=5662.1155775ms, nearest-rank p95=6547.501716ms,
-process=165481.102184ms/exit 0. Within the declared boundary, 1540 requests had
-179300 observed request-body bytes and 0 unknown request-body sizes; response-body
-sizes were not captured. Reproduce from `slot-*.json`, `summary.json`, `process.json`
-and `manifest.json` in that artifact, not from whole Playwright-test timings.
-These observations belong only to `faf7f1`. Subsequent timeout-retention fixes are
-source-tested with a surviving child writer and replay these already-spent bytes;
-they do not constitute another measured cohort or measure the newer source version.
-
-Dependencies are installed in GitHub Actions. `frontend-ci.yml` generates a lock
-only when absent, uploads it, builds the app, measures unit coverage, runs the
-Python regressions and exercises desktop/mobile browsers against the real Python
-HTTP handler with local durable adapters. It supports `workflow_call` for release
-integration. A build artifact from a failed verification is for diagnosis only.
-The HTTP test entrypoint is `python -m lasttake.app.local_server --state-dir
-.lasttake-ui`; Vite's test proxy targets `127.0.0.1:8765`. No model credentials
-are needed. Frontend deployment is a separate AWS integration step.
-
-</details>
+The live browser uses an offline planner and lexical interpreter with real Strands tool calls, S3 session resume and role-gated decisions. It does not analyze footage or audio, send emails, make payments or establish legal sufficiency. Demo role selection is not authenticated staff identity. Hashes identify bytes, not truth.
 
 ## Contents
 
-- [Who this is for](#who-this-is-for)
-- [Own workflow requirements](#own-workflow-requirements)
-- [The problem](#the-problem)
-- [Try it without installing anything](#try-it-without-installing-anything)
-- [Quickstart](#quickstart)
-- [What the demo shows](#what-the-demo-shows)
-- [Architecture](#architecture)
-- [How Strands is load-bearing](#how-strands-is-load-bearing)
-- [The rule the whole product turns on](#the-rule-the-whole-product-turns-on)
-- [What each rule is worth, measured by removing it](#what-each-rule-is-worth-measured-by-removing-it)
-- [Bring your own record](#bring-your-own-record)
-- [Four kinds of input](#four-kinds-of-input-and-what-the-pipeline-does-with-each)
-- [What "covered" rests on](#what-covered-rests-on-and-why-two-readers-count-differently)
-- [The numbers, and the commands that produce them](#the-numbers-and-the-commands-that-produce-them)
-- [The demo corpus is synthetic](#the-demo-corpus-is-synthetic)
-- [What it will not do](#what-it-will-not-do)
-- [Running against Amazon Bedrock](#running-against-amazon-bedrock)
-- [What is deployed, and what it costs](#what-is-deployed-and-what-it-costs)
-- [Assurance and residual gaps](#assurance-and-residual-gaps)
-- [Repository layout](#repository-layout)
-- [Pre-existing components](#pre-existing-components)
-- [Licence](#licence)
-
----
+- **Understand:** [Who this is for](#who-this-is-for) · [How Strands is load-bearing](#how-strands-is-load-bearing) · [Architecture](#architecture) · [The rule the whole product turns on](#the-rule-the-whole-product-turns-on)
+- **Try it:** [Try it without installing anything](#try-it-without-installing-anything) · [What the demo shows](#what-the-demo-shows)
+- **Run it yourself:** [Quickstart](#quickstart) · [Bring your own record](#bring-your-own-record) · [Running against Amazon Bedrock](#running-against-amazon-bedrock)
+- **Verify:** [The numbers, and the commands that produce them](#the-numbers-and-the-commands-that-produce-them)
+- **Deploy:** [What is deployed, and what it costs](#what-is-deployed-and-what-it-costs)
+- **Disclosures:** [What it will not do](#what-it-will-not-do) · [The demo corpus is synthetic](#the-demo-corpus-is-synthetic) · [Assurance and residual gaps](#assurance-and-residual-gaps) · [Documentation](#documentation) · [Pre-existing components](#pre-existing-components) · [Licence](#licence)
 
 ## Who this is for
 
 A **script supervisor** on a shoot day, with the **1st AD** as the second reader.
 
-Not film crews, not production teams, not creators. One person, one afternoon, one
-decision: is this scene safe to wrap, and if not, what exactly is missing and who can
-fix it while the set is still standing.
+Not film crews, not production teams, not creators. One person, one afternoon, one decision: is this scene ready to wrap, and if not, what exactly is missing and who can fix it while the set is still standing.
 
-## Own workflow requirements
+At the end of a shoot day the evidence needed to judge whether a scene is ready to wrap sits in seven places owned by five departments: the current script revision, the shot plan, the captured takes, the supervisor's notes, the camera and sound reports, the continuity references, and the rights ledger. Nobody holds all of it at once. The task is to make missing or conflicting records visible while a human can still review them. No observed time saving, avoided pickup cost or production benefit is claimed.
 
-A supplied take must not manufacture its own camera report. Every current required check must have admissible evidence. Current authorized decisions are selected consistently by the UI, deterministic gate and receipt. A wrap approval binds the exact package and review digest shown to the 1st AD. The latest pending or declined wrap review supersedes earlier authority while preserving its historical receipt.
+## How Strands is load-bearing
 
-## The problem
+Remove the Strands Agents SDK and four things disappear at once: the orchestration loop, the tool calls, the two human approvals, and the resume that makes an overnight approval possible. What is left is a script that cannot stop and wait for a person.
 
-At the end of a shoot day the evidence needed to judge whether a scene is ready to wrap
-sits in seven places owned by five departments: the current script revision, the shot
-plan, the captured takes, the supervisor's notes, the camera and sound reports, the
-continuity references, and the rights ledger. Nobody holds all of it at once.
+The capability the product is built on is **interrupt and resume across process death**:
 
-The task is to make missing or conflicting records visible while a human can still review them. No observed time saving, avoided pickup cost or production benefit is claimed.
+- Inside a terminal tool, `ToolContext.interrupt(name, reason=...)` stops the run, and the agent returns `stop_reason` of `interrupt`.
+- A session manager saves the paused run: `FileSessionManager` offline, `S3SessionManager` on Lambda, where `/tmp` does not survive the night.
+- A **different process**, hours later, calls the agent with an `interruptResponse`, and the run continues from the same point.
+
+On a set this is not academic. The checkpoint finds a coverage gap at 23:10 as the crew is wrapping. The 1st AD is not looking at a screen. They approve at 06:40 before the first setup, and the run resumes across a process that no longer exists.
+
+**The flow, from question to governed write and back**
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant RQ as CLI or API route
+    participant OR as Orchestrator (Strands)
+    participant CK as Four checks
+    participant GA as Deterministic gate
+    participant AD as 1st AD
+    participant EV as Event bus
+
+    RQ->>EV: scene.wrap-checkpoint.requested, recorded
+    RQ->>OR: start the checkpoint run
+    Note over RQ,EV: The request records the event, then starts the orchestrator itself.<br/>No EventBridge rule or subscriber routes events today.
+    OR->>CK: run every required check
+    CK-->>OR: findings, each citing<br/>a source digest
+    OR->>GA: evaluate
+    GA-->>OR: not eligible, 4 causes, one per check
+    OR->>AD: request_pickup_approval(B-17)
+    Note over OR,AD: The run STOPS. The process exits.<br/>23:10, the crew is wrapping.
+    AD-->>OR: approved
+    Note over OR,AD: 06:40 the next morning.<br/>A different process resumes here.
+    OR->>EV: pickup.requested (idempotent, with receipt)
+    RQ->>CK: a late take or release reruns its listed checks
+    Note over RQ,CK: Inside the API route, without the orchestrator.
+    RQ->>EV: take.captured or rights.record.updated
+    RQ->>GA: evaluate again, after the role decisions
+    GA-->>AD: wrap.eligible with the gate's counts,<br/>not the headline sentence
+    AD->>OR: approve wrap
+    OR->>EV: wrap.ready, which nothing subscribes to
+    AD->>RQ: Publish approved turnover (POST /api/turnover)
+    RQ->>EV: turnover.generated by publish_turnover, sealed and verifiable
+```
+
+How this is proved:
+
+- The ci.yml job "interrupt survives process death" runs `lasttake checkpoint` and `lasttake approve --yes --hours 7.5` as two separate `run:` steps, which are two operating system processes. It then deletes `.lasttake/sessions`, requires `lasttake approve --yes` to fail, and prints "NEGATIVE CONTROL HELD: with the session wiped, there is nothing to resume." No step compares the two process ids.
+- Every dispatched backend deploy fires the checkpoint in one HTTP request, retires every warm Lambda container with a configuration change, approves in a second request, and asserts `c1 != c2`. A run where Lambda reused a container fails the deploy.
+
+**One design constraint this forced.** On resume the tool body re-enters from its first line and `interrupt()` returns the stored answer: a replay, not a frozen stack frame. So every approved action puts its external call after the interrupt, behind an idempotency key derived from the event payload; placed before it, the call would run twice. See [`src/lasttake/agents/tools.py`](src/lasttake/agents/tools.py), and [docs/strands-interrupt-resume.md](docs/strands-interrupt-resume.md) for the CI steps and the historical Lambda run.
+
+## Architecture
+
+The required diagram is a file of its own, [`docs/architecture.svg`](docs/architecture.svg), so it can be opened and downloaded without this README around it.
+
+<img src="docs/architecture.svg" width="100%" alt="LastTake architecture: a React workspace served from S3 through CloudFront calls the API through API Gateway; a wrap checkpoint request starts an orchestrator on Lambda, four bounded checks read the bundled scene package plus S3 amendments and write sealed findings to Aurora DSQL, a deterministic gate with no model in it combines them, two material transitions suspend the run for a named human, an approved pickup or wrap publishes to EventBridge, and a separate request seals a versioned turnover for editorial.">
+
+An interpreter answers exactly two language questions: does this take plausibly contain this beat, and do these two notes describe the same physical state. Identifier equality (media identifier, lens and camera roll against the camera report), SHA-256 comparison of cited artifacts and sealed records, and counting are done in code, not by a model. No timecode arithmetic is performed; timecodes are copied into observation text, never parsed.
+
+The system view, the eight tools and the repository layout are in [docs/how-it-works.md](docs/how-it-works.md). Every deployed resource and both release paths are in [docs/infrastructure.md](docs/infrastructure.md).
+
+## The rule the whole product turns on
+
+**It never infers a pass from absent evidence.** Absent evidence is a finding.
+
+There are four truth states and there is no fifth. `verified`, `missing`, `conflicting`, `unknown`. Three of those are exceptions. There is no `pass`, no `clear`, no `safe`, and a test asserts there never will be.
+
+The gate that combines them contains no model call, no heuristic and no randomness. It fails closed in every direction, and each of these has a test that tries to make it fail open:
+
+- a check that produced no result is a missing result, not a pass
+- a check that produced two results is a contradiction, not a pass
+- a finding that cites a source whose digest has since changed is discarded, not reused
+- a finding whose seal does not verify is discarded
+- a finding written under a different policy version is discarded
+- a decision bound to an older seal of its finding no longer counts
+- an exception no authorised human has looked at is not a pass
+- a decision taken by the wrong role is not weak evidence, it is no evidence
+
+The last one is a table, not an `if`. A DIT may resolve a media identity question and may not accept a rights exception. Nobody at all may accept away a missing release, including the role that owns rights, because that decision belongs to production and counsel and not to this system.
 
 ## Try it without installing anything
 
 [LastTake on AWS](https://d3kf6hquzlli8g.cloudfront.net/). No account or install is required for the fictional demo.
 
-1. Press **Start this fictional shoot day**, then **Run wrap checkpoint**. Scene review shows the lined script, the takes and the current exceptions; the wrap board above them carries the count.
-2. Inspect sources and select **1st AD** to answer the saved pickup request. Reloading restores the real Strands interrupt. A pickup request does not approve wrap.
-3. Open the guided demo and **Add take or release**. **Try valid take** fills editable fields. **Try refused date** supplies an impossible expiry date and must return HTTP 400 with no amendment. **Try corrected date** reuses that identifier with a valid date; edit before submitting. A missing independent camera report remains missing.
-4. Review the current continuity and metadata exceptions under their responsible roles. Review wrap readiness, request wrap approval, and answer the exact saved review as the 1st AD.
-5. Open Handoff to inspect delivery status, save a turnover when authorized, and prepare JSON or human-readable evidence. A bus-accepted receipt is not proof of downstream completion. Pending or unknown outcomes require reconciliation; only definite rejection offers an explicit retry.
+1. Press **Start this fictional shoot day**, then **Run wrap checkpoint**. **Scene review** shows the lined script, the takes and the current exceptions, with the count above them. Missing evidence stays missing.
+2. Select **1st AD** and answer the saved pickup request. Reloading restores the real Strands interrupt, and a pickup does not approve wrap. Press **Open guided demo**, then **Add take or release**: **Try refused date** must return HTTP 400 and write nothing, and a continuity decision goes stale when a take changes its sources.
+3. Review continuity as the script supervisor and T-013 as the DIT, each with a reason. As the 1st AD, press **Review wrap readiness** and **Request wrap approval**, inspect the package fingerprint, and approve or decline.
+4. In **Handoff**, press **Publish approved turnover**, set **Receipt purpose** to **Wrap review**, and press **Prepare receipt**. A bus-accepted receipt is not proof of downstream completion.
 
-Policy 1.1 requires a fresh checkpoint for older findings. The page names that reason and retains old history. Decline any old pending request before running a fresh checkpoint; an unbound historical response cannot approve new evidence.
+Policy 1.1 requires a fresh checkpoint for older findings, and the page names that reason. Every click, refusal and date example is in [docs/workspace-guide.md](docs/workspace-guide.md).
+
+## What the demo shows
+
+One fictional shoot day, made messy on purpose. Six things are wrong with it and each exercises a different part of the pipeline.
+
+| What is wrong | Which check finds it | Who it goes to |
+|---|---|---|
+| B-17 was added in the Blue revision and never made the shot plan, so no camera rolled | coverage | script supervisor |
+| Shot `S-42C-ORPHAN` plans for a beat the revision cut | coverage, advisory only | script supervisor |
+| Two takes of B-23 are both flagged preferred and the mug does not match | continuity | script supervisor |
+| T-013's media identifier does not match the camera report row | metadata | DIT |
+| BG-07 is visible in a take and has no release record | rights | production coordinator |
+| A late take arrives after the checkpoint | targeted rerun | nobody, the checks listed for a new take rerun |
+
+Note the fourth row. T-013 has a real problem, and beat B-11 is still **covered**, because a second take of it is clean. A beat is covered when at least one take of it is usable, reconciles with the camera report, carries no unresolved continuity conflict, and has every subject released. Treating "some take has a problem" as "the beat is missing" would report footage as absent that is sitting on the card.
 
 ## Quickstart
 
-Prerequisites: Python 3.11 or newer, and git. No AWS account and no credential is needed
-for the offline path below, which exercises the real checks, the real gate, the real
-approvals and the real turnover.
+Prerequisites: Python 3.11 or newer, and git. No AWS account and no credential is needed for the offline path below, which exercises the real checks, the real gate and the real pickup approval. No CLI command requests wrap approval or publishes a turnover.
 
 ```bash
 git clone https://github.com/upgradedev/lasttake-aws.git
@@ -249,16 +150,15 @@ cd lasttake-aws
 python -m pip install -e ".[dev]"
 ```
 
-The commands below document the offline CLI. Repository validation for this change runs only in GitHub Actions.
+The ci.yml job "interrupt survives process death" runs the checkpoint, approval, late take, release and event-log commands below as separate processes on pushes and pull requests.
 
-**Step 1. A wrap checkpoint fires.** No button is pressed; an event arrives.
+**Step 1. Run a wrap checkpoint.** The command records the checkpoint event, then starts the orchestrator itself.
 
 ```bash
 lasttake checkpoint
 ```
 
-Expected: the four checks and deterministic gate run, the count prints, and the run **stops** with a pickup
-request waiting for the 1st AD. The process then exits.
+Expected: the four checks and the deterministic gate run, the count prints, and the run **stops** with a pickup request waiting for the 1st AD. The process then exits.
 
 ```
 Of 34 required beats, 31 covered with evidence, 2 raising exceptions with named
@@ -269,39 +169,38 @@ sources, 1 with no release record and routed to production.
   what: pickup on B-17
 ```
 
-**Step 2. The 1st AD answers, in a different process.** This is the part that matters.
-The first process is gone. Run this now, or tomorrow morning.
+**Step 2. The 1st AD answers, in a different process.** The first process is gone. Run this now, or tomorrow morning.
 
 ```bash
 lasttake approve --yes
 ```
 
-Expected: a new process picks the run up from exactly where it stopped, the tool that was
-waiting finishes, and the bus response is reported with its receipt. This does not establish a downstream action.
+Expected: a new process picks the run up from exactly where it stopped, the waiting tool finishes, and the bus response is reported with its receipt. This does not establish a downstream action.
 
-**Step 3. A late take arrives, and only the affected checks rerun.**
+**Step 3. A late take arrives.** Every check cites the takes document, so all four rerun.
 
 ```bash
 lasttake late-take --beat B-17
 ```
 
-**Step 4. Production supplies the missing release.**
+**Step 4. Production supplies the missing release.** Only rights reruns.
 
 ```bash
 lasttake resolve rights --subject BG-07
 ```
 
-Expected: `Affected checks: rights.` Coverage, continuity and media identity keep their
-results rather than being recomputed.
+Expected: `Affected checks: rights.` Straight after Step 2, the other findings keep their results and the gate admits them. After Step 3, `resolve` rebuilds the package without the late take T-041, so the gate stops admitting the coverage, continuity and metadata findings from Step 3, and B-17 prints as `no_viable_coverage` again.
 
-**Step 5. Read the event log, and verify any turnover packet.**
+**Step 5. Read the event log, and verify a turnover manifest.**
 
 ```bash
 lasttake events
 ```
 
+No CLI step writes a turnover. **Download turnover** on the workspace's **Handoff** page saves `<run id>-turnover.json`. Save it as `turnover.json`, and this re-hashes it against its own seal:
+
 ```bash
-lasttake verify .lasttake/artifacts/turnover/run-sc042-wrap-checkpoint.json
+lasttake verify turnover.json
 ```
 
 Run the test suite, including the gate's own failure proofs:
@@ -310,210 +209,11 @@ Run the test suite, including the gate's own failure proofs:
 python -m pytest --cov --cov-report=term-missing
 ```
 
-## What the demo shows
-
-One fictional shoot day, made messy on purpose. Six things are wrong with it and each
-exercises a different part of the pipeline.
-
-| What is wrong | Which check finds it | Who it goes to |
-|---|---|---|
-| B-17 was added in the Blue revision and never made the shot plan, so no camera rolled | coverage | script supervisor |
-| Shot `S-42C-ORPHAN` plans for a beat the revision cut | coverage, advisory only | script supervisor |
-| Two takes of B-23 are both flagged preferred and the mug does not match | continuity | script supervisor |
-| T-013's media identifier does not match the camera report row | metadata | DIT |
-| BG-07 is visible in a take and has no release record | rights | production coordinator |
-| A late take arrives after the checkpoint | targeted rerun | nobody, it just works |
-
-Note the fourth row. T-013 has a real problem, and beat B-11 is still **covered**, because
-a second take of it is clean. A beat is covered when at least one take of it is usable,
-reconciles, carries no unresolved continuity conflict, and has every subject released.
-Conflating "some take has a problem" with "the beat is missing" would report a scene as
-short of footage that is sitting on the card.
-
-## Architecture
-
-The required diagram is a file of its own, [`docs/architecture.svg`](docs/architecture.svg), so it
-can be opened, downloaded and read without this README around it. The Mermaid sources below are the
-same system in two other cuts, the system view and the sequence from question to governed write.
-
-<img src="docs/architecture.svg" alt="LastTake architecture: a React workspace served from S3 through CloudFront calls the API through API Gateway; a wrap checkpoint reaches an orchestrator on Lambda, four bounded checks read immutable artifacts from S3 and write sealed findings to Aurora DSQL, a deterministic gate with no model in it combines them, two material transitions suspend the run for a named human, and an approved action publishes to EventBridge and seals a versioned turnover for editorial." width="100%">
-
-
-```mermaid
-flowchart LR
-    subgraph sources["Immutable sources, content addressed"]
-        A1["script revision"]
-        A2["shot plan"]
-        A3["takes"]
-        A4["camera and sound reports"]
-        A5["continuity references"]
-        A6["rights ledger"]
-    end
-
-    E(["scene.wrap-checkpoint.requested"]) --> ORCH
-
-    subgraph strands["Strands Agents SDK"]
-        ORCH["Orchestrator agent<br/>launches runs, decides nothing"]
-        ORCH --> C1["Coverage check"]
-        ORCH --> C2["Continuity check"]
-        ORCH --> C3["Metadata integrity check"]
-        ORCH --> C4["Rights and consent check"]
-    end
-
-    sources --> C1 & C2 & C3 & C4
-    C1 & C2 & C3 & C4 --> F["Findings<br/>sealed, source cited, four truth states"]
-    F --> G{{"Deterministic eligibility gate<br/>no model, versioned policy, fails closed"}}
-    G -->|"exceptions"| H["Role-specific human review"]
-    G -->|"wrap.eligible"| AD["1st AD"]
-    H --> AD
-    AD -->|"approves, through a real tool"| T["Turnover service"]
-    T --> ED["Editorial<br/>versioned, sealed, re-hashable"]
-
-    C1 -.->|"bounded interpretation only"| B["Amazon Bedrock"]
-    C2 -.-> B
-```
-
-The dotted lines matter. A model is used for exactly two questions, both of them language
-questions: does this take plausibly contain this beat, and do these two notes describe the
-same physical state. Identifier equality, timecode arithmetic, checksum comparison and
-counting are done in code, because a model that is bad at arithmetic and expensive at it
-is the worst of both.
-
-### The flow, from question to governed write and back
-
-```mermaid
-sequenceDiagram
-    autonumber
-    participant EV as Event
-    participant OR as Orchestrator (Strands)
-    participant CK as Four checks
-    participant GA as Deterministic gate
-    participant AD as 1st AD
-    participant TU as Turnover
-
-    EV->>OR: scene.wrap-checkpoint.requested
-    OR->>CK: run every required check
-    CK-->>OR: findings, each citing a source digest
-    OR->>GA: evaluate
-    GA-->>OR: not eligible, 4 causes, one per department
-    OR->>AD: request_pickup_approval(B-17)
-    Note over OR,AD: The run STOPS. The process exits.<br/>23:10, the crew is wrapping.
-    AD-->>OR: approved
-    Note over OR,AD: 06:40 the next morning.<br/>A different process resumes here.
-    OR->>EV: pickup.requested (idempotent, with receipt)
-    EV->>OR: take.captured, then rights.record.updated
-    OR->>CK: rerun ONLY the affected checks
-    OR->>GA: evaluate
-    GA-->>AD: wrap.eligible, with the count
-    AD->>OR: approve wrap
-    OR->>TU: wrap.ready
-    TU-->>EV: turnover.generated, sealed and verifiable
-```
-
-## How Strands is load-bearing
-
-Remove the Strands Agents SDK and four things disappear at once: the orchestration loop,
-the tool calls, the two human approvals, and the resume that makes an overnight approval
-possible. What is left is a script that cannot stop and wait for a person.
-
-The specific capability the product is built on is **interrupt and resume across process
-death**. Inside a terminal tool, `ToolContext.interrupt(name, reason=...)` stops the run.
-The agent returns `stop_reason` of `interrupt`. A session manager writes the paused run to
-storage. A **different process**, hours later, calls the agent with an `interruptResponse`
-and the run continues from the same point.
-
-**Historical cross-process evidence; not acceptance of the current patch.** On a Lambda, `/tmp` does not
-survive the gap between 23:10 and 06:40, so the sessions live on `S3SessionManager`. The
-deploy pipeline fires the checkpoint in one HTTP request, then **retires every warm
-container** with a configuration change, then approves in a second request, and asserts the
-two were served by different processes:
-
-```
-=== request 1 of 2: fire the checkpoint ===
-Of 34 required beats, 31 covered with evidence, 2 raising exceptions with named
-sources, 1 with no release record and routed to production.
-stopped for: first_ad on B-17
-served by container 5783cd7e
-
-=== between the two: force a new execution environment ===
-every warm container has been retired
-
-=== request 2 of 2: a separate invocation approves ===
-Pickup approved for B-17 by the 1st AD and routed to the assistant director's board.
-container that stopped the run:  5783cd7e
-container that resumed it:       0310464e
-```
-
-The transcript above is retained as historical output. Its old “routed to the board” wording did not prove downstream delivery. Current tools report bus acceptance explicitly.
-
-The assertion is `c1 != c2`, so a run where Lambda happened to reuse a container fails the
-pipeline rather than quietly passing on a weaker claim.
-
-On a set this is not academic. The checkpoint finds a coverage gap at 23:10 as the crew is
-wrapping. The 1st AD is not looking at a screen. They approve at 06:40 before the first
-setup, and the run resumes across a process that no longer exists.
-
-Proved in CI as two separate `run:` steps, which is two separate operating system
-processes, plus a negative control that wipes the session and asserts the resume fails:
-
-```
-=== START process, pid 2378 ===
-[pid 2378] stop_reason = 'interrupt'
-=== START process exiting, pid 2378 is now dead ===
-=== APPROVE process, pid 2387 ===
-PASS: the tool STARTED in pid 2378 and FINISHED in pid 2387
-NEGATIVE CONTROL HELD: with the session wiped, resume fails.
-```
-
-**One design constraint this forced, found before the build rather than during it.** On
-resume the tool body re-enters from its first line and `interrupt()` returns the stored
-answer. It is a replay, not a frozen stack frame. So anything with a side effect placed
-before the interrupt runs twice. Every approved action in this repository puts its
-external call after the interrupt, behind an idempotency key derived from the event
-payload. See `src/lasttake/agents/tools.py`.
-
-## The rule the whole product turns on
-
-**It never infers a pass from absent evidence.** Absent evidence is a finding.
-
-There are four truth states and there is no fifth. `verified`, `missing`, `conflicting`,
-`unknown`. Three of those are exceptions. There is no `pass`, no `clear`, no `safe`, and a
-test asserts there never will be.
-
-The gate that combines them contains no model call, no heuristic and no randomness. It
-fails closed in every direction, and each of these has a test that tries to make it fail
-open:
-
-- a check that produced no result is a missing result, not a pass
-- a check that produced two results is a contradiction, not a pass
-- a finding written against an older package revision is discarded, not reused
-- a finding whose seal does not verify is discarded
-- an exception no authorised human has looked at is not a pass
-- a decision taken by the wrong role is not weak evidence, it is no evidence
-
-The last one is a table, not an `if`. A DIT may resolve a media identity question and may
-not accept a rights exception. Nobody at all may accept away a missing release, including
-the role that owns rights, because that decision belongs to production and counsel and not
-to this system.
-
-## What each rule is worth, measured by removing it
-
-These are synthetic protocol probes, not measurements of human work or model correctness. Run `PYTHONPATH=src python tools/ablation.py` on CI; it prints a new result without overwriting historical records.
-
-The seal probe edits a record and compares rejection with an explicitly resealed input. The staleness probe carries old findings, then measures actual gate admission: restamping a package revision does not update its cited source digests. **Carried stale records are not admitted stale records.** The model-outage probe checks the direction of failure under unavailable interpretation.
-
-`docs/ablation.json` preserves earlier output and an appended correction. Its earlier stale-admission wording was not supported by an actual gate evaluation. New tests require the actual counter and retain stale-source refusal.
-
 ## Bring your own record
 
-The demo used to have two buttons that wrote a take and a release for you. They
-showed the targeted rerun honestly enough, but nobody could put their own scene
-through it, which made this a fixture with a play button. It takes a document now.
+The page and the API take a take or release document you write.
 
-For a session-owned run, replace both placeholders below: `run_id` is returned by
-`POST /api/reset` using your `session_id`, and `session_id` is the private handle
-returned by `POST /api/session`. Keep that handle private; it grants access to your
-saved runs. Do not put it in shared examples, screenshots or logs.
+For a session-owned run, replace both placeholders below: `run_id` is returned by `POST /api/reset` using your `session_id`, and `session_id` is the private handle returned by `POST /api/session`. Keep that handle private; it grants access to your saved runs. Do not put it in shared examples, screenshots or logs.
 
 ```bash
 curl -s -X POST "$URL/api/ingest" -H 'content-type: application/json' -d '{
@@ -532,284 +232,42 @@ curl -s -X POST "$URL/api/ingest" -H 'content-type: application/json' -d '{
 }'
 ```
 
-An owned run refuses a missing handle or a handle from another session with HTTP
-403. Legacy unowned demo runs still accept their `run_id` without `session_id`;
-omit that field for those runs. Omitting it never unlocks a session-owned run.
+An owned run refuses a missing handle or a handle from another session with HTTP 403. Legacy unowned demo runs still accept their `run_id` without `session_id`; omit that field for those runs. Omitting it never unlocks a session-owned run.
 
-`kind` is `take` or `rights_record`. A document that does not match the shape is refused before
-anything is written, and the refusal names the missing and the unexpected fields rather than
-failing quietly. The page carries an editable example of each, so a visitor edits a record rather
-than reading a schema.
+`kind` is `take` or `rights_record`. A document that does not match the shape is refused before anything is written, and the refusal names the missing and the unexpected fields.
 
-What happens next is the part worth watching. The document becomes a package amendment, the
-amended package produces new digests, and **the checks that read the artifact that moved run
-again**. A take moves the takes document, which all four checks read, so all four rerun. A release
-moves only the ledger, so only rights does. That narrowing is derived from which bytes changed and
-never from a table asserting it.
+The document becomes a package amendment with new digests. The `AFFECTED_CHECKS` table in `src/lasttake/domain/events.py` picks the checks to rerun: a take reruns all four, because every check cites the takes document, and a release reruns only rights. The gate separately discards any finding whose cited source digests moved, so a check left out of the table would show as a missing current result, not as a pass.
 
-### An approval does not survive the evidence it was about
+A decision carries the digest of the finding it was about, so when an amendment moves that evidence the decision stops applying and the ingest response lists what was withdrawn. Shape, limits and the full rerun story are in [docs/bring-your-own-record.md](docs/bring-your-own-record.md).
 
-A human decision used to bind to a finding **id**, and ids are deterministic: `run:con:CR-01` is
-the same string before and after a rerun. So a supervisor could accept the mug conflict as
-intentional, a take could arrive that changed the continuity evidence completely, the finding
-would be recomputed under the same id, and the old acceptance would still close it. Nobody would
-have looked at the new facts and nothing would say so.
+## Running against Amazon Bedrock
 
-A decision now carries the seal of the reading it was taken about. When the evidence moves the
-digest changes, the decision stops applying, and the ingest response lists what was withdrawn and
-why. Legacy decisions without a finding digest remain in history but no longer authorize a current finding. The UI marks them as requiring another review; neither the API nor CLI creates new unbound decisions.
+The offline path uses a lexical stand-in for the two bounded interpretations. New finding records serialize `model_id` when an interpretation is present; older records without that field remain unknown.
 
-### What each chair is actually holding, and what leaves the building
-
-Above the exception cards the page answers the three questions a script supervisor has on
-the floor and a 1st AD has at the truck: what do I do, who owns it, and where did it come
-from. One line per item, in the order the cost falls, with no finding ids and no agent
-trace. Which items are yours is read from the same authority table the deterministic gate
-enforces, so moving a check to a different role moves the summary without anyone editing
-it.
-
-Beside it is a sealed receipt a person can copy into a production email. It is the packet
-designed to be read away from this page, so it carries its own context: the run, the scene,
-the script revision, the package digest, the policy version, its own SHA-256, and every
-still-open item with its responsible role, next action and source digests.
-
-An accepted exception travels in that list. Somebody signed for it, which does not make it
-fixed, and a receipt that quietly dropped it is how an approved problem reaches the edit as
-a surprise. The packet also states what it does **not** say: it is not a statement that the
-scene is creatively complete, cleared in law, or safe to wrap, and absent evidence in it is
-a gap rather than a pass.
-
-## Four kinds of input, and what the pipeline does with each
+To use a real model, ask your own account what it can invoke rather than trusting a string in a source file. This lists the Anthropic foundation models and cross-region inference profiles the credentialed account can reach, in its own configured region:
 
 ```bash
-PYTHONPATH=src python tools/evaluation_cases.py
+lasttake doctor --bedrock
 ```
 
-| Input | What happens |
-|---|---|
-| **correct**, a take that covers the uncovered beat | B-17 goes from `no_viable_coverage`, basis `insufficient_evidence`, to `covered_with_evidence`, basis `corroborated_by_the_interpreter` |
-| **incomplete**, the same take with no slate | refused before anything is written, naming `slate` |
-| **conflicting**, a camera report naming a different card | `media_identity_exception`, basis `declared_by_the_production`. The only take does not reconcile, so the beat is not covered |
-| **changed**, evidence moving under an approval already given | the acceptance stops applying: `resolved=True` becomes `resolved=None` |
-
-It runs offline with no account and no credential, because the local adapters implement the same
-ports the deployed build uses. A test pins all four so they cannot drift.
-
-**These are our cases, scored by our pipeline.** That is a description of behaviour under four
-kinds of input. It is not an evaluation of judgement quality against labelled ground truth, and
-**no practising script supervisor has run any of it**. The trial that would matter is whether a
-supervisor finds the evidence available before wrap and the reconciliation work actually reduced.
-That has not happened, and nothing here should be read as though it had.
-
-### Text interpretation evidence: source preparation, not model accuracy
-
-The fixed [16-case protocol](docs/model-evidence-protocol.json), [supplied text](docs/model-evidence-cases.json)
-and [separate gold labels](docs/model-evidence-gold.json) were committed before the
-instrument. These are assistant-authored synthetic development cases, not held-out
-research data or practitioner labels. Only supplied notes and text descriptions
-are interpreted. There is no footage/audio analysis or creative/legal judgement.
-
-Future integration must preserve preregistration commit
-`c0593b9e5c464f7b3cdb5574aece7ff8aabb71ba` as an ancestor: use a merge preserving
-history, not squash or rebase. CI checks that ancestry and the frozen input hashes.
-Do not rewrite the preregistration or relax the check to accommodate integration.
-
-Source CI first runs malformed/unsafe-response, missing-slot, interrupted-write,
-wrong/stale request-binding and metric-denominator controls. It then runs:
+The default, `global.anthropic.claude-sonnet-5`, was verified by invocation on 2026-08-22 against one account, which is not the same as verified against yours. Set the one `doctor` printed and run any command with `--bedrock`:
 
 ```bash
-python tools/model_evidence.py --output source-evidence/model-evidence
+export LASTTAKE_BEDROCK_MODEL_ID=<an id that doctor printed>
+lasttake checkpoint --bedrock
 ```
 
-The fresh output directory contains the existing lexical interpreter's raw outputs,
-all 16 future-model slots marked `UNRUN`, the existing bounded Bedrock prompts and
-schemas captured without constructing a model, source/request/response hashes,
-and fixed capture, false-positive, false-exception and abstention denominators.
-Gold never enters the prompts. Failed/unrun attempts are not dropped or replaced;
-malformed responses are failures, not successful abstentions. The question-level
-ruler is not the complete production eligibility policy. No model quality threshold
-or independent accuracy claim is attached to these development results.
+Every dispatched backend deploy runs a full checkpoint through `BedrockInterpreter` on the GitHub runner, so `BedrockModel` plus `agent.structured_output` is exercised rather than described.
 
-`--replay <already-captured.json>` reads inert structured responses only, with exact
-protocol and request bindings. It retains original bytes even when refusing them;
-hashes bind bytes, not model origin. Tests use explicitly labelled fake responses.
-The [spent-evidence inventory](docs/model-evidence-inventory.json) found no complete,
-comparable raw semantic cohort in its bounded inspection: two latest successful
-deploy runs list no artifacts, and the newest log retains counts, one truncated
-rationale and a separate connectivity-only `OK` response. None establishes accuracy.
+The deployment checks that required beats remain 34 and that bounded model interpretation does not raise covered beats above the offline baseline. It also requires real model-touched coverage and continuity findings and confidence below 1.0. It does **not** require Bedrock to reproduce the offline 31 covered beats: the dated observation in the numbers section below was 19 of 34. Model identifiers in exported findings come only from their serialized records.
 
-Real-model evaluation remains `NOT_RUN`; LT2/C1 is not closed. The frozen offline
-instrument is unchanged. The separate bounded collector below prepares a future
-owner-activated cohort. Unrecorded model usage/cost and runner/infrastructure cost
-remain `UNKNOWN`; zero model calls describes only offline execution.
+The hosted HTTP demo always runs offline, with no Bedrock switch.
 
-### Bounded collector preparation: evaluation only, not production Strands
-
-`tools/bounded_model_evidence.py` wraps the frozen requests and offline replay.
-Source CI runs fake full-flow, budget/binding denial, malformed response, interrupted
-call and immutable raw-retention controls before this credential-free export:
-
-```bash
-python tools/bounded_model_evidence.py export --output source-evidence/bounded-export
-```
-
-The artifact contains every exact SDK request, per-case serialized ASCII byte size,
-request/config/protocol/source hashes, input-token reservation, fixed 512 output
-ceiling, reference worst-cost arithmetic and an invalid `NOT_AUTHORIZED` grant
-template. It is not a measurement or authority to spend. The separate supervisor
-below adds an inactive live-capable job, not app changes, IAM setup or deployment.
-
-The candidate is `eu.anthropic.claude-opus-5`, region `eu-west-1`, with thinking
-disabled, one forced `record_opinion` tool result and at most one plain Converse
-request for each of the 16 frozen cases. System/user prompts, schemas, gold,
-thresholds, evaluator bytes and preregistration ancestry stay unchanged. Plain
-Converse does not exercise the production Strands structured-output orchestration;
-this transport/config difference prevents a production-adapter equivalence claim.
-There is no tool execution, repair, retry, fallback, warmup or replacement sample.
-The SDK has `total_max_attempts=1`, 5-second connect and 30-second read timeouts;
-the driver checks a 900-second process bound and grant expiry before each call.
-
-Input tokens are conservatively reserved as serialized ASCII request bytes plus
-4096 tokens for hidden model/tool framing, with a 16384-byte request ceiling. This
-counts the whole schema and escaped supplied text. It is an explicit reviewed
-assumption, not a provider-certified tokenizer bound or CountTokens measurement.
-The parent must accept this exact allowance or refuse activation. Actual usage
-above the bound, unknown usage, errors or expiry stop further calls. Reference
-rates 5.50/27.50 USD per million input/output tokens are illustrative geo pricing,
-not an active grant. Only exact positive finite Decimal rate strings in the
-parent's digest-bound grant can authorize the plan. The entire worst-case cohort
-must fit that app's allocated share before SDK initialization; the shared USD5
-pool is never inferred as LastTake's available balance.
-
-### Private supervisor: prepared, inactive, live verification NOT_RUN
-
-`tools/evaluation_runner.py` and the separate `evaluation-parent` job prepare the
-parent boundary around this collector. Push and pull-request CI export an inert
-plan and exercise injected fake GitHub/model responses only. They cannot activate
-that job. The frozen evaluator, requests and `e1a0901`/`c0593b9` ancestry remain.
-The supervisor and its AWS authority have not been exercised against live services.
-
-Activation requires a reviewed exact-source manual dispatch, a separately approved
-`lasttake-bounded-evaluation` environment with required reviewer protection, and a
-model-only OIDC role in `LASTTAKE_EVAL_ROLE_ARN`. None is provisioned by this code.
-No deploy keys or application role are a fallback. The inline session policy can
-only restrict an existing role; it cannot grant missing permission. Configure the
-exact plan-byte SHA256 as the **repository-level** variable
-`LASTTAKE_EVAL_APPROVED_PLAN_SHA256` so the job-level condition can inspect it.
-Keep this empty until the parent has reviewed the source, price, bound and authority.
-
-CI exports `supervisor-plan/plan-NOT_APPROVED.json`. A parent must supply all three
-source/request/config/protocol hashes, fixed dollar slices whose sum is at most
-USD5, reviewed token bounds, verified Decimal prices, one budget ID, exact future
-manual workflow run numbers and refs, and issue/expiry timestamps within one hour.
-The current run ID is bound by the supervisor after dispatch, not guessed in advance.
-An intervening run number change refuses activation and requires a fresh review.
-Changing whitespace in the approved JSON also invalidates its configured digest.
-
-This implementation consumes **LastTake's slice only**. Merismos and Archon must
-remain inactive until their runners consume their own slices from the same fixed
-parent plan. The sum check is not a deployed distributed budget controller, an AWS
-billing limit, or permission to give each application a fresh USD5 grant.
-
-Before AWS credentials, the supervisor verifies the actual private repository ID
-and creates one annotated reservation at `eval-reservations/<budget-id>/lasttake`.
-Duplicate, failed or uncertain ref creation never retries or refunds the slice.
-Before launching, it verifies the remote ref and tag payload, exact source, run
-and local grant; a create-only launch marker prevents duplicate child launches.
-GitHub tokens and OIDC request credentials are removed from the child environment.
-Repository administrators can alter Git refs: this is a cooperative trusted-runner
-record, **not WORM**, owner authentication or protection against privileged writers.
-No code here deletes or rewrites a reservation. Reference API contracts:
-[create a ref](https://docs.github.com/en/rest/git/refs#create-a-reference) and
-[create an annotated tag](https://docs.github.com/en/rest/git/tags#create-a-tag-object).
-
-The child command below illustrates the same collector boundary. **Do not invoke
-it directly to bypass the supervisor or its consumed reservation**:
-
-```bash
-timeout --signal=TERM --kill-after=5s 960s python tools/bounded_model_evidence.py collect --grant /private/grant.json --output /private/lasttake-cohort
-```
-
-The supervisor stops and reaps the child process group on timeout, SIGTERM or SIGINT;
-SIGKILL and a lost host cannot be caught. Its job is capped at 20 minutes.
-Only GitHub manual `workflow_dispatch`, run attempt 1 and matching grant/context
-are accepted. Before each call, the create-only journal fsyncs the reservation and
-full request; after it, the full SDK-decoded response is fsynced before semantic
-parsing. Each record also prints as a flushed base64 stdout backup. It preserves
-request IDs and usage, not just a rationale. These are SDK receipts, not original
-HTTP wire bytes or independently authenticated model origin. Request hashes are
-mechanical provenance, not model-authored citations. Unknown outcomes consume
-their entire worst reservation, with no refund or retry. All 16 failed/unrun slots
-remain in the frozen evaluator's denominators. Recorded usage-cost arithmetic is
-not an AWS bill; runner/infra cost and response-body byte count stay `UNKNOWN`.
-
-The normal exit seals an immutable `final/` copy and replays only those captured
-bytes through the frozen evaluator. If the process is killed, the parent must
-first terminate it, then run the following **offline** finalizer only if `final/`
-does not exist. The supervisor's offline `recover` also verifies the final seal;
-an incomplete final is preserved and replayed from raw into a fresh `recovery/`
-snapshot. An interrupted recovery is refused, never overwritten. Never rerun
-`collect`. Missing/corrupt denominator files retain
-available raw bytes, refusal report and hashes, without a successful summary:
-
-```bash
-python tools/bounded_model_evidence.py finalize --output /private/lasttake-cohort
-```
-
-The prepared job uploads the journal and `final/` with `if: always()`, even on
-failure. A fully lost or forcibly cancelled runner can still lose artifacts or
-unflushed service logs; stdout backup is not a durability guarantee. Reference contracts:
-[Converse](https://docs.aws.amazon.com/boto3/latest/reference/services/bedrock-runtime/client/converse.html),
-[single SDK attempt](https://docs.aws.amazon.com/botocore/latest/reference/config.html),
-[model profile](https://docs.aws.amazon.com/bedrock/latest/userguide/model-card-anthropic-claude-opus-5.html),
-[pricing to re-verify before grant](https://platform.claude.com/docs/en/about-claude/pricing).
-
-## What "covered" rests on, and why two readers count differently
-
-`[PRIMARY]` 2026-09-08, deploy run 34195514875, which runs `lasttake checkpoint --bedrock` on the
-deployed role and prints the count.
-
-| Interpreter | Covered, of 34 |
-|---|---|
-| `offline-lexical/1.0.0`, which the live URL runs | **31** |
-| `bedrock:global.anthropic.claude-sonnet-5` | **19** |
-
-Neither count establishes correctness without labelled ground truth. "Covered" was one word doing four
-jobs, so the outcome now carries **what it rests on**, and the same run reports both:
-
-| Basis | What it means | offline | model unreachable |
-|---|---|---|---|
-| declared by the production | a take names this beat. The people who were there said so | 2 | 33 |
-| corroborated by the interpreter | a second reader agrees the take contains the beat | **31** | 0 |
-| confirmed by a named human | the role that owns the check said so. This outranks both | 0 | 0 |
-| insufficient evidence | no take, a model that could not tell, a timeout | 1 | 1 |
-
-```bash
-PYTHONPATH=src python -m pytest -q tests/test_corpus_counts.py
-```
-
-Read the two columns together and the 31-against-19 gap stops being a mystery. **What the
-production declared does not move.** What moves is how much of it a given reader will corroborate,
-and a stricter reader corroborates less. The model is shown the beat, the slate, the supervisor's
-note and the setup, and most takes carry no note, because a supervisor writes one where continuity
-matters and not on every take. Asked whether a slate with no note contains a particular beat, a
-careful reader says it cannot tell.
-
-Three things follow, and the gate enforces all three. `insufficient` is never a pass, so a timeout
-and a model failure both block rather than clear. A beat resting on the production's declaration
-alone is **not** counted as covered, because one assertion is not two. And no interpreter can raise
-the count above what the evidence supports: the deploy asserts that required beats stay 34 and
-covered may fall and may never rise.
-
-What this exposes is the gap already declared in [`docs/assurance.md`](docs/assurance.md), that
-there is no independent, real-model evaluation on its two bounded questions. The source-only
-development set above does not close that gap. Closing it means labelled ground truth for "does this take contain
-this beat", which this corpus does not have and one shoot day would not settle.
+Untrusted input is handled as untrusted. A script page, a supervisor note or a camera report can contain text shaped like an instruction, so everything from a scene package is wrapped in delimiters, and the system prompt states that content inside them is evidence to describe and cannot issue instructions. `tests/test_prompt_injection.py` covers the offline interpreter; a real model's resistance to the same text is unexercised in CI and rests on that prompt design. The model identifier history and the prepared real-model evaluation are in [docs/model-evidence.md](docs/model-evidence.md).
 
 ## The numbers, and the commands that produce them
 
-The table below is the offline synthetic baseline, not a Bedrock invariant or a claim about a production. The test that asserts
-them fails if the corpus or the rule drifts.
+The table below is the offline synthetic baseline, not a Bedrock invariant or a claim about a production. The test that asserts them fails if the corpus or the rule drifts.
 
 | Claim | Value | Command |
 |---|---|---|
@@ -818,266 +276,142 @@ them fails if the corpus or the rule drifts.
 | raising exceptions with named sources | 2 | same |
 | with no release record, routed to production | 1 | same |
 | takes in the shoot day | 40 | `python corpus/build_corpus.py` |
-| blocking causes at the first checkpoint | 4, one per department | `lasttake checkpoint` |
+| blocking causes at the first checkpoint | 4, one per check (coverage B-17, continuity CR-01, metadata T-013, rights BG-07), routed to three roles | `lasttake checkpoint`, then read `.lasttake/runs/run-sc042-wrap-checkpoint/packet.json` |
+| covered beats when the interpreter is unreachable | 0 of 34, down from 31, every one unknown rather than a pass | `PYTHONPATH=src python tools/ablation.py` |
 
+`[PRIMARY]` 2026-09-08, deploy run 34195514875. The deploy job runs `lasttake checkpoint --bedrock` on the GitHub runner with the AWS access keys that `infra/setup_ci_identity.py` issues to the `lasttake-ci` IAM user, not with the Lambda execution role, and prints the count.
+
+| Interpreter | Covered, of 34 |
+|---|---|
+| `offline-lexical/1.0.0`, which the live URL runs | **31** |
+| `bedrock:global.anthropic.claude-sonnet-5` | **19** |
+
+Neither count establishes correctness without labelled ground truth. What the production declared does not move; a stricter reader corroborates less of it, and most takes carry no supervisor note. The basis behind each count is in [docs/model-evidence.md](docs/model-evidence.md).
+
+`PYTHONPATH=src python tools/evaluation_cases.py` runs a correct, an incomplete, a conflicting and a changed input through the pipeline offline, and a test pins all four outcomes. **These are our cases, scored by our pipeline.** They describe behaviour, not judgement quality against labelled ground truth, and **no practising script supervisor has run any of it**.
+
+`PYTHONPATH=src python tools/measure.py` holds a baseline and expected outcomes written before the run, and reports a case that disagrees as a failure. Human active time, interruptions, corrections and Bedrock inference cost are deliberately not measured. Both harnesses are described in [docs/evaluation-harness.md](docs/evaluation-harness.md).
+
+## What is deployed, and what it costs
+
+Two CloudFormation stacks run in eu-west-1:
+
+- **Backend, stack `lasttake-app` from [`infra/stack.yaml`](infra/stack.yaml):** an API Gateway HTTP API, one arm64 Lambda running Strands, Aurora DSQL for run state, one S3 data bucket and one EventBridge bus. These five backend services are declared in `infra/stack.yaml` and deployed by `.github/workflows/deploy.yml`, only when an owner dispatches it with action `deploy`.
+- **Frontend, stack `lasttake-frontend` from [`infra/frontend_stack.py`](infra/frontend_stack.py):** a private S3 site bucket that CloudFront reads through origin access control; `/api/*`, `/api` and `/healthz` go uncached to the HTTP API. Every push to main, docs included, publishes the site and runs live Playwright acceptance (`frontend-deploy.yml`).
+
+The CloudFront frontend stack and the CI identities are set up outside any workflow: the owner provisions `infra/frontend_stack.py` once and runs `infra/setup_ci_identity.py` by hand.
+
+```mermaid
+flowchart TB
+    subgraph FE["Frontend stack, infra/frontend_stack.py"]
+        V(["Browser<br/>no account"])
+        CF["CloudFront distribution"]
+        SITE[("S3 site bucket<br/>private")]
+    end
+    subgraph BE["Backend stack, infra/stack.yaml"]
+        API["API Gateway HTTP API"]
+        FN["Lambda<br/>arm64, Strands"]
+        DB[("Aurora DSQL<br/>findings, decisions, packets,<br/>audit, handled events")]
+        DATA[("S3 data bucket<br/>sessions, amendments,<br/>events, turnovers")]
+        EB(["EventBridge bus"])
+    end
+    SUB["Downstream subscriber<br/>none declared, not built"]
+    BR["Amazon Bedrock"]
+    V --> CF
+    CF -->|"static files"| SITE
+    CF -->|"/api/*, /api, /healthz<br/>uncached"| API
+    API --> FN
+    FN <--> DB
+    FN <--> DATA
+    FN -->|"every run event"| EB
+    EB -.->|"no rule declared"| SUB
+    FN -.->|"role may invoke,<br/>hosted demo does not"| BR
+
+    class V actor
+    class CF edge
+    class SITE storage
+    class API integration
+    class FN compute
+    class DB,DATA store
+    class EB event
+    class SUB,BR optional
+
+%% palette: placeholder
+classDef actor fill:#141a2e,stroke:#aab2c8,color:#eef1fa
+classDef event fill:#1b2447,stroke:#c7a6ff,color:#eef1fa
+classDef store fill:#16213d,stroke:#4fd1b0,stroke-width:2px,color:#eef1fa
+classDef storage fill:#16213d,stroke:#4fd1b0,color:#eef1fa
+classDef integration fill:#1b2447,stroke:#c7a6ff,color:#eef1fa
+classDef edge fill:#1b2447,stroke:#9b8cff,color:#eef1fa
+classDef compute fill:#1b2447,stroke:#7aa2ff,stroke-width:2px,color:#eef1fa
+classDef optional fill:#141a2e,stroke:#8b96b8,stroke-dasharray:5 4,color:#c8cfe3
 ```
-Of 34 required beats, 31 covered with evidence, 2 raising exceptions with named
-sources, 1 with no release record and routed to production.
-```
 
-### Measured against a baseline written before the run
+Two approvals of the same pickup arriving together become one `INSERT ... ON CONFLICT DO NOTHING` on DSQL, so the pickup is not requested twice. `/healthz` reports `run_state_store`, and the backend deploy fails unless it reads `aurora-dsql`, so a silent fall back to S3 cannot pass.
 
-`tools/measure.py` is the protocol rather than a results file. The baseline, the fixtures
-and every expected outcome are literals at the top of it, written from the product's rules
-before anything ran, and a case that disagrees with its expectation is reported as a
-failure rather than quietly becoming the new expectation.
+**Costs and timing.** No measured invoice, human-active time or savings are claimed. AWS charges and quotas depend on the account and request pattern; CI timings are validation timings, not time saved for a crew. The receipt exposes measured publication elapsed time without treating it as human time.
 
-```bash
-PYTHONPATH=src python tools/measure.py
-```
+**Tearing it down.** An owner runs `gh workflow run deploy.yml -f action=teardown` to delete the backend stack. The data bucket and the Aurora DSQL cluster are retained on purpose (`DeletionPolicy: Retain`), because they hold the audit trail; empty them deliberately if you want them gone.
 
-Five cases, one for each way a scene package arrives: ordinary, missing evidence, changed
-input, refusal, retry and recovery. Three more were written after the behaviour was fixed
-and kept separate; that is weaker than a set somebody else wrote and it is labelled weaker.
-
-Three fields are deliberately empty. **Human active time, interruptions and corrections are
-not measured, because no human was observed doing any of this.** Timing the model and
-calling the result human time saved would be a fabricated benchmark, and a zero in those
-fields would read as "needed no help". Bedrock inference cost is not measured either: it
-needs per-call token counts this harness does not collect, so the field says so instead of
-guessing. Model time, wall time and human time are three different things and only two of
-them exist here.
-
-One expectation was wrong on its first run and the correction is published in
-`docs/measurement.json` rather than absorbed: rights findings were declared as 6 and
-observed as 7, and the corpus is five people plus two visible assets, so the product was
-right and the expectation never was.
-
-## The demo corpus is synthetic
-
-THE LAST FERRY is a fictional production. Every person, place, identifier and record in
-`corpus/` is invented for this demonstration. No real production data is used, no real
-person's release is included, and no footage is referenced or shipped.
-
-The corpus is generated by `corpus/build_corpus.py`, which is deterministic: no clock, no
-randomness, so the digests are stable and a diff means something changed. CI regenerates
-it and fails if the committed files differ.
+Resources and their settings, least privilege, and why DSQL and an HTTP API were chosen are in [docs/infrastructure.md](docs/infrastructure.md). Releases and scheduled live checks are in [docs/release-and-acceptance.md](docs/release-and-acceptance.md).
 
 ## What it will not do
 
 It is a second set of eyes and an integrity layer. It replaces nobody.
 
-It may not judge creative quality or choose a performance. It may not declare a scene
-legally cleared, safe or creatively complete. It may not approve a pickup, a wrap, a
-schedule, a spend, a permit or an external communication. It may not edit or delete
-original media. And it may not infer a pass from absent evidence.
+It may not judge creative quality or choose a performance. It may not declare a scene legally cleared, safe or creatively complete. It may not approve a pickup, a wrap, a schedule, a spend, a permit or an external communication. It may not edit or delete original media. And it may not infer a pass from absent evidence.
 
-A rights row reading `verified` means the expected record was found and its structured
-fields matched the configured policy. It is not a legal opinion and it does not state that
-a use is lawful. Counsel determines sufficiency. That sentence is printed on the face of
-every turnover packet, not buried here.
+A rights row reading `verified` means the expected record was found and its structured fields matched the configured policy. It is not a legal opinion and it does not state that a use is lawful. Counsel determines sufficiency. That sentence is printed on the face of every turnover packet, not buried here.
 
-## Running against Amazon Bedrock
+## The demo corpus is synthetic
 
-The offline path uses a lexical stand-in for two bounded interpretations. New finding records serialize `model_id` when an interpretation is present. Older records without that field remain unknown; current configuration and `agent_version` are not retroactive model provenance.
-
-To use a real model, ask your own account what it can invoke rather than trusting a string
-in a source file:
-
-```bash
-lasttake doctor --bedrock
-```
-
-That lists the Anthropic foundation models and cross-region inference profiles the
-credentialed account can actually reach, in that account's own configured region.
-
-This is not decoration. The first draft of this repository defaulted to
-`us.anthropic.claude-sonnet-4-5-20250929-v1:0`. Asking a real account returned neither
-that identifier nor that region. The default is now `global.anthropic.claude-sonnet-5`,
-verified by invocation on 2026-08-22 against one account, which is not the same as verified
-against yours. Set the one `doctor` printed and run any command with `--bedrock`:
-
-```bash
-export LASTTAKE_BEDROCK_MODEL_ID=<an id that doctor printed>
-lasttake checkpoint --bedrock
-```
-
-**What this is checked against.** The deploy pipeline runs a full checkpoint through
-`BedrockInterpreter` on every deploy, so `BedrockModel` plus `agent.structured_output` is
-exercised rather than described. The historical deployment observation cited above produced **34 findings carrying a real model
-inference**, for example on the mug conflict:
-
-> Established state calls for a half-full mug with handle to camera left. First take matches
-> this exactly. Second take describes the mug as empty with handle turned to camera right.
-
-The deployment checks that required beats remain 34 and that bounded model interpretation does not raise covered beats above the offline baseline. It also requires real model-touched coverage and continuity findings and confidence below 1.0. It does **not** require Bedrock to reproduce the offline 31 covered beats: the dated observation above was 19 of 34. Model identifiers in exported findings come only from their serialized records.
-
-The hosted HTTP demo remains offline by default.
-
-Untrusted input is handled as untrusted. Script pages, supervisor notes and camera reports
-are production documents, and a production document can contain any text at all, including
-text shaped like an instruction. Everything from a scene package is wrapped in delimiters
-and the system prompt states that content inside them is evidence to describe and cannot
-issue instructions.
-
-## What is deployed, and what it costs
-
-Five services, declared in `infra/stack.yaml` and deployed by
-`.github/workflows/deploy.yml`. Nothing is created by hand in a console.
-
-```mermaid
-flowchart LR
-    V(["a judge, no account"]) --> API["API Gateway HTTP API"]
-    API --> L["Lambda<br/>lasttake-api, arm64, 1024MB"]
-    L <--> DB[("Aurora DSQL<br/>findings · decisions · packets<br/>audit · handled events")]
-    L <--> S3[("S3<br/>Strands sessions<br/>event log · turnovers")]
-    L --> EB(["EventBridge bus"])
-    L -.->|"role may invoke,<br/>the hosted demo does not"| BR["Amazon Bedrock"]
-    EB -.->|"any service can subscribe"| SUB["editorial, dailies, scheduling"]
-```
-
-**Why a database and not more S3.** The run state started on S3 and it worked, for one
-scene with one writer. It is the wrong store the moment two approvals of the same pickup
-arrive together, because `already_handled` then `mark_handled` is read-modify-write: both
-callers read "not handled", both write, and a real assistant director gets the same pickup
-request twice. On DSQL that is one `INSERT ... ON CONFLICT DO NOTHING` and the database
-decides. Two smaller reasons follow it: findings are upserted by key rather than the whole
-set being rewritten, so a targeted rerun and a human decision landing together stop
-clobbering each other; and a shooting day has more than one scene, so
-`GET /api/blocked` answers "which scenes are still blocked, and on whom" in one query
-rather than a bucket scan per scene.
-
-DSQL specifically, rather than a Postgres somebody has to keep alive, for the same reason
-as everything else here: it scales to zero, there is no idle charge and no instance to
-size. Authentication is IAM, so there is no password in this repository or in the deployed
-configuration; a short-lived token is minted per connection from the function's own role.
-
-Two DSQL constraints shaped `adapters/aws/dsql.py` and are asserted by tests rather than
-left as folklore: there are no sequences, so every key is supplied by the caller; and DDL
-runs one statement per transaction, so the schema is applied one statement at a time
-instead of being wrapped in the transaction that instinct suggests.
-
-The `/healthz` endpoint reports `run_state_store`, and the deploy pipeline fails if it does
-not read `aurora-dsql`. Without that assertion a silent fall back to S3 would leave
-everything working while the architecture quietly stopped being the one described here.
-
-**Why an HTTP API and not a Lambda Function URL.** A Function URL was the first choice: one
-fewer service and no extra bill. It was replaced because this account refuses anonymous
-Function URL invocations. Both the real function and a one-line probe returned
-`403 AccessDeniedException` with a correct resource policy in place, and with no SCP and no
-RCP anywhere in the organization, while the same probe behind an HTTP API answered 200. The
-architecture routes around the block rather than arguing with it. Nothing else changed: the
-HTTP API uses payload format 2.0, whose event shape is the one the handler already read.
-
-**Least privilege, as deployed.** The execution role reaches its own bucket, its own event
-bus, Anthropic inference, and `dsql:DbConnectAdmin` on its own cluster. It cannot read
-another bucket, touch another bus, create a cluster, or delete the one it writes to. The bucket is private, encrypted, versioned, and denies any request that is not
-TLS. The identity GitHub deploys with is separate again, scoped to `lasttake-*` resources,
-and is created by `infra/setup_ci_identity.py` so that nobody's personal credentials are
-ever copied into CI.
-
-**Costs and timing.** No measured invoice, human-active time or savings are claimed. AWS charges and quotas depend on the account and request pattern; CI timings are validation timings, not time saved for a crew. The receipt exposes measured publication elapsed time without treating it as human time.
-
-### DSQL runtime authority preparation (not activated)
-
-The active stack still uses the legacy admin connection and first-use schema
-bootstrap. Source preparation adds an explicit custom-role path; it does not
-change deployed IAM, database grants or the active IaC defaults. Actual limited-role
-runtime probes are **NOT_RUN** and require a second owner-approved cutover.
-
-With no new authority settings, existing admin/bootstrap behavior is unchanged.
-To select the prepared runtime path, all four values must be supplied together:
-
-| Setting | Prepared runtime value |
-|---|---|
-| `LASTTAKE_DSQL_ENDPOINT` | The exact cluster hostname, without a URL scheme |
-| `LASTTAKE_DSQL_USER` | `lasttake_runtime` |
-| `LASTTAKE_DSQL_AUTH_MODE` | `runtime` |
-| `LASTTAKE_DSQL_BOOTSTRAP` | `disabled` |
-
-Incomplete, blank or conflicting authority configuration refuses before adapter
-construction; it cannot select admin or S3/local storage. Runtime authentication
-uses the non-admin token method, and runtime schema initialization is refused.
-The schema must already exist, prepared by a separate operator authority. Existing
-targeted-rerun and delivery-recovery DELETE operations remain required.
-
-[`infra/dsql_runtime_authority.py`](infra/dsql_runtime_authority.py) is an inert,
-explicit `--prepare` renderer. It emits separate schema SQL, exact per-table DML,
-custom-role mapping, cluster-scoped connection policy and an environment **patch**.
-It has no apply operation, AWS connection or automatic workflow, and the active
-stack does not import it. Keep rendered real identifiers in a private change record.
-Normal rollback restores admin IAM before the retained complete environment/code,
-then verifies health/acceptance. Optional cleanup remains `NOT_AUTHORIZED`, requires
-separate owner approval and is not part of rollback; nothing is dropped.
-
-The configuration follows the official [DSQL role mapping instructions](https://docs.aws.amazon.com/aurora-dsql/latest/userguide/using-database-and-iam-roles.html)
-and [non-admin token API](https://docs.aws.amazon.com/boto3/latest/reference/services/dsql/client/generate_db_connect_auth_token.html).
-CI checks configuration refusal, token selection, cold-start bootstrap compatibility,
-actual adapter query permissions against an independent literal map, and negative
-permission/rollback fixtures. These are source controls, not proof of effective
-Aurora grants, inherited permissions or authorization by an actual runtime principal.
-The ordinary user journeys and current AWS evidence remain on `/acceptance.html`.
-
-**Tearing it down.** `gh workflow run deploy.yml -f action=teardown` deletes the stack. The
-data bucket is retained on purpose, because it holds the audit trail, and a teardown that
-destroys the audit trail is not a teardown. Empty it deliberately if you want it gone.
+THE LAST FERRY is a fictional production. Every person, place, identifier and record in `corpus/` is invented for this demonstration: no real production data, no real person's release, and no footage. `python corpus/build_corpus.py` is deterministic, with no clock and no randomness, so the digests are stable; CI regenerates the corpus and fails if the committed files differ.
 
 ## Assurance and residual gaps
 
-[`docs/assurance.md`](docs/assurance.md) holds three tables: AWS Well-Architected across six
-pillars plus the Agentic AI Lens, the EU AI Act articles this class of system has to answer
-for, and what is done with personal data.
+[`docs/assurance.md`](docs/assurance.md) holds three tables: AWS Well-Architected across six pillars plus the Agentic AI Lens, the EU AI Act articles this class of system has to answer for, and what is done with personal data.
 
-**Every row names a residual gap and not one of them is empty**, because a row with nothing
-left to do is a row nobody looked at hard enough. The gaps include real ones: no measured
-p95, no restore drill, no evaluation set for the two bounded model questions, a public
-endpoint with no authentication by design, and long-lived access keys in CI rather than
-federated identity.
+Every row of the Well-Architected and EU AI Act tables names a residual gap, and none is empty; the data-protection table answers questions and has no residual-gap column. The gaps include real ones:
 
-Two words never appear there, and a gate fails the build if they do. Whether a system meets a
-regulation is decided by an assessment body, not by the people who wrote it.
+- no measured AWS latency p95
+- no restore drill
+- real-model evaluation is NOT_RUN: a 16-case synthetic development set with assistant-authored gold labels is prepared, but no real model has been scored on it, so accuracy is unmeasured
+- no staff authentication on the public endpoint, by design
+- long-lived access keys for the backend deploy, although the frontend release already uses GitHub OIDC
+- no practising script supervisor has run it
 
-## Repository layout
+Two words never appear there, and a gate fails the build if they do. Whether a system meets a regulation is decided by an assessment body, not by the people who wrote it.
 
-```
-src/lasttake/
-  domain/      the model, the four truth states, the deterministic gate, the turnover.
-               Imports no SDK, and two tests enforce that rather than asking politely.
-  checks/      the four bounded checks. Coverage and continuity use a model through a
-               narrow port; metadata and rights are arithmetic and never call one.
-  ports/       the interfaces. Event bus, artifact store, run store, interpreter.
-  adapters/    local/ runs offline with no account. aws/ is Bedrock, EventBridge,
-               S3 and Aurora DSQL.
-  agents/      the Strands layer: the orchestrator, its eight tools, and the run.
-  app/         the Lambda behind the live URL, the lined script it paints, and the
-               single page. scene_view.py imports no SDK either: the view a script
-               supervisor reads is shaping over the package, not agent output.
-  cli.py       the commands a judge runs.
-corpus/        one fictional shoot day, and the generator that produces it.
-tests/         including the gate's own proofs that it can fail.
-web/tests/     twenty-one browser tests against the deployed URL. The journey a judge
-               walks, the intake a person supplies, and the handover two roles read.
-tools/         the gates and the harnesses. measure.py holds the declared baseline,
-               dast_probe.py throws hostile bodies at the live API, prose_gate.py and
-               secret_scan.py run in CI.
-docs/          architecture.svg, the assurance tables, and the JSON each harness
-               writes: measurement.json, ablation.json, evaluation_cases.json, and
-               build_stories.json, which holds three unpublished drafts.
-```
+## Documentation
+
+| Page | What it answers |
+|---|---|
+| [How LastTake works](docs/how-it-works.md) | The system view, the eight tools, where code decides instead of an interpreter, and the repository layout |
+| [Interrupt and resume across process death](docs/strands-interrupt-resume.md) | The CI steps and negative control, the historical Lambda run across two containers, and where the pattern lives in code |
+| [Using the LastTake workspace](docs/workspace-guide.md) | The full walk of the live site, page by page, with its refusals, sessions and saved runs |
+| [Bring your own record](docs/bring-your-own-record.md) | The document shape, limits on a supplied record, what reruns, and why an approval goes stale |
+| [Evaluation harness](docs/evaluation-harness.md) | The baseline written before the run, the rule-removal probes, four kinds of input, and the source hero measurement |
+| [Model evidence: what has run and what has not](docs/model-evidence.md) | Bedrock on the deploy runner, why two readers count covered beats differently, and the real-model evaluation that has not run |
+| [Infrastructure](docs/infrastructure.md) | Every deployed resource with its file and line, both release paths, least privilege, and teardown |
+| [Releases and acceptance evidence](docs/release-and-acceptance.md) | How the frontend and backend are released, what the public receipt requires, scheduled checks and dated journey counts |
+| [Assurance](docs/assurance.md) | Well-Architected and EU AI Act rows with their residual gaps, and how personal data is handled |
+| [LastTake: optional AgentCore design notes](docs/BEDROCK_AGENTCORE_ARCHITECTURE.md) | A design proposal for a move onto Bedrock AgentCore; nothing in it is deployed |
+| [architecture.svg](docs/architecture.svg) | The required architecture diagram, as a file of its own |
+
+Evidence files in `docs/`: `measurement.json` and `evaluation_cases.json` are written by `tools/measure.py` and `tools/evaluation_cases.py`; `ablation.json` is historical, and `tools/ablation.py` no longer overwrites it; `hero-measurement-protocol.json`, `model-evidence-protocol.json`, `model-evidence-cases.json` and `model-evidence-gold.json` were committed before their instruments and are frozen; `model-evidence-inventory.json` records the spent-evidence inventory. Unpublished drafts: `build_stories.json` holds three and is written by no tool, and `submission_description.json` is the submission description draft.
 
 ## Pre-existing components
 
-Required disclosure. The historical component disclosures below are retained. The optional video tooling also retains its source-kit provenance in its file headers; none of its original upstream records was removed. Current video source is NOT_CONFIGURED, with an explicit failing preflight until the owner provides narration credentials and verifies exact-release capture and timing. No candidate recording is claimed.
+Required disclosure. The historical component disclosures below are retained. The optional video tooling also retains its source-kit provenance in its file headers; none of its original upstream records was removed. Current video source is NOT_CONFIGURED, which means the video pipeline is not set up to run: its preflight fails on purpose until the owner provides narration credentials and verifies exact-release capture and timing. No candidate recording is claimed.
 
 | Component | Where it came from | What was carried |
 |---|---|---|
 | `src/lasttake/domain/sealing.py` | ClaimScene, MIT, same author, `src/claimscene/provenance.py` | `sha256_bytes`, `canonical_json`, and the sealed-record approach. About thirty lines of primitives, plus the idea of sealing a record with the digest of its own canonical JSON. ClaimScene shares them with Cinemory. |
 | The product thesis | A private research package written 2026-07-28 by the same author, 2,365 lines across 13 files: the problem definition, the user roles, the four truth states, the finding contract, and the event list | Carried as specification, not as code. Every line of implementation here is new. |
-| CI shape, README structure | A private submission toolkit by the same author | Workflow layout and section ordering. |
+| CI shape, and the README's original structure | A private submission toolkit by the same author | Workflow layout, which CI still follows. The README followed the toolkit's section ordering until this restructure regrouped its sections by reader task. |
 | Production workspace visual direction | Kerdon interface and the owner's approved workspace reference | Visual inspiration only: deep navy panels, amber LastTake accents, compact navigation and connected context/evidence/decision panes. Implemented here with existing React, TypeScript and Tailwind dependencies. No Kerdon customer data, tenant configuration, source IDs, assets or dependency code was reused. |
 
-The AWS adapters, the Strands agent definitions, the deterministic gate, the checks, the
-demo corpus and the CLI are all new.
+The AWS adapters, the Strands agent definitions, the deterministic gate, the checks, the demo corpus and the CLI are all new.
 
 ## Licence
 
