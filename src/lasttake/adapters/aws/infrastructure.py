@@ -17,6 +17,7 @@ than a service doing work.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 from concurrent.futures import ThreadPoolExecutor
@@ -24,6 +25,12 @@ from typing import Callable, Optional
 
 from ...domain.events import Event, EventType
 from ...ports.infrastructure import Receipt
+
+
+def consumption_prefix(correlation_id: str) -> str:
+    """Stable, path-safe prefix for receipts produced by the bus subscriber."""
+    token = hashlib.sha256(correlation_id.encode("utf-8")).hexdigest()
+    return f"eventbridge-consumption/{token}/"
 
 
 def _missing_object(exc) -> bool:
@@ -335,6 +342,25 @@ class EventBridgeBus:
             for start in range(0, len(keys), 8):
                 rows.extend(reads.map(self._read_event, keys[start:start + 8]))
         return rows
+
+    def consumption_receipts(self, correlation_id: str) -> dict[str, dict]:
+        """Read immutable subscriber receipts for one correlation in one listing."""
+        paginator = self._s3.get_paginator("list_objects_v2")
+        keys: list[str] = []
+        for page in paginator.paginate(
+            Bucket=self.bucket, Prefix=consumption_prefix(correlation_id)
+        ):
+            keys.extend(obj["Key"] for obj in page.get("Contents", []))
+        keys.sort()
+        rows: list[dict] = []
+        with ThreadPoolExecutor(max_workers=8) as reads:
+            for start in range(0, len(keys), 8):
+                rows.extend(reads.map(self._read_event, keys[start:start + 8]))
+        return {
+            row["event_id"]: row
+            for row in rows
+            if isinstance(row, dict) and isinstance(row.get("event_id"), str)
+        }
 
     def _read_event(self, key: str) -> dict:
         body = self._s3.get_object(Bucket=self.bucket, Key=key)["Body"]

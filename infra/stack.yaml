@@ -1,9 +1,9 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: >
   LastTake. Pre-wrap shoot-day assurance. One Lambda behind an HTTP API, one
-  Aurora DSQL cluster holding run state, one bucket holding artifacts, the event
-  log and the Strands sessions, and one EventBridge bus. Every one of them
-  scales to zero, so nothing runs when nobody is looking.
+  terminal event-delivery recorder Lambda, one Aurora DSQL cluster holding run
+  state, one bucket holding artifacts, the event log and the Strands sessions,
+  and one EventBridge bus. Every one of them scales to zero.
 
 Parameters:
   CodeBucket:
@@ -134,6 +134,119 @@ Resources:
       Tags:
         - Key: project
           Value: lasttake
+
+  # A terminal subscriber, deliberately separate from the API function. It
+  # records that EventBridge delivered an event; it does not start Strands and
+  # it has no permission to publish, so a delivered event cannot form a loop.
+  EventConsumerLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${NamePrefix}-event-consumer-${AWS::AccountId}"
+      RetentionInDays: 30
+
+  EventConsumerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${NamePrefix}-event-consumer-role-${AWS::Region}"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: lasttake-event-consumer
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: ImmutableConsumptionReceiptsOnly
+                Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                Resource: !Sub "${DataBucket.Arn}/eventbridge-consumption/*"
+              - Sid: OwnLogsOnly
+                Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${NamePrefix}-event-consumer-${AWS::AccountId}:*"
+      Tags:
+        - Key: project
+          Value: lasttake
+
+  EventConsumerFunction:
+    Type: AWS::Lambda::Function
+    DependsOn: EventConsumerLogGroup
+    Properties:
+      FunctionName: !Sub "${NamePrefix}-event-consumer-${AWS::AccountId}"
+      Description: Records immutable proof that an EventBridge target consumed a LastTake event.
+      Runtime: python3.12
+      Architectures: [arm64]
+      Handler: lasttake.adapters.aws.event_consumer.handler
+      Role: !GetAtt EventConsumerRole.Arn
+      Code:
+        S3Bucket: !Ref CodeBucket
+        S3Key: !Ref CodeKey
+      Timeout: 10
+      MemorySize: 256
+      ReservedConcurrentExecutions: 2
+      LoggingConfig:
+        LogGroup: !Ref EventConsumerLogGroup
+      Environment:
+        Variables:
+          LASTTAKE_BUCKET: !Ref DataBucket
+          LASTTAKE_COMMIT_SHA: !Ref CommitSha
+      Tags:
+        - Key: project
+          Value: lasttake
+
+  EventDeliveryRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub "${NamePrefix}-delivery-recorder-${AWS::AccountId}"
+      Description: Routes LastTake domain events to the terminal delivery recorder.
+      EventBusName: !Ref EventBus
+      EventPattern:
+        source:
+          - lasttake.orchestrator
+        detail-type:
+          - scene.package.registered
+          - take.captured
+          - scene.wrap-checkpoint.requested
+          - dailies.uploaded
+          - analysis.requested
+          - finding.recorded
+          - approval.requested
+          - pickup.requested
+          - rights.record.updated
+          - wrap.eligible
+          - wrap.ready
+          - turnover.generated
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt EventConsumerFunction.Arn
+          Id: event-delivery-recorder
+          RetryPolicy:
+            MaximumEventAgeInSeconds: 300
+            MaximumRetryAttempts: 1
+
+  EventConsumerInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref EventConsumerFunction
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt EventDeliveryRule.Arn
+
+  EventConsumerAsyncConfig:
+    Type: AWS::Lambda::EventInvokeConfig
+    Properties:
+      FunctionName: !Ref EventConsumerFunction
+      Qualifier: "$LATEST"
+      MaximumEventAgeInSeconds: 300
+      MaximumRetryAttempts: 1
 
   # There was an AWS::Events::Archive here. It was removed rather than widening
   # the deploy identity to reach `archive/*`: every event is already written to
@@ -338,6 +451,12 @@ Outputs:
     Value: !If [IsEphemeral, "yes", "no"]
   EventBusName:
     Value: !Ref EventBus
+  EventConsumerFunctionName:
+    Description: Terminal EventBridge subscriber that writes immutable delivery receipts.
+    Value: !Ref EventConsumerFunction
+  EventDeliveryRuleName:
+    Description: Rule routing LastTake events to the delivery recorder.
+    Value: !Ref EventDeliveryRule
   DeployedSha:
     Description: Compare against the repository head before recording anything.
     Value: !Ref CommitSha

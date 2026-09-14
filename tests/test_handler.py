@@ -23,6 +23,7 @@ from lasttake.adapters.local.infrastructure import (
     LocalRunStore,
 )
 from lasttake.app import handler as H
+from lasttake.domain.sealing import digest_of
 
 RUN = "demo-testrun0001"
 
@@ -233,7 +234,7 @@ def test_the_turnover_refuses_without_a_wrap_approval(offline_backends):
     assert not any(e["event_type"] == "turnover.generated" for e in bus.replay())
 
 
-def test_the_event_log_reads_back_with_the_chain_intact():
+def test_the_event_log_reads_back_with_the_chain_and_subscriber_receipts(offline_backends):
     post("/api/checkpoint", {"run_id": RUN})
     body = post("/api/events", {"run_id": RUN})
     types = [e["event_type"] for e in body["events"]]
@@ -241,6 +242,48 @@ def test_the_event_log_reads_back_with_the_chain_intact():
     assert "finding.recorded" in types
     for event in body["events"]:
         assert len(event["idempotency_key"]) == 16
+        assert event["eventbridge_delivery"] == {"status": "not_observed"}
+    assert body["eventbridge_delivery"] == {
+        "stored_event_count": len(body["events"]),
+        "consumed_receipt_count": 0,
+        "scope": "current-correlation",
+    }
+
+    bus, _artifacts, _runs = offline_backends
+    raw_checkpoint = next(
+        event for event in bus.replay()
+        if event["event_type"] == "scene.wrap-checkpoint.requested"
+    )
+    checkpoint = next(
+        event for event in body["events"]
+        if event["event_type"] == "scene.wrap-checkpoint.requested"
+    )
+    bus.consumption_receipts = lambda correlation_id: {
+        checkpoint["event_id"]: {
+            "schema": "lasttake/eventbridge-consumption/v1",
+            "event_id": checkpoint["event_id"],
+            "event_type": checkpoint["event_type"],
+            "correlation_id": raw_checkpoint["correlation_id"],
+            "detail_sha256": digest_of(raw_checkpoint),
+            "subscriber": "eventbridge-delivery-recorder/v1",
+            "consumed_at": "2026-09-14T20:00:01+00:00",
+            "eventbridge_event_id": "transport-event",
+            "deployed_sha": "a" * 40,
+        }
+    }
+    observed = post("/api/events", {"run_id": RUN})
+    receipt = next(
+        event["eventbridge_delivery"] for event in observed["events"]
+        if event["event_id"] == checkpoint["event_id"]
+    )
+    assert receipt == {
+        "status": "consumed",
+        "subscriber": "eventbridge-delivery-recorder/v1",
+        "consumed_at": "2026-09-14T20:00:01+00:00",
+        "eventbridge_event_id": "transport-event",
+        "deployed_sha": "a" * 40,
+    }
+    assert observed["eventbridge_delivery"]["consumed_receipt_count"] == 1
 
 
 def test_reset_hands_out_a_new_run_and_deletes_nothing():

@@ -71,6 +71,10 @@ class LocalEventBus:
             if line.strip()
         ]
 
+    def consumption_receipts(self, correlation_id: str) -> dict[str, dict]:
+        """Offline publication has no external EventBridge subscriber."""
+        return {}
+
 
 class LocalArtifactStore:
     """Content-addressed files. No update, no delete."""
