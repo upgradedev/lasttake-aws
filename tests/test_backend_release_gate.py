@@ -64,6 +64,7 @@ def test_deploy_proves_the_rule_target_and_public_consumption_receipt():
     assert "aws events list-targets-by-rule" in workflow
     assert "EventConsumerFunctionName" in workflow
     assert "EventDeliveryRuleName" in workflow
+    assert 'RULE="${RULE_REF##*|}"' in workflow
     assert "scene.wrap-checkpoint.requested" in workflow
     assert "receipt['status']=='consumed'" in workflow
     assert "receipt['deployed_sha']==os.environ['GITHUB_SHA']" in workflow

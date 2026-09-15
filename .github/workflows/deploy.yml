@@ -334,8 +334,11 @@ jobs:
           echo "=== EventBridge delivered the checkpoint to its subscriber ==="
           CONSUMER=$(aws cloudformation describe-stacks --stack-name "$STACK" \
             --query "Stacks[0].Outputs[?OutputKey=='EventConsumerFunctionName'].OutputValue" --output text)
-          RULE=$(aws cloudformation describe-stacks --stack-name "$STACK" \
+          RULE_REF=$(aws cloudformation describe-stacks --stack-name "$STACK" \
             --query "Stacks[0].Outputs[?OutputKey=='EventDeliveryRuleName'].OutputValue" --output text)
+          # Ref for a rule on a custom bus is bus-name|rule-name. The Events API
+          # takes the bus separately and requires only the rule-name component.
+          RULE="${RULE_REF##*|}"
           TARGET=$(aws events list-targets-by-rule --event-bus-name "$BUS" --rule "$RULE" \
             --query "Targets[?Id=='event-delivery-recorder'].Arn | [0]" --output text)
           EXPECTED=$(aws lambda get-function --function-name "$CONSUMER" \
@@ -344,6 +347,7 @@ jobs:
             echo "the deployed EventBridge rule does not target the dedicated consumer"
             exit 1
           }
+          echo "rule ref: $RULE_REF"
           echo "rule target: $TARGET"
 
           EVENTS=''
